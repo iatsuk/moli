@@ -243,6 +243,9 @@ pub(super) enum DomStringReflection {
     StyleMedia,
     StyleType,
     TableBorder,
+    TableFrame,
+    TableRules,
+    TableSummary,
     TableCellAbbr,
     TableCellAxis,
     TableCellCh,
@@ -714,6 +717,33 @@ const DOM_STRING_REFLECTION_DESCRIPTORS: &[(DomStringReflection, DomStringReflec
             DomStringReflectionDescriptor::new("HTMLTableElement", "border", "border"),
         ),
         (
+            DomStringReflection::TableFrame,
+            DomStringReflectionDescriptor::new_html_element(
+                "HTMLTableElement",
+                "table",
+                "frame",
+                "frame",
+            ),
+        ),
+        (
+            DomStringReflection::TableRules,
+            DomStringReflectionDescriptor::new_html_element(
+                "HTMLTableElement",
+                "table",
+                "rules",
+                "rules",
+            ),
+        ),
+        (
+            DomStringReflection::TableSummary,
+            DomStringReflectionDescriptor::new_html_element(
+                "HTMLTableElement",
+                "table",
+                "summary",
+                "summary",
+            ),
+        ),
+        (
             DomStringReflection::TableCellAbbr,
             DomStringReflectionDescriptor::new("HTMLTableCellElement", "abbr", "abbr"),
         ),
@@ -908,6 +938,8 @@ pub(super) enum NullToEmptyDomStringReflection {
     ImageBorder,
     ObjectBorder,
     TableBgColor,
+    TableCellPadding,
+    TableCellSpacing,
     TableCellBgColor,
     TableRowBgColor,
     Count,
@@ -952,6 +984,24 @@ const NULL_TO_EMPTY_DOM_STRING_REFLECTION_DESCRIPTORS: &[(
     (
         NullToEmptyDomStringReflection::TableBgColor,
         ReflectedAttributeDescriptor::new("HTMLTableElement", "bgcolor", "bgColor"),
+    ),
+    (
+        NullToEmptyDomStringReflection::TableCellPadding,
+        ReflectedAttributeDescriptor::new_html_element(
+            "HTMLTableElement",
+            "table",
+            "cellpadding",
+            "cellPadding",
+        ),
+    ),
+    (
+        NullToEmptyDomStringReflection::TableCellSpacing,
+        ReflectedAttributeDescriptor::new_html_element(
+            "HTMLTableElement",
+            "table",
+            "cellspacing",
+            "cellSpacing",
+        ),
     ),
     (
         NullToEmptyDomStringReflection::TableCellBgColor,

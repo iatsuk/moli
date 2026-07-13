@@ -1119,29 +1119,6 @@ pub(super) struct HtmlUListElementPrototypeDeclaration {
 }
 
 #[derive(WebApiFunctionTemplate)]
-#[webapi(name = "Object", enumerable)]
-pub(super) struct HtmlBodyOrFrameSetEventHandlersPrototypeDeclaration {
-    #[webapi(
-        accessor_property,
-        getter = body_onload_getter_function,
-        setter = body_onload_setter_function
-    )]
-    onload: (),
-    #[webapi(
-        accessor_property,
-        getter = body_onmessageerror_getter_function,
-        setter = body_onmessageerror_setter_function
-    )]
-    onmessageerror: (),
-    #[webapi(
-        accessor_property,
-        getter = body_onerror_getter_function,
-        setter = body_onerror_setter_function
-    )]
-    onerror: (),
-}
-
-#[derive(WebApiFunctionTemplate)]
 #[webapi(interface = web_api_interfaces::HTMLBodyElement, enumerable, receiver)]
 pub(super) struct HtmlBodyElementLegacyPrototypeDeclaration {
     #[webapi(
@@ -1351,6 +1328,46 @@ pub(super) struct HtmlTableElementPrototypeDeclaration {
         setter_data = DomStringReflection::TableBorder
     )]
     border: (),
+    #[webapi(
+        accessor_property,
+        enumerable,
+        getter = dom_string_reflection_getter_function,
+        setter = dom_string_reflection_setter_function,
+        data = DomStringReflection::TableFrame
+    )]
+    frame: (),
+    #[webapi(
+        accessor_property,
+        enumerable,
+        getter = dom_string_reflection_getter_function,
+        setter = dom_string_reflection_setter_function,
+        data = DomStringReflection::TableRules
+    )]
+    rules: (),
+    #[webapi(
+        accessor_property,
+        enumerable,
+        getter = dom_string_reflection_getter_function,
+        setter = dom_string_reflection_setter_function,
+        data = DomStringReflection::TableSummary
+    )]
+    summary: (),
+    #[webapi(
+        accessor_property = "cellPadding",
+        enumerable,
+        getter = null_to_empty_dom_string_reflection_getter_function,
+        setter = null_to_empty_dom_string_reflection_setter_function,
+        data = NullToEmptyDomStringReflection::TableCellPadding
+    )]
+    cell_padding: (),
+    #[webapi(
+        accessor_property = "cellSpacing",
+        enumerable,
+        getter = null_to_empty_dom_string_reflection_getter_function,
+        setter = null_to_empty_dom_string_reflection_setter_function,
+        data = NullToEmptyDomStringReflection::TableCellSpacing
+    )]
+    cell_spacing: (),
     #[webapi(
         accessor_property,
         enumerable,
