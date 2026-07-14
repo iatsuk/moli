@@ -3329,6 +3329,12 @@ impl PageVm {
                     *task,
                 ))))
             }
+            PostParseLifecycleAdvance::TimerQueuedByClassicDeferBeforeDomContentLoaded => {
+                let request_client = self.request_client.clone();
+                self.run_classic_defer_timer_before_domcontentloaded(&request_client)
+                    .await?;
+                Ok(PostParseLifecycleLoopAdvance::Continue(Box::new(None)))
+            }
             PostParseLifecycleAdvance::NeedsContinuation => {
                 Ok(PostParseLifecycleLoopAdvance::Continue(Box::new(None)))
             }
@@ -4675,7 +4681,7 @@ impl PageVm {
                 },
             )
             .into_violations();
-        if enforced_violation.is_some() {
+        if !enforced_violation.is_empty() {
             return ScannedStylesheetAdmission::DeferredToParser(
                 ScannedStylesheetDeferral::ContentSecurityPolicy,
             );
@@ -4720,7 +4726,7 @@ impl PageVm {
                 crate::document_runtime::DocumentSubresourceCspKind::Image,
             )
             .into_violations();
-        if enforced_violation.is_some() {
+        if !enforced_violation.is_empty() {
             return ScannedImageAdmission::DeferredToParser(
                 ScannedImageDeferral::ContentSecurityPolicy,
             );
