@@ -91,6 +91,12 @@ struct TrustedTypePolicyFactoryInterfaceDeclaration {
         enumerable
     )]
     empty_script: (),
+    #[webapi(
+        accessor_property = "defaultPolicy",
+        getter = trusted_types_default_policy_getter_callback,
+        enumerable
+    )]
+    default_policy: (),
 }
 
 #[derive(WebApiObject)]
@@ -779,6 +785,9 @@ fn trusted_types_empty_value_getter_callback<'s>(
     args: v8::FunctionCallbackArguments<'s>,
     mut rv: v8::ReturnValue<'_, v8::Value>,
 ) {
+    if !trusted_types_factory_receiver_is_valid(scope, args.this()) {
+        return;
+    }
     let Some(slot) = crate::util::callback_data_item(
         scope,
         &args,
@@ -788,10 +797,35 @@ fn trusted_types_empty_value_getter_callback<'s>(
         return;
     };
     let Some(value) = get_private_value(scope, args.this(), slot) else {
-        throw_type_error(scope, "Illegal invocation");
         return;
     };
     rv.set(value);
+}
+
+fn trusted_types_default_policy_getter_callback<'s>(
+    scope: &mut v8::PinScope<'s, '_>,
+    args: v8::FunctionCallbackArguments<'s>,
+    mut rv: v8::ReturnValue<'_, v8::Value>,
+) {
+    if !trusted_types_factory_receiver_is_valid(scope, args.this()) {
+        return;
+    }
+    let global = scope.get_current_context().global(scope);
+    rv.set(
+        get_private_value(scope, global, TRUSTED_TYPES_DEFAULT_POLICY_SLOT)
+            .unwrap_or_else(|| v8::null(scope).into()),
+    );
+}
+
+fn trusted_types_factory_receiver_is_valid<'s>(
+    scope: &mut v8::PinScope<'s, '_>,
+    receiver: v8::Local<'s, v8::Object>,
+) -> bool {
+    if web_api_interfaces::TrustedTypePolicyFactory::is_instance(scope, receiver.into()) {
+        return true;
+    }
+    throw_type_error(scope, "Illegal invocation");
+    false
 }
 
 fn trusted_types_create_policy_callback<'s>(
@@ -799,6 +833,9 @@ fn trusted_types_create_policy_callback<'s>(
     args: v8::FunctionCallbackArguments<'s>,
     mut rv: v8::ReturnValue<'_, v8::Value>,
 ) {
+    if !trusted_types_factory_receiver_is_valid(scope, args.this()) {
+        return;
+    }
     let Some(name) = webidl::required_argument::<webidl::DomString>(
         scope,
         &args,
@@ -918,6 +955,9 @@ fn trusted_types_is_html_callback<'s>(
     args: v8::FunctionCallbackArguments<'s>,
     mut rv: v8::ReturnValue<'_, v8::Value>,
 ) {
+    if !trusted_types_factory_receiver_is_valid(scope, args.this()) {
+        return;
+    }
     rv.set_bool(trusted_type_string(scope, args.get(0), TrustedTypeKind::Html).is_some());
 }
 
@@ -926,6 +966,9 @@ fn trusted_types_is_script_callback<'s>(
     args: v8::FunctionCallbackArguments<'s>,
     mut rv: v8::ReturnValue<'_, v8::Value>,
 ) {
+    if !trusted_types_factory_receiver_is_valid(scope, args.this()) {
+        return;
+    }
     rv.set_bool(trusted_type_string(scope, args.get(0), TrustedTypeKind::Script).is_some());
 }
 
@@ -934,6 +977,9 @@ fn trusted_types_is_script_url_callback<'s>(
     args: v8::FunctionCallbackArguments<'s>,
     mut rv: v8::ReturnValue<'_, v8::Value>,
 ) {
+    if !trusted_types_factory_receiver_is_valid(scope, args.this()) {
+        return;
+    }
     rv.set_bool(trusted_type_string(scope, args.get(0), TrustedTypeKind::ScriptUrl).is_some());
 }
 
