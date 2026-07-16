@@ -76,7 +76,6 @@ pub(crate) use indexed_db::{
 mod location_history_storage;
 mod location_navigation;
 mod location_runtime;
-pub(crate) use location_runtime::install_constructed_document_location_runtime_state;
 mod media_cues;
 pub(crate) use media_cues::new_media_error_value;
 mod media_file_template;
@@ -251,6 +250,7 @@ mod window_events;
 mod window_lazy_surface;
 mod window_receiver;
 pub(crate) use window_receiver::is_window_receiver;
+pub(crate) use window_receiver::require_same_origin_window_receiver;
 mod window_runtime;
 
 pub(crate) use form_data_runtime::{
@@ -318,15 +318,16 @@ pub(crate) use self::encoded_video_chunk::{
 };
 pub(crate) use self::events::{
     EVENT_DISPATCHING_SLOT, EVENT_PASSIVE_SLOT, EVENT_STOP_IMMEDIATE_PROPAGATION_SLOT,
-    EVENT_STOP_PROPAGATION_SLOT, clear_event_composed_path, construct_original_error_event,
-    construct_original_message_event, error_event_handler_arguments, event_attribute,
-    event_backing, event_bool_attribute, event_callback_values, event_initialized,
-    event_internal_bool_flag, event_is_dispatching, event_is_error_event, event_is_mouse_event,
-    event_private_value, initialize_event_object, initialize_event_object_with_type,
-    initialize_event_wrapper, initialize_native_security_policy_violation_event,
-    mark_agent_submit_event, mark_event_trusted, new_event_state, new_event_wrapper,
-    node_event_callback_values, set_event_composed_path, set_event_internal_flag,
-    set_event_private_value, set_event_trusted, submit_event_submitter_value,
+    EVENT_STOP_PROPAGATION_SLOT, EventHandlerType, apply_event_handler_return_value,
+    clear_event_composed_path, construct_original_error_event, construct_original_message_event,
+    error_event_handler_arguments, event_attribute, event_backing, event_bool_attribute,
+    event_callback_values, event_initialized, event_internal_bool_flag, event_is_dispatching,
+    event_is_error_event, event_is_mouse_event, event_private_value, initialize_event_object,
+    initialize_event_object_with_type, initialize_event_wrapper,
+    initialize_native_security_policy_violation_event, mark_agent_submit_event, mark_event_trusted,
+    new_event_state, new_event_wrapper, node_event_callback_values, set_event_composed_path,
+    set_event_internal_flag, set_event_private_value, set_event_trusted,
+    submit_event_submitter_value,
 };
 #[cfg(test)]
 pub(crate) use self::file_api::drag_data_read_count_for_test;
@@ -347,8 +348,8 @@ pub(crate) use self::file_api::{
 pub(crate) use self::file_api::{
     FileReaderReadMode, FileReadingTask, build_file_list_object, build_file_object,
     build_file_object_unpublished, file_clone_metadata, file_list_files_from_object,
-    finish_file_reader_read, flush_one_pending_file_reading_task, is_file_list_object,
-    queue_file_reading_task, selected_file_from_object,
+    finish_file_reader_read, flush_one_pending_file_reading_task, queue_file_reading_task,
+    selected_file_from_object,
 };
 pub(crate) use self::form_data_runtime::form_data_request_body;
 pub(crate) use self::geometry_clone::{
@@ -407,7 +408,7 @@ pub(crate) use self::media_queries::{
     dispatch_simple_event_target_event_collecting_errors,
     dispatch_simple_event_target_event_with_ancestors,
     dispatch_simple_event_target_event_with_checkpoint, initialize_simple_event_target,
-    install_simple_event_target_handlers, simple_event_target_handler_getter_callback,
+    invoke_simple_event_target_listeners, simple_event_target_handler_getter_callback,
     simple_event_target_handler_setter_callback, simple_event_target_inspector_listener_snapshots,
     simple_object_event_listeners_snapshot, simple_object_event_set_handler,
     simple_object_has_event_listeners,
@@ -552,9 +553,7 @@ pub(crate) use self::websocket::{WebSocketDispatchResult, dispatch_websocket_eve
 pub(crate) use self::window_events::{
     clear_simple_window_event_handler_values, dispatch_window_error_event_with_details,
     dispatch_window_promise_rejection_event, dispatch_window_report_error_message,
-    event_handler_property_is_exposed, install_simple_window_event_handlers,
-    is_window_event_handler_property, set_window_body_onerror_handler_compiled,
-    set_window_onerror_handler_value, window_body_onerror_handler_is_compiled,
+    install_simple_window_event_handlers, is_window_event_handler_property,
 };
 #[cfg(test)]
 pub(crate) use self::window_lazy_surface::window_lazy_surface_diagnostics;
