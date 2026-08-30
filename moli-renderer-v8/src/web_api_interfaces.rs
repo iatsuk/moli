@@ -26,6 +26,92 @@ interfaces! {
     PublicKeyCredential: Credential;
     Credential;
     CredentialsContainer;
+    Lock;
+    LockManager;
+    MIDIAccess: EventTarget;
+    MIDIConnectionEvent: Event;
+    MIDIInput: MIDIPort;
+    MIDIInputMap;
+    MIDIMessageEvent: Event;
+    MIDIOutput: MIDIPort;
+    MIDIOutputMap;
+    MIDIPort: EventTarget;
+    MediaKeyMessageEvent: Event;
+    MediaKeySession: EventTarget;
+    MediaKeyStatusMap;
+    MediaKeyStatusMapIterator = "MediaKeyStatusMap Iterator";
+    MediaKeySystemAccess;
+    MediaKeys;
+    PaymentMethodChangeEvent: PaymentRequestUpdateEvent;
+    PaymentRequest: EventTarget;
+    PaymentRequestUpdateEvent: Event;
+    PaymentResponse: EventTarget;
+    VideoDecoder: EventTarget;
+    VideoEncoder: EventTarget;
+    CSSAnimation: Animation;
+    CSSTransition: Animation;
+    ImageBitmapRenderingContext;
+    MediaEncryptedEvent: Event;
+    MediaMetadata;
+    MediaRecorder: EventTarget;
+    ChapterInformation;
+    MediaSourceHandle;
+    MediaStream: EventTarget;
+    MediaStreamTrack: EventTarget;
+    CanvasCaptureMediaStreamTrack: MediaStreamTrack;
+    MediaSession;
+    TimeRanges;
+    VideoPlaybackQuality;
+    MediaStreamTrackEvent: Event;
+    OverconstrainedError: DOMException;
+    PictureInPictureEvent: Event;
+    PictureInPictureWindow: EventTarget;
+    RemotePlayback: EventTarget;
+    SourceBuffer: EventTarget;
+    SourceBufferList: EventTarget;
+    VideoColorSpace;
+    VideoFrame;
+    AudioListener;
+    AudioParamMap;
+    MediaStreamAudioDestinationNode: AudioNode;
+    MediaStreamAudioSourceNode: AudioNode;
+    PannerNode: AudioNode;
+    ScriptProcessorNode: AudioNode;
+    RTCCertificate;
+    RTCDTMFSender: EventTarget;
+    RTCDTMFToneChangeEvent: Event;
+    RTCDtlsTransport: EventTarget;
+    RTCEncodedAudioFrame;
+    RTCEncodedVideoFrame;
+    RTCError: DOMException;
+    RTCErrorEvent: Event;
+    RTCIceTransport: EventTarget;
+    RTCPeerConnectionIceErrorEvent: Event;
+    RTCRtpScriptTransform;
+    RTCRtpScriptTransformer: EventTarget;
+    RTCTransformEvent: Event;
+    KeyFrameRequestEvent: Event;
+    RTCRtpSender;
+    RTCRtpTransceiver;
+    RTCSctpTransport: EventTarget;
+    RTCStatsReport;
+    RTCTrackEvent: Event;
+    EncodedVideoChunk;
+    LargestContentfulPaint: PerformanceEntry;
+    PerformanceEventTiming: PerformanceEntry;
+    PerformancePaintTiming: PerformanceEntry;
+    PerformanceServerTiming;
+    Report;
+    ReportBody;
+    ReportingObserver;
+    SpeechSynthesisErrorEvent: SpeechSynthesisEvent;
+    SpeechSynthesisEvent: Event;
+    WebTransport;
+    WebTransportSendGroup;
+    WebTransportDatagramsWritable: WritableStream;
+    WebTransportBidirectionalStream;
+    WebTransportDatagramDuplexStream;
+    WebTransportError: DOMException;
     AbortController;
     AbortSignal: EventTarget;
     AbstractRange;
@@ -41,8 +127,8 @@ interfaces! {
     AudioBufferSourceNode: AudioScheduledSourceNode;
     AudioContext: BaseAudioContext;
     AudioDestinationNode: AudioNode;
-    AudioListener;
-    AudioParamMap;
+
+
     AudioNode: EventTarget;
     AudioScheduledSourceNode: AudioNode;
     AudioParam;
@@ -66,12 +152,12 @@ interfaces! {
     ConvolverNode: AudioNode;
     Blob;
     BlobEvent: Event;
-    MIDIConnectionEvent: Event;
-    MIDIMessageEvent: Event;
+
+
     BroadcastChannel: EventTarget;
     ByteLengthQueuingStrategy;
     CDATASection: Text;
-    CSSAnimation: Animation;
+
     CSSConditionRule: CSSGroupingRule;
     CSSContainerRule: CSSConditionRule;
     CSSCounterStyleRule: CSSRule;
@@ -106,7 +192,7 @@ interfaces! {
     CSSStyleSheet: StyleSheet;
     CSSStyleValue;
     CSSSupportsRule: CSSConditionRule;
-    CSSTransition: Animation;
+
     CSSUnitValue: CSSNumericValue;
     Cache;
     CacheStorage;
@@ -169,7 +255,7 @@ interfaces! {
     DynamicsCompressorNode: AudioNode;
     Element: Node;
     ElementInternals;
-    EncodedVideoChunk;
+
     ErrorEvent: Event;
     Event;
     EventCounts;
@@ -210,10 +296,10 @@ interfaces! {
     Gamepad;
     GamepadButton;
     GamepadEvent: Event;
-    PictureInPictureEvent: Event;
-    PaymentRequestUpdateEvent: Event;
-    PaymentMethodChangeEvent: PaymentRequestUpdateEvent;
-    PictureInPictureWindow: EventTarget;
+
+
+
+
     GamepadHapticActuator;
     HTMLAllCollection;
     HTMLAnchorElement: HTMLElement;
@@ -314,7 +400,7 @@ interfaces! {
     IdleDeadline;
     IdleDetector: EventTarget;
     Image;
-    ImageBitmapRenderingContext;
+
     ImageBitmap;
     ImageData;
     InputEvent: UIEvent;
@@ -323,39 +409,39 @@ interfaces! {
     IntersectionObserverEntry;
     KeyboardEvent: UIEvent;
     KeyframeEffect: AnimationEffect;
-    Lock;
-    LockManager;
+
+
     Location;
     MathMLElement: Element;
     MediaCapabilities;
     MediaDeviceInfo;
     InputDeviceCapabilities;
     InputDeviceInfo: MediaDeviceInfo;
-    MediaStreamTrack: EventTarget;
-    CanvasCaptureMediaStreamTrack: MediaStreamTrack;
+
+
     MediaDevices: EventTarget;
     MediaElementAudioSourceNode: AudioNode;
     MediaError;
-    MediaKeySession: EventTarget;
-    MediaKeyStatusMap;
-    MediaKeySystemAccess;
-    MediaKeys;
+
+
+
+
     MediaList;
     MediaQueryList: EventTarget;
     MediaQueryListEvent: Event;
-    MediaRecorder: EventTarget;
-    MediaSession;
-    MediaSourceHandle;
-    SourceBuffer: EventTarget;
-    SourceBufferList: EventTarget;
+
+
+
+
+
     MediaSource: EventTarget;
     MemoryInfo;
-    MIDIPort: EventTarget;
-    MIDIAccess: EventTarget;
-    MIDIInput: MIDIPort;
-    MIDIOutput: MIDIPort;
-    MIDIInputMap;
-    MIDIOutputMap;
+
+
+
+
+
+
     MessageChannel;
     MessageEvent: Event;
     MessagePort: EventTarget;
@@ -392,11 +478,11 @@ interfaces! {
     OscillatorNode: AudioScheduledSourceNode;
     PageTransitionEvent: Event;
     Path2D;
-    PaymentResponse: EventTarget;
-    LargestContentfulPaint: PerformanceEntry;
-    PerformanceEventTiming: PerformanceEntry;
-    PerformancePaintTiming: PerformanceEntry;
-    PerformanceServerTiming;
+
+
+
+
+
     Performance: EventTarget;
     PerformanceEntry;
     PerformanceMark: PerformanceEntry;
@@ -424,26 +510,26 @@ interfaces! {
     PushSubscription;
     PushSubscriptionOptions;
     QuotaExceededError: DOMException;
-    RTCCertificate;
+
     RTCDataChannel: EventTarget;
-    RTCDTMFSender: EventTarget;
-    RTCDtlsTransport: EventTarget;
-    RTCError: DOMException;
-    RTCErrorEvent: Event;
+
+
+
+
     RTCIceCandidate;
-    RTCIceTransport: EventTarget;
-    RTCEncodedAudioFrame;
-    RTCEncodedVideoFrame;
+
+
+
     RTCPeerConnection: EventTarget;
     RTCPeerConnectionIceEvent: Event;
     RTCDataChannelEvent: Event;
-    RTCPeerConnectionIceErrorEvent: Event;
+
     RTCRtpReceiver;
-    RTCRtpSender;
-    RTCRtpTransceiver;
-    RTCSctpTransport: EventTarget;
+
+
+
     RTCSessionDescription;
-    RTCStatsReport;
+
     RadioNodeList: NodeList;
     Range: AbstractRange;
     ReadableByteStreamController;
@@ -453,9 +539,9 @@ interfaces! {
     ReadableStreamBYOBRequest;
     ReadableStreamDefaultController;
     ReadableStreamDefaultReader;
-    ReportBody;
+
     Request;
-    RemotePlayback: EventTarget;
+
     ResizeObserver;
     ResizeObserverEntry;
     ResizeObserverSize;
@@ -529,7 +615,7 @@ interfaces! {
     SVGLengthList;
     SVGLineElement: SVGGeometryElement;
     SVGLinearGradientElement: SVGGradientElement;
-    SVGMatrix;
+    SVGMatrix: DOMMatrix;
     SVGMetadataElement: SVGElement;
     SVGMPathElement: SVGElement;
     SVGNumber;
@@ -568,8 +654,8 @@ interfaces! {
     SharedWorker: EventTarget;
     SharedWorkerGlobalScope: WorkerGlobalScope;
     SpeechSynthesis: EventTarget;
-    SpeechSynthesisEvent: Event;
-    SpeechSynthesisErrorEvent: SpeechSynthesisEvent;
+
+
     SpeechSynthesisUtterance: EventTarget;
     SpeechSynthesisVoice;
     StaticRange: AbstractRange;
@@ -600,8 +686,8 @@ interfaces! {
     TextTrackCueList;
     TextTrackList: EventTarget;
     ToggleEvent: Event;
-    TimeRanges;
-    VideoPlaybackQuality;
+
+
     ToolActivatedEvent: Event;
     ToolCancelEvent: Event;
     Touch;
@@ -622,8 +708,8 @@ interfaces! {
     URLSearchParams;
     URLSearchParamsIterator = "URLSearchParams Iterator";
     UserActivation;
-    VideoDecoder: EventTarget;
-    VideoEncoder: EventTarget;
+
+
     VTTCue: TextTrackCue;
     ValidityState;
     ViewTransition;
@@ -650,9 +736,9 @@ interfaces! {
     WebGLTransformFeedback: WebGLObject;
     WebGLVertexArrayObject: WebGLObject;
     WebGLUniformLocation;
-    WebTransportError: DOMException;
-    WebTransportBidirectionalStream;
-    WebTransportDatagramDuplexStream;
+
+
+
     WebSocket: EventTarget;
     WebSocketError: DOMException;
     WebSocketStream;
