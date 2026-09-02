@@ -314,6 +314,7 @@ pub(crate) use focus::{
 pub(super) use focus::{node_blur_callback, node_focus_callback};
 pub(super) use forms::{
     button_command_for_element_getter_function, button_command_for_element_setter_function,
+    button_command_getter_function, button_command_setter_function,
     button_disabled_getter_function, button_disabled_setter_function,
     button_form_action_getter_function, button_form_action_setter_function,
     button_form_enctype_getter_function, button_form_enctype_setter_function,

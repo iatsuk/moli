@@ -28,6 +28,8 @@ use super::{
         submit_event_respond_with_callback, submit_event_submitter_getter_function,
         track_event_track_getter_function, ui_event_pseudo_target_getter_function,
         ui_event_which_getter_function,
+        command_event_command_getter_function,
+        command_event_source_getter_function,
     },
     selection_surface::document_get_selection_callback,
     specs::ConstructorSpec,
@@ -189,6 +191,16 @@ struct HashChangeEventTemplateAccessorsDeclaration {
     old_url: (),
     #[webapi(accessor_property = "newURL", getter = event_value_attribute_getter, data = crate::util::v8str(scope, "newURL"))]
     new_url: (),
+}
+
+#[derive(WebApiFunctionTemplate)]
+#[webapi(interface = web_api_interfaces::CommandEvent, enumerable, receiver)]
+struct CommandEventTemplateAccessorsDeclaration {
+    #[webapi(accessor_property, getter = command_event_source_getter_function)]
+    source: (),
+
+    #[webapi(accessor_property, getter = command_event_command_getter_function)]
+    command: (),
 }
 
 #[derive(WebApiFunctionTemplate)]
@@ -536,6 +548,9 @@ fn event_template_declaration(interface: &str) -> Option<EventTemplateDeclaratio
         }
         "ClipboardChangeEvent" => {
             EventTemplateDeclaration::new::<ClipboardChangeEventTemplateAccessorsDeclaration>()
+        }
+        "CommandEvent" => {
+            EventTemplateDeclaration::new::<CommandEventTemplateAccessorsDeclaration>()
         }
         "ErrorEvent" => EventTemplateDeclaration::new::<ErrorEventTemplateAccessorsDeclaration>(),
         "SecurityPolicyViolationEvent" => EventTemplateDeclaration::new::<
