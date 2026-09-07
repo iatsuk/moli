@@ -350,6 +350,7 @@ fn page_owned_document_script_work_from_source_load_outcome(
         source_result,
         source_bytes,
         network_result,
+        muted_errors,
         ..
     } = outcome;
     match source_result {
@@ -359,6 +360,7 @@ fn page_owned_document_script_work_from_source_load_outcome(
                 script,
                 source,
                 source_bytes,
+                muted_errors,
             )),
             runtime_script_claim,
             source_network_result: network_result,
