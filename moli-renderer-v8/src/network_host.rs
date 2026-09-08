@@ -41,7 +41,7 @@ pub(crate) use self::async_fetch::{
     fetch_browser_subresource_raw_stream_with_preflight_headers_and_network_metadata,
     fetch_browser_subresource_with_preflight_and_network_metadata,
     fetch_browser_subresource_with_preflight_headers,
-    fetch_browser_subresource_with_preflight_headers_and_network_metadata,
+    fetch_browser_subresource_with_preflight_headers_and_network_metadata, fetch_cors_script_text,
     fetch_intercepted_window_hop, spawn_async_subresource_fetch,
 };
 pub(crate) use self::beacon::{navigator_send_beacon_callback, send_link_audit_ping};
@@ -131,15 +131,13 @@ pub(crate) use self::media::{
     start_media_element_resource_fetch,
 };
 pub(in crate::network_host) use self::preflight_events::CorsPreflightNetworkObserver;
+pub(crate) use self::request::build_cached_request_object;
 pub(in crate::network_host) use self::request::normalize_request_method;
 pub(crate) use self::request::request_constructor_callback;
 pub(crate) use self::request::{
     FetchArgs, parse_fetch_init, parse_request_redirect_mode_label, request_object_credentials_mode,
 };
 pub(crate) use self::request::{FetchArgumentError, convert_fetch_arguments};
-pub(crate) use self::request::{
-    RequestInputUrl, build_cached_request_object, build_service_worker_request_object,
-};
 pub(crate) use self::request::{
     mark_request_input_body_used_for_fetch, request_body_already_used_error,
     try_resolve_request_constructor_url, try_resolve_request_constructor_url_for_base,
@@ -157,7 +155,7 @@ pub(crate) use self::request_scope::{
 pub(crate) use self::response::materialize_response_object;
 pub(crate) use self::response::{
     FetchResponseRequest, FetchResponseSecurityViolation, MaterializedResponseBody,
-    MaterializedResponseHead, build_fetch_response_object_for_request_mode,
+    MaterializedResponseHead,
     build_fetch_response_object_from_body_source_for_request_mode_with_metadata,
     build_fetch_response_object_from_stream_for_request_mode_with_metadata,
     build_fetch_response_object_from_subresource_body_for_request_mode,
@@ -166,7 +164,7 @@ pub(crate) use self::response::{
     cors_preflight_request_headers, filter_cors_exposed_response_headers,
     is_cors_policy_failure_message, materialize_response_object_body,
     materialize_response_object_body_preserving_error,
-    materialize_response_object_body_with_chunk_callback, materialize_response_object_head,
+    materialize_response_object_body_with_chunk_callback,
     materialize_response_object_head_for_service_worker_respond_with,
     materialized_body_bytes_from_value, network_response_filter, response_constructor_callback,
     validate_cors_preflight_response, validate_cors_response_chain,
@@ -258,9 +256,19 @@ fn cross_origin_request_modes(
     }
 }
 
-pub(crate) use response::{fetch_response_metadata, set_response_metadata};
+pub(crate) use response::fetch_response_metadata;
 
 #[cfg(test)]
 pub(crate) use response::build_fetch_response_object_from_stream_for_request_mode;
 
 pub(crate) mod controlled_xhr;
+
+#[cfg(test)]
+pub(crate) use response::build_fetch_response_object_for_request_mode;
+
+#[cfg(test)]
+pub(crate) use response::materialize_response_object_head;
+
+pub(crate) use request::build_service_worker_request_object;
+
+pub(crate) use response::set_cached_response_head;

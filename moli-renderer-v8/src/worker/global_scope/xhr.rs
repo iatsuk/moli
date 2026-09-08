@@ -744,7 +744,7 @@ fn send_synchronous_worker_xhr(
     let request_body_bytes = completed.info.request_body_bytes;
     let network_record = completed.network_record;
     match completed.result {
-        Ok(response) => {
+        Ok(mut response) => {
             let response_head = response.head();
             let redirect_status = if response_head.redirect_chain.is_empty() {
                 crate::content_security_policy::ContentSecurityPolicyRedirectStatus::NoRedirect
@@ -798,10 +798,16 @@ fn send_synchronous_worker_xhr(
                 throw_synchronous_xhr_failure(scope, xhr, &request_url_text, "NetworkError");
                 return;
             }
+            let observable_headers = filter_cors_exposed_response_headers(
+                &worker_global_origin(scope).unwrap_or(moli_url::WebOrigin::Opaque),
+                &response_head,
+                prepared.credentials_mode,
+            );
             let _ = state
                 .borrow()
                 .parent_tx
                 .send(WorkerToParentMessage::SubresourceNetwork(network_record));
+            response.headers = observable_headers;
             apply_xhr_response(scope, xhr, response);
         }
         Err(_) => {

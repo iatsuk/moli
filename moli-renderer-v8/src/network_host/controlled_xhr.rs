@@ -281,6 +281,7 @@ impl ControlledResourceLoad {
             from_cache: false,
             cache_state: Default::default(),
             negotiated_http_version: None,
+            preload_state: Default::default(),
         })
     }
 
@@ -496,8 +497,13 @@ impl ControlledResourceLoad {
             use super::response_hop::{
                 SubresourceResponseTransition, advance_subresource_response,
             };
-            let transition =
-                advance_subresource_response(&mut self.request, response.head.clone(), false)?;
+            let transition = advance_subresource_response(
+                &mut self.request,
+                response.head.clone(),
+                false,
+                None,
+                moli_fetch::RedirectSource::Network,
+            )?;
             if let SubresourceResponseTransition::ManualResponse { .. } = transition {
                 return Err("XHR requests must follow redirects".into());
             }

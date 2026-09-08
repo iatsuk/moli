@@ -83,7 +83,7 @@ pub(crate) fn validate_fetch_response_security_policy(
 ) -> Result<(), String> {
     let request_origin = request_origin.into();
     head.url_list()
-        .validate_request_mode(request_mode, &request_origin)
+        .validate_request_mode(request_mode, request_origin)
         .map_err(|error| error.to_string())?;
     if request_mode == RequestMode::SameOrigin {
         return Ok(());
@@ -595,6 +595,64 @@ mod tests {
             ));
             validate_cors_response_chain(&document_url, &head, RequestCredentialsMode::SameOrigin)
                 .expect("authorized HTTP redirect should pass");
+        }
+    }
+
+    #[test]
+    fn cors_response_validation_uses_the_redirect_tainted_origin() {
+        let home = url("https://page.test/a");
+        let away = url("https://script.test/b");
+        let elsewhere = url("https://other.test/c");
+        let origin = WebOrigin::from_url(&home);
+        for (redirects, serialized_origin) in [
+            (vec![(&home, &away)], origin.ascii_serialization()),
+            (vec![(&away, &elsewhere)], "null"),
+            (vec![(&home, &away), (&away, &home)], "null"),
+        ] {
+            let final_url = redirects.last().expect("redirect target").1.clone();
+            let mut head = header_response(
+                final_url,
+                vec![(
+                    "Access-Control-Allow-Origin".to_owned(),
+                    serialized_origin.as_bytes().to_vec(),
+                )],
+            );
+            head.redirected = true;
+            head.redirect_chain = redirects
+                .into_iter()
+                .map(|(from, to)| moli_fetch::RedirectInfo {
+                    source: RedirectSource::Network,
+                    from_url: from.clone(),
+                    to_url: to.clone(),
+                    status: 302,
+                    headers: vec![(
+                        "Access-Control-Allow-Origin".to_owned(),
+                        origin.ascii_serialization().as_bytes().to_vec(),
+                    )],
+                    network_extra_info_available: false,
+                    request_extra_info: None,
+                    response_extra_info: None,
+                    redirect_has_extra_info: false,
+                    request_cookie_report: None,
+                    cookie_set_reports: Vec::new(),
+                    from_cache: false,
+                    negotiated_http_version: None,
+
+                    dispatched_request: None,
+                })
+                .collect();
+            assert_eq!(
+                head.url_list().serialized_origin(&origin),
+                serialized_origin
+            );
+            validate_cors_response_chain(&origin, &head, RequestCredentialsMode::SameOrigin)
+                .expect("each response must be authorized against its own request hop origin");
+            head.headers.clear();
+            assert!(
+                validate_cors_response_chain(&origin, &head, RequestCredentialsMode::SameOrigin)
+                    .is_err(),
+                "returning to the initial origin must not bypass CORS"
+            );
         }
     }
 
