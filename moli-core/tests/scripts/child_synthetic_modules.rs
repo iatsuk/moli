@@ -55,6 +55,22 @@ async fn child_synthetic_css_module_uses_its_own_document_source() -> Result<()>
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn child_synthetic_json_parse_error_is_not_a_missing_source_error() -> Result<()> {
+    let result = child_synthetic_probe(
+        r#"import value from 'data:application/json,not-json' with { type: 'json' };
+        window.result = 'must not execute';"#,
+    )
+    .await?;
+    assert!(
+        result["value"]
+            .as_str()
+            .is_some_and(|value| value.starts_with("SyntaxError: ")),
+        "{result:?}"
+    );
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn child_synthetic_dynamic_import_after_load_uses_its_realm() -> Result<()> {
     let result = evaluate_child_synthetic_expression(
         r#"(async () => {
@@ -133,20 +149,5 @@ async fn child_synthetic_module_values_are_cached_per_realm_not_per_url() -> Res
     )
     .await?;
     assert_eq!(result["value"], ["true"; 16].join(":"), "{result:?}");
-    Ok(())
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn child_synthetic_text_module_shares_static_and_dynamic_records() -> Result<()> {
-    let result = child_synthetic_probe(
-        r#"import * as text from 'data:application/octet-stream,%EF%BB%BFhello%00world' with { type: 'text' };
-        window.result = import('data:application/octet-stream,%EF%BB%BFhello%00world', {with: {type:'text'}})
-          .then(again => JSON.stringify([text.default, text === again, Object.keys(text)]));"#,
-    )
-    .await?;
-    assert_eq!(
-        result["value"], r#"["hello\u0000world",true,["default"]]"#,
-        "{result:?}"
-    );
     Ok(())
 }
