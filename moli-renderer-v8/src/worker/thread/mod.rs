@@ -2677,6 +2677,7 @@ async fn worker_main(
                 if let Some(error) = result.unhandled_error {
                     let global = ctx.global(scope);
                     let report = V8ExceptionReport {
+                        muted_errors: false,
                         summary: error.message,
                         source: Some(error.filename),
                         line: Some(error.lineno as usize),
