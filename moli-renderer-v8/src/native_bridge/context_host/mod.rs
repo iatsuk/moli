@@ -39,8 +39,7 @@ use crate::{
             InFlightWorkerSubresourceFetchState, MessagePortId, NetworkBodySourceId,
             PendingSubresourceAuthState, PendingSubresourceFetchState,
             PendingSubresourceResponseState, PendingWebSocketResponseState,
-            RunningSubresourceFetchState, ScriptErrorConstructorKind, ScriptNetworkOutputItem,
-            StreamingSubresourceFetchState,
+            RunningSubresourceFetchState, ScriptNetworkOutputItem, StreamingSubresourceFetchState,
         },
         util::{
             string_from_utf16_units_lossy, utf16_units, utf16_units_contain_unpaired_surrogate,

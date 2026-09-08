@@ -924,7 +924,7 @@ impl ScriptVm {
         &mut self,
         reaction_id: u64,
         reason: String,
-        error_constructor: Option<ScriptErrorConstructorKind>,
+        error_value: Option<ScriptErrorValue>,
     ) -> Option<DocumentModuleReactionUpdate> {
         let parser_update = self
             .document_runtime
@@ -932,7 +932,7 @@ impl ScriptVm {
             .mark_parser_module_evaluation_rejected(
                 reaction_id,
                 reason.clone(),
-                error_constructor,
+                error_value,
                 parser_module_evaluation_continuation_into_ready_action,
             )
             .map(DocumentModuleReactionUpdate::ParserOwned);
@@ -940,7 +940,7 @@ impl ScriptVm {
             self.mark_runtime_owned_module_script_evaluation_rejected(
                 reaction_id,
                 reason,
-                error_constructor,
+                error_value,
             )
             .map(DocumentModuleReactionUpdate::RuntimeOwned)
         })
