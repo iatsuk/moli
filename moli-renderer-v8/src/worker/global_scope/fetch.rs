@@ -1,5 +1,6 @@
 use super::*;
 use crate::network_host::{FetchArgumentError, combined_headers_entries, convert_fetch_arguments};
+use crate::network_host::{HeadersGuard, validate_fetch_response_headers};
 use crate::service_worker_runtime::{
     ServiceWorkerClientId, ServiceWorkerDirectFetchResult, ServiceWorkerFetchDispatch,
     ServiceWorkerFetchRequest, ServiceWorkerFetchRequestMetadata, ServiceWorkerRequestDestination,
@@ -499,7 +500,6 @@ pub(in crate::worker) fn spawn_worker_xhr_network(
     redirect_chain: Vec<moli_fetch::RedirectInfo>,
 ) {
     load.task_runner().spawn(async move {
-        let loader = load.request_client();
         let cors_preflight_request_headers = headers.to_byte_strings();
         let request = Request::new_browser_bytes(
             &method,
@@ -1290,32 +1290,41 @@ pub(crate) fn check_worker_websocket_csp(
     url: &Url,
 ) -> Option<WorkerWebSocketCspOutcome> {
     let state = get_worker_state(scope)?;
-    dispatch_worker_content_security_policy_report_only_violation_for_state(
-        scope,
-        &state,
-        document_url,
-        url,
-        crate::content_security_policy::ContentSecurityPolicyResourceKind::WorkerConnect,
-    );
-    let violation = {
+    let (wake_tx, report_only_violation, enforced_violation) = {
         let state_ref = state.borrow();
-        worker_content_security_policy_violation(
-            &state_ref,
-            document_url,
-            url,
-            crate::content_security_policy::ContentSecurityPolicyResourceKind::WorkerConnect,
+        (
+            state_ref.worker_wake_tx.clone(),
+            worker_content_security_policy_report_only_violation(
+                &state_ref,
+                document_url,
+                url,
+                crate::content_security_policy::ContentSecurityPolicyResourceKind::WorkerConnect,
+            ),
+            worker_content_security_policy_violation(
+                &state_ref,
+                document_url,
+                url,
+                crate::content_security_policy::ContentSecurityPolicyResourceKind::WorkerConnect,
+            ),
         )
     };
-    Some(match violation {
-        Some(violation) => {
-            let message = worker_content_security_policy_error_message(&violation, "WebSocket");
-            dispatch_worker_content_security_policy_violation_event_for_state(
-                scope, &state, &violation,
-            );
-            WorkerWebSocketCspOutcome::Blocked(message)
-        }
+    let outcome = match &enforced_violation {
+        Some(violation) => WorkerWebSocketCspOutcome::Blocked(
+            worker_content_security_policy_error_message(violation, "WebSocket"),
+        ),
         None => WorkerWebSocketCspOutcome::Allowed,
-    })
+    };
+    // CSP reports are tasks, including those produced by WebSocket construction.
+    // They must not overtake earlier queued Trusted Types violation reports.
+    for violation in [report_only_violation, enforced_violation]
+        .into_iter()
+        .flatten()
+    {
+        let _ = wake_tx.send(WorkerMessage::DispatchContentSecurityPolicyViolation(
+            Box::new(violation),
+        ));
+    }
+    Some(outcome)
 }
 
 pub(crate) fn register_worker_websocket<'s>(
@@ -2591,16 +2600,25 @@ pub(in crate::worker) fn start_worker_streaming_fetch(
             reject = Some((pending.resolver.clone(), message));
             None
         } else {
-            let mut observable_head = started.head.clone();
-            observable_head.headers = filter_cors_exposed_response_headers(
-                &pending.document_url,
+            let observable_head = started.head.clone();
+            let request_origin = worker_global_origin(scope).unwrap_or(moli_url::WebOrigin::Opaque);
+            let mut metadata = started
+                .head
+                .fetch_metadata(&request_origin, pending.request_mode);
+            crate::network_host::FetchResponseRequest {
+                method: &pending.request_method,
+                mode: pending.request_mode,
+            }
+            .capture_cors_exposure(
+                &worker_global_origin(scope).unwrap_or(moli_url::WebOrigin::Opaque),
                 &observable_head,
                 pending.credentials_mode,
+                &mut metadata,
             );
             pending.streaming_body_source_id = Some(started.body_source_id);
             Some((
                 pending.resolver.clone(),
-                pending.document_url.clone(),
+                metadata,
                 pending.request_mode,
                 pending.request_method.clone(),
                 observable_head,
@@ -2622,7 +2640,7 @@ pub(in crate::worker) fn start_worker_streaming_fetch(
         }
         return;
     }
-    if let Some((resolver, document_url, request_mode, request_method, observable_head)) =
+    if let Some((resolver, metadata, request_mode, request_method, observable_head)) =
         response_input
     {
         let response_obj = crate::network_host::build_fetch_response_object_from_stream_for_request_mode_with_metadata(
@@ -2633,7 +2651,7 @@ pub(in crate::worker) fn start_worker_streaming_fetch(
             },
             observable_head,
             started.body_source_id,
-            started.head.fetch_metadata(&(&document_url).into(), request_mode),
+            metadata,
         );
         let resolver = v8::Local::new(scope, &resolver);
         let _ = resolver.resolve(scope, response_obj.into());
@@ -3053,21 +3071,18 @@ pub(in crate::worker) fn drain_worker_fetch_completion_result(
                 metadata.response_type = crate::types::FetchResponseType::Opaque;
                 metadata.timing_allow_passed = false;
             }
-            let filtered_headers = if response_filter
-                .as_ref()
-                .is_some_and(|filter| filter.is_readable())
-            {
-                response_head.headers.clone()
-            } else {
-                filter_cors_exposed_response_headers(
-                    &pending.document_url,
-                    &response_head,
-                    pending.credentials_mode,
-                )
-            };
+            crate::network_host::FetchResponseRequest {
+                method: &pending.request_method,
+                mode: pending.request_mode,
+            }
+            .capture_cors_exposure(
+                &worker_global_origin(scope).unwrap_or(moli_url::WebOrigin::Opaque),
+                &response_head,
+                pending.credentials_mode,
+                &mut metadata,
+            );
             let response_obj = match response.into_fetch_parts() {
-                WorkerFetchResponseParts::Materialized { mut head, body } => {
-                    head.headers = filtered_headers;
+                WorkerFetchResponseParts::Materialized { head, body } => {
                     let body = if opaque_response_blocked {
                         ResponseBody::materialized_bytes(Vec::new())
                     } else {
@@ -3084,8 +3099,7 @@ pub(in crate::worker) fn drain_worker_fetch_completion_result(
                         metadata,
                     )
                 }
-                WorkerFetchResponseParts::Subresource { mut head, body } => {
-                    head.headers = filtered_headers;
+                WorkerFetchResponseParts::Subresource { head, body } => {
                     let body = if opaque_response_blocked {
                         SubresourceResponseBody::from_bytes(Vec::new())
                     } else {
