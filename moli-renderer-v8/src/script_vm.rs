@@ -759,6 +759,7 @@ mod inspector;
 mod main_world;
 use main_world::MainWorld;
 mod native_drag_data;
+mod promise_rejection_task;
 mod script_preparation_error;
 pub(crate) use inspector::{dispatch_inspector_io_owner_wake, dispatch_inspector_main_owner_wake};
 mod document_context_transition;
@@ -934,6 +935,7 @@ pub(crate) use inspector::{
 };
 use isolated_worlds::*;
 pub(crate) use runtime_bindings::PromiseRejectDispatchSlot;
+pub(crate) use runtime_bindings::PromiseRejectionTaskPayload;
 pub(crate) use runtime_bindings::perform_microtask_checkpoint_and_report_pending_promise_rejections;
 use runtime_bindings::*;
 pub(crate) use runtime_work::*;
