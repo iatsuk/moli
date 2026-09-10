@@ -90,14 +90,6 @@ impl PageScriptHost {
         unsafe { &mut *self.document_runtime }.resolve_module_specifier(specifier, base_url)
     }
 
-    pub(crate) fn native_module_wasm_record_for(
-        &self,
-        module: v8::Local<'_, v8::Module>,
-    ) -> Option<WasmModuleRecord> {
-        // SAFETY: PageScriptHost is owned by the ScriptVm that owns this DocumentRuntime.
-        unsafe { &*self.document_runtime }.native_module_wasm_record_for(module)
-    }
-
     pub(crate) fn native_wasm_instance_for_namespace<'s>(
         &self,
         scope: &mut v8::PinScope<'s, '_>,
@@ -105,24 +97,6 @@ impl PageScriptHost {
     ) -> Option<v8::Local<'s, v8::Object>> {
         // SAFETY: PageScriptHost is owned by the ScriptVm that owns this DocumentRuntime.
         unsafe { &*self.document_runtime }.native_wasm_instance_for_namespace(scope, namespace)
-    }
-
-    pub(crate) fn native_resolved_dependency_module_for(
-        &self,
-        referrer: v8::Local<'_, v8::Module>,
-        specifier: &str,
-        attributes: &ModuleAttributesKey,
-    ) -> Option<v8::Global<v8::Module>> {
-        // SAFETY: PageScriptHost is owned by the ScriptVm that owns this DocumentRuntime.
-        unsafe { &*self.document_runtime }
-            .native_resolved_dependency_module_for(referrer, specifier, attributes)
-    }
-
-    pub(crate) fn native_document_modulator_ptr(
-        &self,
-    ) -> *const crate::module_runtime::NativeDocumentModulator {
-        // SAFETY: PageScriptHost is owned by the ScriptVm that owns this DocumentRuntime.
-        unsafe { &*self.document_runtime }.native_document_modulator_ptr()
     }
 
     pub(crate) fn queue_native_dynamic_module_import(
@@ -739,7 +713,7 @@ impl PageScriptHost {
                 request_mode,
                 network_partition_key,
                 policy_context,
-                continuation: PendingSubresourceContinuation::Fetch(
+                continuation: PendingSubresourceContinuation::Fetch(Box::new(
                     crate::types::PendingWindowFetchContinuation::new(
                         resolver,
                         resource_timing,
@@ -749,7 +723,7 @@ impl PageScriptHost {
                         csp_report_context,
                     )
                     .with_intercepted_request(request),
-                ),
+                )),
                 deferred_request_started: false,
             },
         );
@@ -1033,7 +1007,7 @@ impl PageScriptHost {
                 request_mode,
                 network_partition_key,
                 policy_context,
-                continuation: PendingSubresourceContinuation::Fetch(
+                continuation: PendingSubresourceContinuation::Fetch(Box::new(
                     crate::types::PendingWindowFetchContinuation::new(
                         resolver,
                         resource_timing,
@@ -1042,7 +1016,7 @@ impl PageScriptHost {
                         connect_policy,
                         csp_report_context,
                     ),
-                ),
+                )),
                 deferred_request_started: defer_request_started,
             },
         );
@@ -1434,6 +1408,8 @@ impl PageScriptHost {
         self.pending_subresource_fetches.insert(
             internal_id,
             PendingSubresourceFetchState {
+                redirect_headers: None,
+                request_origin: resource_loader.fetch_context().request_origin(),
                 dispatch,
                 info,
                 load,
@@ -1687,7 +1663,7 @@ impl PageScriptHost {
                 request_mode: moli_fetch::RequestMode::Cors,
                 network_partition_key: None,
                 policy_context: Default::default(),
-                continuation: PendingSubresourceContinuation::WebSocket(connection),
+                continuation: PendingSubresourceContinuation::WebSocket(Box::new(connection)),
                 deferred_request_started: false,
             },
         );
@@ -1727,6 +1703,7 @@ impl PageScriptHost {
                 policy_context: Default::default(),
                 continuation: PendingSubresourceContinuation::ChildDocument(Box::new(fetch)),
                 deferred_request_started: false,
+                blob_url_entry: None,
             },
         );
         self.note_subresource_activity();
@@ -2120,6 +2097,11 @@ impl PageScriptHost {
             .streaming_subresource_fetches
             .values()
             .find(|state| state.body_source_id == body_source_id)?;
+        if state.needs_orb_body_validation() {
+            // Keep the original bytes in the capture body writer until ORB
+            // has approved them for the opaque response's internal stream.
+            return None;
+        }
         if let Some(target) = state.pending.execution_context.window_request_target()
             && !self
                 .window_execution_context_owner_is_current(target.owner(), target.dispatch_scope())
@@ -3215,6 +3197,7 @@ impl PageScriptHost {
                         from_cache: info.from_cache,
                         cache_state: info.cache_state,
                         negotiated_http_version: None,
+                        preload_state: Default::default(),
                     },
                 )
                 .with_network_request_headers(info.network_request_headers.clone()),
@@ -3265,6 +3248,7 @@ impl PageScriptHost {
                         from_cache: info.response_from_cache,
                         cache_state: info.response_cache_state,
                         negotiated_http_version: None,
+                        preload_state: Default::default(),
                     },
                 )
                 .with_network_request_headers(info.network_request_headers.clone()),
