@@ -682,6 +682,7 @@ impl PageScriptHost {
         request_origin: moli_url::WebOrigin,
         network_partition_key: Option<String>,
         policy_context: crate::types::SubresourcePolicyContext,
+        blob_url_entry: Option<crate::network_host::CapturedBlobUrl>,
         mut info: PendingSubresourceFetchInfo,
     ) -> u64 {
         self.assign_pending_subresource_fetch_identity(&mut info);
@@ -725,6 +726,7 @@ impl PageScriptHost {
                     .with_intercepted_request(request),
                 )),
                 deferred_request_started: false,
+                blob_url_entry,
             },
         );
         self.note_subresource_activity();
@@ -765,6 +767,7 @@ impl PageScriptHost {
                     fetch_id,
                 },
                 deferred_request_started: false,
+                blob_url_entry: None,
             },
         );
         self.note_subresource_activity();
@@ -800,6 +803,7 @@ impl PageScriptHost {
                 policy_context: Default::default(),
                 continuation: PendingSubresourceContinuation::WorkerXhr { worker_id, xhr_id },
                 deferred_request_started: false,
+                blob_url_entry: None,
             },
         );
         self.note_subresource_activity();
@@ -839,6 +843,7 @@ impl PageScriptHost {
                     report_id,
                 },
                 deferred_request_started: false,
+                blob_url_entry: None,
             },
         );
         self.note_subresource_activity();
@@ -878,6 +883,7 @@ impl PageScriptHost {
                     fetch_id,
                 },
                 deferred_request_started: false,
+                blob_url_entry: None,
             },
         );
         self.note_subresource_activity();
@@ -916,6 +922,7 @@ impl PageScriptHost {
                     xhr_id,
                 },
                 deferred_request_started: false,
+                blob_url_entry: None,
             },
         );
         self.note_subresource_activity();
@@ -955,6 +962,7 @@ impl PageScriptHost {
                     report_id,
                 },
                 deferred_request_started: false,
+                blob_url_entry: None,
             },
         );
         self.note_subresource_activity();
@@ -1018,6 +1026,7 @@ impl PageScriptHost {
                     ),
                 )),
                 deferred_request_started: defer_request_started,
+                blob_url_entry: None,
             },
         );
         self.note_subresource_activity();
@@ -1067,6 +1076,7 @@ impl PageScriptHost {
                 policy_context,
                 continuation: PendingSubresourceContinuation::EventSource(event_source),
                 deferred_request_started: false,
+                blob_url_entry: None,
             },
         );
         self.note_subresource_activity();
@@ -1129,6 +1139,7 @@ impl PageScriptHost {
                     sequence,
                 },
                 deferred_request_started: false,
+                blob_url_entry: None,
             },
         );
         self.note_subresource_activity();
@@ -1190,6 +1201,7 @@ impl PageScriptHost {
                     request_initiator_type,
                 },
                 deferred_request_started: false,
+                blob_url_entry: None,
             },
         );
         self.note_subresource_activity();
@@ -1311,6 +1323,7 @@ impl PageScriptHost {
                     sequence,
                 },
                 deferred_request_started: false,
+                blob_url_entry: None,
             },
         );
         self.note_subresource_activity();
@@ -1371,6 +1384,7 @@ impl PageScriptHost {
                     target,
                 },
                 deferred_request_started: false,
+                blob_url_entry: None,
             },
         );
         self.note_subresource_activity();
@@ -1461,6 +1475,7 @@ impl PageScriptHost {
                 policy_context: Default::default(),
                 continuation: PendingSubresourceContinuation::Beacon,
                 deferred_request_started: false,
+                blob_url_entry: None,
             },
         );
         self.note_subresource_activity();
@@ -1503,6 +1518,7 @@ impl PageScriptHost {
                 policy_context,
                 continuation: PendingSubresourceContinuation::CspReport { client_id },
                 deferred_request_started: false,
+                blob_url_entry: None,
             },
         );
         self.note_subresource_activity();
@@ -1541,6 +1557,7 @@ impl PageScriptHost {
                 policy_context: Default::default(),
                 continuation: PendingSubresourceContinuation::Beacon,
                 deferred_request_started: false,
+                blob_url_entry: None,
             },
         );
         self.note_subresource_activity();
@@ -1583,6 +1600,7 @@ impl PageScriptHost {
                 policy_context,
                 continuation: PendingSubresourceContinuation::CspReport { client_id },
                 deferred_request_started: false,
+                blob_url_entry: None,
             },
         );
         self.note_subresource_activity();
@@ -1598,6 +1616,7 @@ impl PageScriptHost {
         credentials_mode: moli_fetch::RequestCredentialsMode,
         network_partition_key: Option<String>,
         policy_context: crate::types::SubresourcePolicyContext,
+        blob_url_entry: Option<crate::network_host::CapturedBlobUrl>,
         mut info: PendingSubresourceFetchInfo,
     ) -> u64 {
         self.assign_pending_subresource_fetch_identity(&mut info);
@@ -1628,6 +1647,7 @@ impl PageScriptHost {
                     initiator_url,
                 },
                 deferred_request_started: false,
+                blob_url_entry,
             },
         );
         self.note_subresource_activity();
@@ -1665,6 +1685,7 @@ impl PageScriptHost {
                 policy_context: Default::default(),
                 continuation: PendingSubresourceContinuation::WebSocket(Box::new(connection)),
                 deferred_request_started: false,
+                blob_url_entry: None,
             },
         );
         self.note_subresource_activity();
@@ -1753,6 +1774,7 @@ impl PageScriptHost {
                     initiator_url,
                 },
                 deferred_request_started: false,
+                blob_url_entry: None,
             },
         );
         self.note_subresource_activity();

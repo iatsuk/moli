@@ -47,7 +47,15 @@ impl ScriptVm {
         if intercepted_window {
             state.pending.update_request_snapshot(request.clone());
         }
+        let local_response = crate::network_host::local_url_response_with_blob_entry(
+            &request.url,
+            &request.method,
+            state.pending.blob_url_entry.as_ref(),
+        );
         let response = async move {
+            if let Some(result) = local_response {
+                return result.map(crate::protocol_types::NavigationResponse::from);
+            }
             let result = if intercepted_window {
                 crate::network_host::fetch_intercepted_window_hop(
                     request_client,

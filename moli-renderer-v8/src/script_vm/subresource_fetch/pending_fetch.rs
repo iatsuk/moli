@@ -192,6 +192,7 @@ impl ScriptVm {
             policy_context,
             continuation,
             deferred_request_started,
+            blob_url_entry,
         } = pending;
         let pending = match continuation {
             PendingSubresourceContinuation::WebSocket(connection) => {
@@ -200,7 +201,7 @@ impl ScriptVm {
                 self._context_host
                     .borrow_mut()
                     .start_pending_websocket_connection(
-                        connection,
+                        *connection,
                         request_url,
                         request_headers,
                         headers_overridden,
@@ -257,6 +258,7 @@ impl ScriptVm {
                                     policy_context,
                                     continuation: target.continuation(),
                                     deferred_request_started,
+                                    blob_url_entry,
                                 },
                                 request_url,
                                 request_method,
@@ -315,6 +317,7 @@ impl ScriptVm {
                                     policy_context,
                                     continuation: target.continuation(),
                                     deferred_request_started,
+                                    blob_url_entry,
                                 },
                                 request_url,
                                 request_method,
@@ -377,6 +380,7 @@ impl ScriptVm {
                     policy_context,
                     continuation: PendingSubresourceContinuation::CspReport { client_id },
                     deferred_request_started,
+                    blob_url_entry,
                 };
                 if !self._context_host.borrow().network_offline() {
                     let maybe_pending = self.continue_csp_report_via_service_worker(
@@ -426,6 +430,7 @@ impl ScriptVm {
                 policy_context,
                 continuation,
                 deferred_request_started,
+                blob_url_entry,
             },
         };
         let request_url = pending.info.url.clone();
@@ -1074,6 +1079,7 @@ impl ScriptVm {
             policy_context,
             continuation,
             deferred_request_started,
+            blob_url_entry,
         } = pending;
         let pending = match continuation {
             PendingSubresourceContinuation::ChildDocument(fetch) => {
@@ -1084,7 +1090,7 @@ impl ScriptVm {
             PendingSubresourceContinuation::WebSocket(connection) => {
                 self._context_host
                     .borrow_mut()
-                    .fail_pending_websocket_connection(connection, error_text)
+                    .fail_pending_websocket_connection(*connection, error_text)
                     .map_err(|error| anyhow!(error))?;
                 return Ok(AsyncSubresourceCommandExecution::without_window_realm(()));
             }
@@ -1236,6 +1242,7 @@ impl ScriptVm {
                 policy_context,
                 continuation,
                 deferred_request_started,
+                blob_url_entry,
             },
         };
         let info = pending.info.clone();
@@ -1291,6 +1298,7 @@ impl ScriptVm {
             policy_context,
             continuation,
             deferred_request_started,
+            blob_url_entry,
         } = pending;
         // Request-stage fulfillment has no followed redirects yet. Reuse this
         // complete head for validation and response materialization.
@@ -1324,7 +1332,7 @@ impl ScriptVm {
                     self._context_host
                         .borrow_mut()
                         .fail_pending_websocket_connection(
-                            connection,
+                            *connection,
                             format!(
                                 "Fetch.fulfillRequest WebSocket response must use status 101, got {response_code}"
                             ),
@@ -1337,7 +1345,7 @@ impl ScriptVm {
                 self._context_host
                     .borrow_mut()
                     .fulfill_pending_websocket_connection(
-                        connection,
+                        *connection,
                         request_url,
                         request_headers,
                         response_code,
@@ -1635,6 +1643,7 @@ impl ScriptVm {
                 policy_context,
                 continuation,
                 deferred_request_started,
+                blob_url_entry,
             },
         };
         let info = pending.info.clone();
