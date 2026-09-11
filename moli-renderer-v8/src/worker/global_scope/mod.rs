@@ -54,7 +54,6 @@ use crate::context_bootstrap::{
     simple_object_event_set_handler,
 };
 use crate::network::loads::{ResourceLoadDisposition, ResourceLoadKind, ResourceLoadLease};
-use crate::network_host::xhr_has_upload_listeners;
 use crate::network_host::{
     ABORTED_ERROR_TEXT, BLOCKED_BY_CLIENT_ERROR_TEXT, FAILED_ERROR_TEXT,
     FetchResponseSecurityViolation, HeadersGuard, PreparedXhrSendBody, XHR_ABORTED_SLOT,
@@ -64,9 +63,10 @@ use crate::network_host::{
     apply_xhr_response, apply_xhr_response_body_source, apply_xhr_timeout, begin_xhr_send,
     browser_request_needs_manual_preflight_redirects,
     build_fetch_response_object_from_subresource_body_for_request_mode,
-    close_pending_network_body_stream, convert_xhr_send_body_from_args, dispatch_xhr_loadstart,
-    dispatch_xhr_upload_complete, enqueue_pending_network_body_chunk,
-    error_pending_network_body_stream_with_reason, extract_subresource_auth_challenge,
+    capture_xhr_upload_listener_flag, close_pending_network_body_stream,
+    convert_xhr_send_body_from_args, dispatch_xhr_loadstart, dispatch_xhr_upload_complete,
+    enqueue_pending_network_body_chunk, error_pending_network_body_stream_with_reason,
+    extract_subresource_auth_challenge,
     fetch_browser_subresource_raw_stream_with_preflight_headers_and_network_metadata,
     fetch_browser_subresource_with_preflight_headers_and_network_metadata,
     filter_cors_exposed_response_headers, filter_headers_for_guard, is_cors_policy_failure_message,
