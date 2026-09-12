@@ -17,6 +17,7 @@ use moli_webapi_declare::WebApiObject;
 pub(crate) struct FetchResponseRequest<'a> {
     pub(crate) method: &'a str,
     pub(crate) mode: RequestMode,
+    pub(crate) redirect_mode: RequestRedirectMode,
 }
 
 impl FetchResponseRequest<'_> {
@@ -48,6 +49,21 @@ impl FetchResponseRequest<'_> {
     ) -> crate::types::AsyncSubresourceFetchResponseFilter {
         network_response_filter(request_origin, head, self.mode, self.redirect_mode)
             .unwrap_or_else(|| FetchResponseFilter::Basic.into())
+    }
+
+    fn response_metadata(
+        self,
+        mut metadata: FetchResponseMetadata,
+        head: &moli_fetch::ResponseHead,
+    ) -> FetchResponseMetadata {
+        if self.redirect_mode == RequestRedirectMode::Manual
+            && matches!(head.status, 301 | 302 | 303 | 307 | 308)
+            && metadata.response_type.is_readable()
+        {
+            metadata.response_type = FetchResponseFilter::OpaqueRedirect;
+        }
+        metadata.capture_cors_exposed_headers(&head.headers);
+        metadata
     }
 
     fn has_null_body(self, status: u16) -> bool {
@@ -83,8 +99,15 @@ pub(crate) fn network_response_filter(
     request_origin: impl Into<WebOrigin>,
     head: &moli_fetch::ResponseHead,
     request_mode: RequestMode,
+    redirect_mode: RequestRedirectMode,
 ) -> Option<crate::types::AsyncSubresourceFetchResponseFilter> {
-    let kind = head.fetch_response_type(&request_origin.into(), request_mode);
+    let kind = if redirect_mode == RequestRedirectMode::Manual
+        && matches!(head.status, 301 | 302 | 303 | 307 | 308)
+    {
+        FetchResponseFilter::OpaqueRedirect
+    } else {
+        head.fetch_response_type(&request_origin.into(), request_mode)
+    };
     matches!(
         kind,
         FetchResponseFilter::Opaque | FetchResponseFilter::OpaqueRedirect
