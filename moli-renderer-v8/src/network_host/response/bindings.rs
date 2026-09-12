@@ -3,7 +3,9 @@ mod init;
 pub(in crate::network_host) use self::init::ParsedResponseInit;
 use self::init::parse_response_init;
 use self::init::{install_response_body_stream, install_response_headers, response_body_init};
-use super::super::fetch_surface::{RESPONSE_BODY_USED_SLOT, mark_response_object};
+use super::super::fetch_surface::{
+    RESPONSE_BODY_USED_SLOT, mark_response_headers_immutable, mark_response_object,
+};
 use super::*;
 use crate::util::throw_range_error;
 use crate::web_api_interfaces;
@@ -21,6 +23,28 @@ struct ResponseInstanceDeclaration {
     ok: bool,
     #[webapi(slot = RESPONSE_BODY_USED_SLOT, init = false)]
     body_used: (),
+}
+
+pub(crate) fn build_error_response_object<'s>(
+    scope: &mut v8::PinScope<'s, '_>,
+) -> Option<v8::Local<'s, v8::Object>> {
+    let response = ResponseInstanceDeclaration::new(0.0, String::new(), false)
+        .bind(scope)
+        .ok()?;
+    super::metadata::set_response_metadata(
+        scope,
+        response,
+        &moli_fetch_types::FetchResponseMetadata {
+            response_type: moli_fetch_types::FetchResponseType::Error,
+            timing_allow_passed: false,
+            ..Default::default()
+        },
+    );
+    install_response_headers(scope, response, &[], None);
+    install_response_body_stream(scope, response, None, None);
+    mark_response_object(scope, response);
+    mark_response_headers_immutable(scope, response);
+    Some(response)
 }
 
 pub(crate) fn response_constructor_callback<'s>(
