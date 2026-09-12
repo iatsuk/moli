@@ -331,7 +331,6 @@ pub(crate) fn try_worker_xhr_send_callback<'s>(
         if !dispatch_xhr_loadstart(scope, xhr, prepared.send_body.as_deref()) {
             return true;
         }
-        dispatch_xhr_upload_complete(scope, xhr, prepared.send_body.as_deref());
         if xhr_state_bool_property(scope, xhr, XHR_ABORTED_SLOT).unwrap_or(false)
             || worker_xhr_open_generation_changed(scope, xhr, open_generation)
         {
@@ -465,12 +464,17 @@ pub(crate) fn try_worker_xhr_send_callback<'s>(
     if let Some(result) = local_response {
         // Local responses and network errors still complete asynchronously, so
         // abort(), open() and timeout processing use the ordinary pending XHR.
-        let _ = state.borrow().xhr_completion_tx.send(WorkerXhrCompletion {
-            native_record: None,
-            xhr_id,
-            network_request_headers: None,
-            result: result.map(|response| WorkerXhrResponse::Materialized(Box::new(response))),
-        });
+        let _ = state
+            .borrow()
+            .xhr_completion_tx
+            .send(WorkerXhrEvent::Completion(Box::new(WorkerXhrCompletion {
+                native_record: None,
+                xhr_id,
+                network_request_headers: None,
+                result: result
+                    .map(|response| WorkerXhrResponse::Materialized(Box::new(response)))
+                    .map_err(|error| error.to_string()),
+            })));
         return true;
     }
 
@@ -486,6 +490,15 @@ pub(crate) fn try_worker_xhr_send_callback<'s>(
                 .unwrap()
                 .network_request_handle = info.network_request_handle;
             load.task_runner().spawn(async move {
+                let mut request = request;
+                if let Some(body) = request.body.as_ref() {
+                    let upload_tx = completion_tx.clone();
+                    let observer =
+                        moli_fetch::UploadObserver::new(body.len() as u64, move |event| {
+                            let _ = upload_tx.send(WorkerXhrEvent::Upload { xhr_id, event });
+                        });
+                    request = request.with_upload_observer(observer);
+                }
                 let completed = control
                     .load(
                         request,
@@ -496,14 +509,15 @@ pub(crate) fn try_worker_xhr_send_callback<'s>(
                     )
                     .run()
                     .await;
-                let _ = completion_tx.send(WorkerXhrCompletion {
-                    xhr_id,
-                    network_request_headers: None,
-                    native_record: Some(completed.network_record),
-                    result: completed
-                        .result
-                        .map(|response| WorkerXhrResponse::Materialized(Box::new(response))),
-                });
+                let _ =
+                    completion_tx.send(WorkerXhrEvent::Completion(Box::new(WorkerXhrCompletion {
+                        xhr_id,
+                        network_request_headers: None,
+                        native_record: Some(completed.network_record),
+                        result: completed
+                            .result
+                            .map(|response| WorkerXhrResponse::Materialized(Box::new(response))),
+                    })));
             });
             return true;
         }
@@ -949,6 +963,32 @@ pub(in crate::worker) fn record_worker_xhr_failure(
         SubresourceResourceType::Xhr,
         network_error_text,
     );
+}
+
+pub(in crate::worker) fn drain_worker_xhr_event(
+    scope: &mut v8::PinScope<'_, '_>,
+    state: &Rc<RefCell<WorkerGlobalState>>,
+    event: WorkerXhrEvent,
+) {
+    match event {
+        WorkerXhrEvent::Upload { xhr_id, event } => {
+            let xhr = {
+                let state = state.borrow();
+                let Some(pending) = state.pending_xhrs.get(&xhr_id) else {
+                    return;
+                };
+                v8::Local::new(scope, &pending.xhr)
+            };
+            if !apply_xhr_upload_event(scope, xhr, u64::from(xhr_id), event)
+                && let Some(pending) = state.borrow_mut().pending_xhrs.remove(&xhr_id)
+            {
+                pending.load.cancel();
+            }
+        }
+        WorkerXhrEvent::Completion(completion) => {
+            drain_worker_xhr_completion(scope, state, *completion)
+        }
+    }
 }
 
 pub(in crate::worker) fn drain_worker_xhr_completion(
