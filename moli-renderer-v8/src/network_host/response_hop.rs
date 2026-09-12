@@ -16,6 +16,15 @@ pub(crate) fn advance_subresource_response(
     request_extra_info: Option<&moli_fetch::NetworkRequestExtraInfo>,
     source: moli_fetch::RedirectSource,
 ) -> Result<SubresourceResponseTransition, String> {
+    // Redirect request records describe the next hop's cookie decision,
+    // just as they do when the transport follows redirects internally.
+    if source == moli_fetch::RedirectSource::Network
+        && let Some(previous) = request.redirect_chain_mut().last_mut()
+        && previous.source == moli_fetch::RedirectSource::Network
+    {
+        previous.request_cookie_report = head.request_cookie_report.clone();
+        previous.request_extra_info = request_extra_info.cloned();
+    }
     // The single-hop transport refines request snapshots, including cache
     // hits and internal redirects. Keep them when carrying the chain on.
     if source == moli_fetch::RedirectSource::Network {
@@ -23,29 +32,25 @@ pub(crate) fn advance_subresource_response(
     }
     // Keep redirect-mode error precedence aligned with Fetch: an error-mode
     // redirect is rejected before the redirect response is CORS-checked.
-    if request.redirect_mode() == RequestRedirectMode::Error {
-        if next_redirect_url(&head.final_url, head.status, &head.headers, 0)?.is_some() {
-            return Err(redirect_mode_error_message(&head.final_url));
-        }
-        if source == moli_fetch::RedirectSource::Network {
-            request.validate_cors_response_for_url(&head.final_url, &head.headers)?;
-        }
-        return Ok(SubresourceResponseTransition::FinalResponse);
+    if request.redirect_mode() == RequestRedirectMode::Error && is_redirect_status(head.status) {
+        return Err(redirect_mode_error_message(&head.final_url));
     }
-
     if source == moli_fetch::RedirectSource::Network {
         request.validate_cors_response_for_url(&head.final_url, &head.headers)?;
     }
-    // Manual responses are filtered without following Location. Parsing it or
-    // applying the redirect limit would reject an otherwise valid response.
-    if request.redirect_mode() == RequestRedirectMode::Manual {
-        return Ok(if matches!(head.status, 301 | 302 | 303 | 307 | 308) {
-            SubresourceResponseTransition::ManualResponse {
+    if !is_redirect_status(head.status) {
+        return Ok(SubresourceResponseTransition::FinalResponse);
+    }
+    // Fetch selects manual/error handling from the status before parsing
+    // Location. A missing or invalid Location must not change those modes.
+    match request.redirect_mode() {
+        RequestRedirectMode::Error => return Err(redirect_mode_error_message(&head.final_url)),
+        RequestRedirectMode::Manual => {
+            return Ok(SubresourceResponseTransition::ManualResponse {
                 response_url: head.final_url,
-            }
-        } else {
-            SubresourceResponseTransition::FinalResponse
-        });
+            });
+        }
+        RequestRedirectMode::Follow => {}
     }
     let Some(next_url) = next_redirect_url(
         &head.final_url,
@@ -57,19 +62,16 @@ pub(crate) fn advance_subresource_response(
         return Ok(SubresourceResponseTransition::FinalResponse);
     };
 
-    match request.redirect_mode() {
-        RequestRedirectMode::Follow => {}
-        RequestRedirectMode::Error | RequestRedirectMode::Manual => {
-            unreachable!("redirect modes were handled before the follow transition")
-        }
-    }
     if !matches!(next_url.scheme(), "http" | "https") {
         return Err(format!("CORS redirect requires an HTTP(S) URL: {next_url}"));
     }
     if request.request_mode == RequestMode::Cors
-        && (!next_url.username().is_empty() || next_url.password().is_some())
+        && (!next_url.username().is_empty()
+            || next_url
+                .password()
+                .is_some_and(|password| !password.is_empty()))
         && request.request_origin().is_some_and(|origin| {
-            !origin.same_origin_url(&head.final_url) || !origin.same_origin_url(&next_url)
+            request.has_cross_origin_url(&head.final_url) || !origin.same_origin_url(&next_url)
         })
     {
         return Err("CORS redirect URL must not include credentials".to_owned());
@@ -85,7 +87,6 @@ pub(crate) fn advance_subresource_response(
             request.set_auth(None);
         }
     }
-
     let redirect_status = head.status;
     let response_extra_info = request_extra_info.cloned().map(|request_extra_info| {
         moli_fetch::NetworkResponseExtraInfo {
@@ -119,4 +120,8 @@ pub(crate) fn advance_subresource_response(
 
 pub(super) fn redirect_mode_error_message(url: &url::Url) -> String {
     format!("redirect mode error blocked redirect from {url}")
+}
+
+pub(super) fn is_redirect_status(status: u16) -> bool {
+    matches!(status, 301 | 302 | 303 | 307 | 308)
 }
