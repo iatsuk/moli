@@ -1,6 +1,49 @@
 use super::*;
 
 #[test]
+fn event_modifier_state_constructor_keeps_each_modifier_independent() {
+    let mut vm = new_storage_test_vm("https://event-modifiers.test/");
+    let result = vm
+        .eval(
+            r#"
+(() => {
+  const modifiers = [
+    ['Control', 'ctrlKey'], ['Shift', 'shiftKey'], ['Alt', 'altKey'], ['Meta', 'metaKey'],
+    ...['AltGraph', 'CapsLock', 'Fn', 'FnLock', 'Hyper', 'NumLock', 'ScrollLock',
+        'Super', 'Symbol', 'SymbolLock'].map(name => [name, 'modifier' + name])
+  ];
+  for (const Ctor of [KeyboardEvent, MouseEvent, WheelEvent, PointerEvent, DragEvent]) {
+    const empty = new Ctor('event');
+    for (const [key, member] of modifiers) {
+      if (empty.getModifierState(key)) return Ctor.name + ': default ' + key;
+      const event = new Ctor('event', {[member]: true});
+      for (const [queried] of modifiers) {
+        if (event.getModifierState(queried) !== (queried === key)) {
+          return Ctor.name + ': ' + key + ' changed ' + queried;
+        }
+      }
+      for (const value of [false, 0, '', null, undefined]) {
+        if (new Ctor('event', {[member]: value}).getModifierState(key)) {
+          return Ctor.name + ': boolean conversion ' + key;
+        }
+      }
+      const truthy = {valueOf() { throw new Error('boolean conversion called valueOf'); }};
+      if (!new Ctor('event', {[member]: truthy}).getModifierState(key)) return 'truthy ' + key;
+      if (member.startsWith('modifier') && member in event) return 'exposed init member ' + member;
+    }
+    for (const key of ['control', 'Unknown', '', 'Alt\0Graph']) {
+      if (empty.getModifierState(key)) return 'unknown modifier ' + key;
+    }
+  }
+  return 'ok';
+})()
+"#,
+        )
+        .expect("event modifier constructor probe should run");
+    assert_eq!(result, "ok");
+}
+
+#[test]
 fn detached_html_elements_reflect_common_attributes() {
     let mut vm = new_storage_test_vm("https://detached-reflected-attrs.test/path/page.html");
 
