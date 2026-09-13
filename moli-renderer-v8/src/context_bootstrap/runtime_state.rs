@@ -1810,6 +1810,7 @@ pub(crate) fn finish_context_bootstrap(
         ("PerformanceTiming", "PerformanceTiming"),
         ("PerformanceNavigation", "PerformanceNavigation"),
         ("NavigatorUAData", "NavigatorUAData"),
+        ("UserActivation", "UserActivation"),
         ("StorageManager", "StorageManager"),
         ("StorageEstimate", "StorageEstimate"),
         ("StorageAccessHandle", "StorageAccessHandle"),

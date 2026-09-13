@@ -10,6 +10,7 @@ mod navigator;
 mod navigator_subobjects;
 mod promises;
 mod screen;
+mod user_activation;
 mod visual_viewport;
 mod window_state;
 
