@@ -864,7 +864,7 @@ fn trusted_types_factory_receiver_is_valid<'s>(
     scope: &mut v8::PinScope<'s, '_>,
     receiver: v8::Local<'s, v8::Object>,
 ) -> bool {
-    if web_api_interfaces::TrustedTypePolicyFactory::is_instance(scope, receiver.into()) {
+    if web_api_interfaces::TrustedTypePolicyFactory::is_instance(scope, receiver) {
         return true;
     }
     throw_type_error(scope, "Illegal invocation");
