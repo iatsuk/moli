@@ -745,7 +745,6 @@ mod tests {
         ServiceWorkerQueuedLaunch {
             params,
             host: new_loading_test_host(version_id, &run),
-            lifecycle_notifications: Vec::new(),
             preloaded_script: None,
         }
     }
@@ -1273,6 +1272,7 @@ mod tests {
 
     fn test_loaded_script(script_url: &Url, source: &str) -> LoadedServiceWorkerScript {
         LoadedServiceWorkerScript {
+            updated_imports: Default::default(),
             resource: test_script_resource(script_url),
             source: source.to_owned(),
             response_referrer_policy: None,
@@ -1305,6 +1305,7 @@ mod tests {
         scope_url: Url,
     ) -> ServiceWorkerQueuedRegisterJob {
         ServiceWorkerQueuedRegisterJob {
+            update_registration_id: None,
             script_url,
             document_url: scope_url.join("page.html").expect("document url"),
             storage_key: ServiceWorkerRegistrationKey::storage_key_for_scope_url(&scope_url),
@@ -1317,11 +1318,11 @@ mod tests {
             force_update_page_load_waiter_ids: Vec::new(),
             request_client: test_request_client(service),
             network_policy: WorkerNetworkPolicy::default(),
-            browser_context_runtime: service.browser_context_runtime(),
+            worker_context_runtime: service.browser_context_runtime().worker_context_runtime(),
             broadcast_channel_top_level_site: None,
             indexed_db_manager: None,
             storage_bucket_store: None,
-            callbacks: vec![ServiceWorkerRegisterJob {
+            callbacks: vec![ServiceWorkerRegisterJob::Page {
                 request_id: 1,
                 document_owner: crate::native_bridge::WindowDocumentOwner::for_test(1),
                 completion_tx: test_completion_sender(),
@@ -1341,6 +1342,7 @@ mod tests {
         let document_url = scope_url.join("page.html").expect("document url");
         let browser_context_runtime = service.browser_context_runtime();
         let queued_job = ServiceWorkerQueuedRegisterJob {
+            update_registration_id: None,
             script_url: script_url.clone(),
             scope_url: scope_url.clone(),
             document_url,
@@ -1353,11 +1355,11 @@ mod tests {
             force_update_page_load_waiter_ids: Vec::new(),
             request_client: test_request_client(service),
             network_policy: WorkerNetworkPolicy::default(),
-            browser_context_runtime,
+            worker_context_runtime: browser_context_runtime.worker_context_runtime(),
             broadcast_channel_top_level_site: None,
             indexed_db_manager: None,
             storage_bucket_store: None,
-            callbacks: vec![ServiceWorkerRegisterJob {
+            callbacks: vec![ServiceWorkerRegisterJob::Page {
                 request_id,
                 document_owner: crate::native_bridge::WindowDocumentOwner::for_test(1),
                 completion_tx,
@@ -1534,7 +1536,7 @@ mod tests {
         registration.scope_url = scope_url.clone();
         registration.installing_version_id = Some(version_id);
         let mut pending_register_job =
-            ServiceWorkerPendingRegisterJob::new(vec![ServiceWorkerRegisterJob {
+            ServiceWorkerPendingRegisterJob::new(vec![ServiceWorkerRegisterJob::Page {
                 request_id,
                 document_owner: crate::native_bridge::WindowDocumentOwner::for_test(1),
                 completion_tx,
@@ -1589,6 +1591,7 @@ mod tests {
         state.job_coordinator.enqueue_register(
             registration_key.clone(),
             ServiceWorkerQueuedRegisterJob {
+                update_registration_id: None,
                 script_url,
                 scope_url: scope_url.clone(),
                 document_url: scope_url.join("page.html").expect("document url"),
@@ -1601,11 +1604,11 @@ mod tests {
                 force_update_page_load_waiter_ids: Vec::new(),
                 request_client: test_request_client(service),
                 network_policy: WorkerNetworkPolicy::default(),
-                browser_context_runtime: service.browser_context_runtime(),
+                worker_context_runtime: service.browser_context_runtime().worker_context_runtime(),
                 broadcast_channel_top_level_site: None,
                 indexed_db_manager: None,
                 storage_bucket_store: None,
-                callbacks: vec![ServiceWorkerRegisterJob {
+                callbacks: vec![ServiceWorkerRegisterJob::Page {
                     request_id,
                     document_owner: crate::native_bridge::WindowDocumentOwner::for_test(1),
                     completion_tx,
