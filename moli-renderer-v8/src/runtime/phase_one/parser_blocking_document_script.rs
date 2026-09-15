@@ -241,14 +241,17 @@ impl ParserClassicDocumentScriptExecutionHooks
         let script_handle = failure.script_handle();
         let script_url = failure.script_url().clone();
         let error = failure.error().to_owned();
-        let event = owner
-            .page_vm
-            .vm()
-            .document_runtime
-            .plan_parser_owned_script_event_task(
+        let runtime = &owner.page_vm.vm().document_runtime;
+        let event = if runtime.dom_host().owner_document_handle(script_handle)
+            == Some(runtime.document_handle())
+        {
+            runtime.plan_parser_owned_script_event_task(
                 crate::host::ScriptEventKind::Error,
                 script_handle,
-            );
+            )
+        } else {
+            None
+        };
         tracing::debug!(
             expected_owner = ?target.owner(),
             ?script_handle,
