@@ -195,6 +195,8 @@ pub(crate) struct WorkerSpawnOptions {
     pub(crate) content_security_policies: Vec<ContentSecurityPolicy>,
     pub(crate) content_security_report_only_policies: Vec<ContentSecurityPolicy>,
     pub(crate) content_security_reporting_endpoints: ContentSecurityPolicyReportingEndpoints,
+    pub(crate) content_security_policy_snapshot:
+        Option<crate::content_security_policy::InheritedContentSecurityPolicy>,
     pub(crate) network_policy: WorkerNetworkPolicy,
     pub(crate) policy_context: crate::types::SubresourcePolicyContext,
     pub(crate) worker_context_runtime: RendererWorkerContextRuntime,
@@ -335,6 +337,7 @@ impl WorkerSpawnOptions {
             module_credentials_mode: RequestCredentialsMode::SameOrigin,
             referrer_policy: None,
             module_static_import_content_security_policies: Vec::new(),
+            content_security_policy_snapshot: None,
             content_security_policies: Vec::new(),
             content_security_report_only_policies: Vec::new(),
             content_security_reporting_endpoints: ContentSecurityPolicyReportingEndpoints::default(
@@ -425,6 +428,17 @@ impl WorkerSpawnOptions {
         policies: Vec<ContentSecurityPolicy>,
     ) -> Self {
         self.content_security_report_only_policies = policies;
+        self
+    }
+
+    pub(crate) fn with_content_security_policy_snapshot(
+        mut self,
+        policy: crate::content_security_policy::InheritedContentSecurityPolicy,
+    ) -> Self {
+        self.content_security_policies = policy.enforced_strings();
+        self.content_security_report_only_policies = policy.report_only_policies.clone();
+        self.content_security_reporting_endpoints = policy.reporting_endpoints.clone();
+        self.content_security_policy_snapshot = Some(policy);
         self
     }
 
@@ -621,24 +635,22 @@ fn start_worker_module_graph_fetch(
     loader: WorkerResourceLoader,
     network_partition_key: Option<String>,
     module_static_import_content_security_policies: Vec<ContentSecurityPolicy>,
-    worker_global_content_security_policies: Vec<ContentSecurityPolicy>,
-    worker_global_content_security_report_only_policies: Vec<ContentSecurityPolicy>,
-    worker_global_content_security_reporting_endpoints: ContentSecurityPolicyReportingEndpoints,
+    worker_global_policy: crate::content_security_policy::InheritedContentSecurityPolicy,
     completion_tx: mpsc::UnboundedSender<WorkerModuleGraphFetchCompletion>,
 ) {
     let fetch_id = request.fetch_id();
     let completion_key = request.module_key();
-    let (enforce, report, endpoints, resource_kind) = match request.csp_source() {
+    let (policy, resource_kind) = match request.csp_source() {
         WorkerModuleGraphFetchCspSource::StaticModuleGraph => (
-            module_static_import_content_security_policies,
-            Vec::new(),
-            ContentSecurityPolicyReportingEndpoints::default(),
+            crate::content_security_policy::InheritedContentSecurityPolicy {
+                self_url: Some(request.initiator_url().clone()),
+                header_policies: module_static_import_content_security_policies,
+                ..Default::default()
+            },
             crate::content_security_policy::ContentSecurityPolicyResourceKind::WorkerStaticModuleImport,
         ),
         WorkerModuleGraphFetchCspSource::DynamicImportGraph => (
-            worker_global_content_security_policies,
-            worker_global_content_security_report_only_policies,
-            worker_global_content_security_reporting_endpoints,
+            worker_global_policy,
             crate::content_security_policy::ContentSecurityPolicyResourceKind::WorkerDynamicModuleImport,
         ),
     };
@@ -648,15 +660,19 @@ fn start_worker_module_graph_fetch(
         request.url().clone(),
         None,
         move |url, original_url, redirect_status| {
-            let check = |policies: &[ContentSecurityPolicy], disposition| {
-                crate::content_security_policy::content_security_policy_url_violation_for_checked_url_with_redirect_status_disposition_and_reporting_endpoints(
-                    policies, &initiator, url, original_url, resource_kind,
-                    redirect_status, disposition, &endpoints,
-                )
+            let check = |disposition| {
+                policy.policies(disposition).find_map(|(value, report_uri_enabled)| {
+                let mut violation = crate::content_security_policy::content_security_policy_url_violation_for_checked_url_with_redirect_status_disposition_reporting_endpoints_and_request(
+                    std::slice::from_ref(value), &initiator, policy.self_url.as_ref(), url, original_url, resource_kind,
+                    redirect_status, disposition, &policy.reporting_endpoints, crate::content_security_policy::ContentSecurityPolicyUrlRequest::Standard,
+                )?;
+                if !report_uri_enabled { violation.report_uri_endpoints.clear(); }
+                Some(violation)
+            })
             };
             (
-                check(&report, ContentSecurityPolicyDisposition::Report),
-                check(&enforce, ContentSecurityPolicyDisposition::Enforce),
+                check(ContentSecurityPolicyDisposition::Report),
+                check(ContentSecurityPolicyDisposition::Enforce),
             )
         },
     );
@@ -1273,6 +1289,7 @@ pub(crate) fn spawn_worker_with_options(options: WorkerSpawnOptions) -> WorkerHa
         content_security_policies,
         content_security_report_only_policies,
         content_security_reporting_endpoints,
+        content_security_policy_snapshot,
         network_policy,
         policy_context,
         worker_context_runtime,
@@ -1328,6 +1345,7 @@ pub(crate) fn spawn_worker_with_options(options: WorkerSpawnOptions) -> WorkerHa
                 content_security_policies,
                 content_security_report_only_policies,
                 content_security_reporting_endpoints,
+                content_security_policy_snapshot,
                 network_policy,
                 policy_context,
                 worker_context_runtime,
@@ -1462,6 +1480,9 @@ async fn worker_main(
     content_security_policies: Vec<ContentSecurityPolicy>,
     content_security_report_only_policies: Vec<ContentSecurityPolicy>,
     content_security_reporting_endpoints: ContentSecurityPolicyReportingEndpoints,
+    content_security_policy_snapshot: Option<
+        crate::content_security_policy::InheritedContentSecurityPolicy,
+    >,
     network_policy: WorkerNetworkPolicy,
     policy_context: crate::types::SubresourcePolicyContext,
     worker_context_runtime: RendererWorkerContextRuntime,
@@ -1621,6 +1642,7 @@ async fn worker_main(
         content_security_policies,
         content_security_report_only_policies,
         content_security_reporting_endpoints,
+        content_security_policy_snapshot,
         secure_context,
         permission_overrides: network_policy.permission_overrides,
         extra_http_headers: network_policy.extra_http_headers,
