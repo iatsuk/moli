@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 use anyhow::{Context, Result, anyhow};
 use moli_cookie_jar::{
@@ -38,6 +38,27 @@ pub enum CookieHeaderPolicy {
     /// curl-style HTTP clients retain generated cookies and send explicit Cookie
     /// headers only to the initial origin, including after returning to it.
     PreserveExplicit,
+}
+
+type RedirectCheckCallback = dyn Fn(&Url) -> std::result::Result<(), String> + Send + Sync;
+
+/// An embedder policy checked before following a redirect, including cached
+/// redirects. A rejected target must never reach the network.
+#[derive(Clone)]
+pub struct RequestRedirectCheck(Arc<RedirectCheckCallback>);
+
+impl RequestRedirectCheck {
+    pub fn new(
+        check: impl Fn(&Url) -> std::result::Result<(), String> + Send + Sync + 'static,
+    ) -> Self {
+        Self(Arc::new(check))
+    }
+}
+
+impl std::fmt::Debug for RequestRedirectCheck {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str("RequestRedirectCheck")
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -86,6 +107,7 @@ pub struct Request {
     browser_identity: Option<std::sync::Arc<moli_browser_profile::BrowserIdentityProfile>>,
     redirect_policy: Option<RequestRedirectPolicy>,
     upload_observer: Option<crate::UploadObserver>,
+    redirect_check: Option<RequestRedirectCheck>,
 }
 
 /// Request-owned admission check, run before following each redirect target.
@@ -682,6 +704,7 @@ impl Request {
             browser_identity: None,
             redirect_policy: None,
             upload_observer: None,
+            redirect_check: None,
         })
     }
 
@@ -722,6 +745,7 @@ impl Request {
             browser_identity: None,
             redirect_policy: None,
             upload_observer: None,
+            redirect_check: None,
         }
     }
 
@@ -795,6 +819,7 @@ impl Request {
             browser_identity: None,
             redirect_policy: None,
             upload_observer: None,
+            redirect_check: None,
         }
     }
 
@@ -1072,6 +1097,19 @@ impl Request {
     pub fn with_upload_observer(mut self, observer: crate::UploadObserver) -> Self {
         self.upload_observer = Some(observer);
         self
+    }
+
+    pub fn with_redirect_check(mut self, check: RequestRedirectCheck) -> Self {
+        self.redirect_check = Some(check);
+        self
+    }
+
+    /// Browser redirect loops call this when the transport fetches one hop at
+    /// a time. Automatically followed transport requests perform the same check.
+    pub fn check_redirect_target(&self, next_url: &Url) -> std::result::Result<(), String> {
+        self.redirect_check
+            .as_ref()
+            .map_or(Ok(()), |check| (check.0)(next_url))
     }
 
     pub fn upload_observer(&self) -> Option<&crate::UploadObserver> {
@@ -1372,8 +1410,10 @@ impl Request {
         self.redirect_chain.push(redirect);
     }
 
-    /// Follows an authorized redirect without rebuilding the Fetch request.
+    /// Checks and follows a redirect without rebuilding the Fetch request.
     pub fn follow_redirect(&mut self, redirect: RedirectInfo) -> Result<()> {
+        self.check_redirect_target(&redirect.to_url)
+            .map_err(anyhow::Error::msg)?;
         self.validate_request_mode_for_url(&redirect.to_url)?;
         self.check_redirect_policy(&redirect.to_url)?;
         // Cookie origin adaptation must not become a new referrer source,

@@ -353,6 +353,7 @@ fn controlled_fetch_prepares_page_headers_while_offline_or_blocked() {
                         timing_allow_passed: true,
                         url_list: (None).into_iter().collect(),
                         redirected: false,
+                        cors_exposed_header_names: None,
                     },
                     status: 200,
                     status_text: "OK".to_owned(),
@@ -1045,6 +1046,7 @@ fn resource_store_restores_no_fetch_handler_metadata_for_controlled_fetch() {
     let (direct_completion_tx, mut direct_completion_rx) = tokio::sync::oneshot::channel();
     assert!(
         second_service.dispatch_controlled_fetch(ServiceWorkerFetchDispatch {
+            redirect_check: None,
             internal_id: 89,
             request: ServiceWorkerFetchRequest {
                 client_id,
@@ -1531,6 +1533,7 @@ fn navigation_preload_completion_keeps_response_started_preload_alive() {
                     timing_allow_passed: true,
                     url_list: (None).into_iter().collect(),
                     redirected: false,
+                    cors_exposed_header_names: None,
                 },
                 status: 200,
                 status_text: "OK".to_owned(),
@@ -1833,6 +1836,7 @@ fn abort_controlled_fetch_drops_direct_worker_completion_and_ignores_late_comple
                     timing_allow_passed: true,
                     url_list: (None).into_iter().collect(),
                     redirected: false,
+                    cors_exposed_header_names: None,
                 },
                 status: 200,
                 status_text: "OK".to_owned(),
@@ -1995,6 +1999,7 @@ fn no_fetch_handler_controlled_fetch_falls_back_without_dispatching_event() {
     let (direct_completion_tx, mut direct_completion_rx) = tokio::sync::oneshot::channel();
     assert!(
         service.dispatch_controlled_fetch(ServiceWorkerFetchDispatch {
+            redirect_check: None,
             internal_id: 88,
             request: ServiceWorkerFetchRequest {
                 client_id,
@@ -2086,6 +2091,7 @@ fn controlled_fetch_waits_for_activating_active_version() {
 
     assert!(
         service.dispatch_controlled_fetch(ServiceWorkerFetchDispatch {
+            redirect_check: None,
             internal_id: 91,
             request: ServiceWorkerFetchRequest {
                 client_id,
@@ -2195,6 +2201,7 @@ fn empty_fetch_handler_controlled_fetch_falls_back_without_dispatching_event() {
     let (direct_completion_tx, mut direct_completion_rx) = tokio::sync::oneshot::channel();
     assert!(
         service.dispatch_controlled_fetch(ServiceWorkerFetchDispatch {
+            redirect_check: None,
             internal_id: 89,
             request: ServiceWorkerFetchRequest {
                 client_id,

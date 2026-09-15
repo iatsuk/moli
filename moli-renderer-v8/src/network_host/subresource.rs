@@ -240,6 +240,7 @@ impl SubresourceRequestDispatch {
                 .is_some()
         {
             let dispatch = ServiceWorkerFetchDispatch {
+                redirect_check: None,
                 internal_id,
                 request: host.service_worker_fetch_request(
                     self.client_id,

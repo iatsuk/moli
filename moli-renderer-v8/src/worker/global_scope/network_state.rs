@@ -3,6 +3,8 @@
 use super::*;
 
 pub(in crate::worker) struct PendingWorkerFetch {
+    pub(in crate::worker) connect_policy: crate::document_runtime::DocumentConnectPolicySnapshot,
+    pub(in crate::worker) redirect_csp_state: crate::network_host::FetchCspRedirectState,
     pub(in crate::worker) resolver: v8::Global<v8::PromiseResolver>,
     pub(in crate::worker) resource_timing: crate::context_bootstrap::FetchResourceTiming,
     pub(in crate::worker) document_url: Url,
@@ -28,6 +30,9 @@ pub(in crate::worker) struct PendingWorkerFetch {
 }
 
 pub(in crate::worker) enum WorkerFetchEvent {
+    ContentSecurityPolicyViolation(
+        Box<crate::content_security_policy::ContentSecurityPolicyUrlViolation>,
+    ),
     Completion(Box<WorkerFetchCompletion>),
     StreamingStarted(WorkerFetchStreamingStarted),
     StreamingChunk(WorkerFetchStreamingChunk),
