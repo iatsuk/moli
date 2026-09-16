@@ -438,6 +438,15 @@ pub(super) fn evaluate_module_worker_bootstrap_source(
     }
 }
 
+pub(super) fn worker_module_bootstrap_error_phase(
+    error: &WorkerBootstrapError,
+) -> WorkerErrorPhase {
+    match error.2 {
+        WorkerParentErrorEventKind::Event => WorkerErrorPhase::Bootstrap,
+        WorkerParentErrorEventKind::ErrorEvent => WorkerErrorPhase::Runtime,
+    }
+}
+
 pub(super) enum WorkerModuleBootstrapStart {
     Complete,
     Pending(Box<WorkerModulePendingBootstrap>),
