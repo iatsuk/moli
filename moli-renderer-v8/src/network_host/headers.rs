@@ -10,7 +10,7 @@ pub(crate) use self::store::headers_entries;
 pub(crate) use self::store::{HeadersGuard, combined_headers_entries, filter_headers_for_guard};
 pub(super) use self::store::{
     build_headers_object, build_headers_object_with_state, headers_entries_from_init, headers_list,
-    mark_headers_immutable, normalized_headers_entries,
+    mark_headers_immutable,
 };
 
 pub(super) fn clone_headers_object<'s>(
