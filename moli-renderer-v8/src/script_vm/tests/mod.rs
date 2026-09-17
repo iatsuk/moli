@@ -2314,6 +2314,7 @@ mod event_receivers;
 
 mod svg_number_list_native_receivers;
 
+mod fetch_request_guard;
 mod geometry_matrix_constructor_union;
 mod geometry_matrix_dictionary_order;
 mod geometry_point_conversion_order;
