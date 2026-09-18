@@ -431,7 +431,6 @@ impl ScriptVm {
                         self.resource_owner_id,
                     );
                 }
-                let context_ptr = &context.context as *const v8::Global<v8::Context>;
                 let reuses_window_proxy = self
                     ._context_host
                     .borrow()
@@ -567,6 +566,7 @@ impl ScriptVm {
                         context.local_window_id,
                     ),
                 );
+                self.clear_context_wrapper_cache_for_context_ptr(&context.context, false);
             }
             {
                 let mut host = self._context_host.borrow_mut();
