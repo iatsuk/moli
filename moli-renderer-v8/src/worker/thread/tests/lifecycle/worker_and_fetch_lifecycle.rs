@@ -310,7 +310,7 @@ async fn worker_global_prototype_chains_inherit_event_target_and_are_immutable()
                 format!(
                     r#"
                     const result = ({fixture})({interface:?});
-                    if (result.checks !== 46 || result.failures.length) {{
+                    if (result.checks !== 61 || result.failures.length) {{
                         throw new Error(JSON.stringify(result));
                     }}
                     "#
@@ -808,6 +808,7 @@ async fn service_worker_fetch_event_preload_response_resolves_network_response()
                     .into_iter()
                     .collect(),
                     redirected: false,
+                    cors_exposed_header_names: None,
                 },
                 status: 202,
                 status_text: "Accepted".to_owned(),
@@ -924,6 +925,7 @@ async fn service_worker_fetch_event_preload_response_opaqueredirect_exposes_requ
                     timing_allow_passed: true,
                     url_list: (Some(request_url)).into_iter().collect(),
                     redirected: false,
+                    cors_exposed_header_names: None,
                 },
                 status: 302,
                 status_text: "Found".to_owned(),
@@ -1104,6 +1106,7 @@ async fn service_worker_fetch_event_preload_response_body_errors_after_response(
                     .into_iter()
                     .collect(),
                     redirected: false,
+                    cors_exposed_header_names: None,
                 },
                 status: 202,
                 status_text: "Accepted".to_owned(),
@@ -1224,6 +1227,7 @@ async fn service_worker_fetch_event_preload_response_body_completes_after_fetch_
                     .into_iter()
                     .collect(),
                     redirected: false,
+                    cors_exposed_header_names: None,
                 },
                 status: 200,
                 status_text: "OK".to_owned(),
