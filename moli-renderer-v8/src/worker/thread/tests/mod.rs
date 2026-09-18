@@ -1618,6 +1618,7 @@ mod stream_clone_failures;
 mod canvas_transfer_to_image_bitmap;
 mod tls;
 mod trusted_types_reporting;
+mod wasm_csp;
 mod xhr_failure;
 
 mod payment_events;
