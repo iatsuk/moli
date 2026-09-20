@@ -329,10 +329,11 @@ fn settle_aborted_admission<'s>(
     error: Option<v8::Local<'s, v8::Value>>,
 ) {
     let canceled = error.is_none();
+    let _execution = crate::script_cleanup::ScriptExecutionScope::enter(scope);
     let error = error.unwrap_or_else(|| {
         navigation_dom_exception(scope, "History traversal was canceled", "AbortError")
     });
-    results::reject_pending_navigation_results(scope, &admission.results, error);
+    let mut results_rejected = false;
     for participant in &admission.participants {
         let navigation = participant
             .navigation
@@ -352,6 +353,10 @@ fn settle_aborted_admission<'s>(
         if let Some(signal) = &participant.outcome.signal {
             let signal = v8::Local::new(scope, signal);
             crate::native_bridge::abort::abort_signal(scope, signal, error);
+        }
+        if !results_rejected {
+            results::reject_pending_navigation_results(scope, &admission.results, error);
+            results_rejected = true;
         }
         if let Some(navigation) = navigation {
             let filename = if canceled {
@@ -377,6 +382,9 @@ fn settle_aborted_admission<'s>(
                 Some(error),
             );
         }
+    }
+    if !results_rejected {
+        results::reject_pending_navigation_results(scope, &admission.results, error);
     }
 }
 
