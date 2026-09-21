@@ -5,7 +5,11 @@ use moli_webapi_declare::WebApiFunctionTemplate;
 #[derive(WebApiFunctionTemplate)]
 #[webapi(interface = web_api_interfaces::Window, enumerable)]
 struct WindowNetworkTemplateMethodsDeclaration {
-    #[webapi(method = "fetch", length = 1, callback = window_fetch_callback)]
+    #[webapi(
+        method = "fetch",
+        length = 1,
+        callback = window_fetch_callback,
+        returns_promise, access_policy = crate::context_bootstrap::require_same_origin_window_receiver)]
     fetch: (),
 }
 
