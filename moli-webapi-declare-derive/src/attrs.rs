@@ -177,6 +177,8 @@ pub(crate) struct FieldAttrs {
     pub(crate) receiver: Option<ReceiverAttr>,
     pub(crate) receiver_access_check: Option<ReceiverAccessCheck>,
     pub(crate) access_policy: Option<Path>,
+    pub(crate) getter_access_policy: Option<Path>,
+    pub(crate) setter_access_policy: Option<Path>,
     pub(crate) returns_promise: bool,
     pub(crate) kind: FieldKind,
     pub(crate) enumerable: bool,
@@ -198,6 +200,24 @@ pub(crate) struct FieldAttrs {
 }
 
 impl FieldAttrs {
+    pub(crate) fn has_access_policy(&self) -> bool {
+        self.access_policy.is_some()
+            || self.getter_access_policy.is_some()
+            || self.setter_access_policy.is_some()
+    }
+
+    pub(crate) fn callback_access_policy(&self, is_setter: bool) -> Option<&Path> {
+        if is_setter {
+            self.setter_access_policy
+                .as_ref()
+                .or(self.access_policy.as_ref())
+        } else {
+            self.getter_access_policy
+                .as_ref()
+                .or(self.access_policy.as_ref())
+        }
+    }
+
     pub(crate) fn inherit_receiver(
         &mut self,
         receiver: Option<&ReceiverAttr>,
@@ -250,7 +270,7 @@ impl FieldAttrs {
     pub(crate) fn has_installation_attribute(&self) -> bool {
         self.receiver.is_some()
             || self.receiver_access_check.is_some()
-            || self.access_policy.is_some()
+            || self.has_access_policy()
             || self.returns_promise
             || self.enumerable
             || self.readonly
@@ -505,6 +525,26 @@ pub(crate) fn parse_field_attrs_with_defaults(
                 }
                 return Ok(());
             }
+            if meta.path.is_ident("getter_access_policy") {
+                if parsed
+                    .getter_access_policy
+                    .replace(meta.value()?.parse()?)
+                    .is_some()
+                {
+                    return Err(meta.error("field getter_access_policy can only be specified once"));
+                }
+                return Ok(());
+            }
+            if meta.path.is_ident("setter_access_policy") {
+                if parsed
+                    .setter_access_policy
+                    .replace(meta.value()?.parse()?)
+                    .is_some()
+                {
+                    return Err(meta.error("field setter_access_policy can only be specified once"));
+                }
+                return Ok(());
+            }
             if meta.path.is_ident("returns_promise") {
                 parsed.returns_promise = true;
                 return Ok(());
@@ -727,7 +767,18 @@ pub(crate) fn parse_field_attrs_with_defaults(
         ));
     }
     parsed.inherit_receiver(defaults.receiver)?;
-    if parsed.access_policy.is_some() {
+    if (parsed.getter_access_policy.is_some() || parsed.setter_access_policy.is_some())
+        && (!matches!(parsed.kind, FieldKind::AccessorProperty)
+            || parsed.access_policy.is_some()
+            || (parsed.getter_access_policy.is_some() && parsed.getter.is_none())
+            || (parsed.setter_access_policy.is_some() && parsed.setter.is_none()))
+    {
+        return Err(Error::new(
+            field.span(),
+            "getter_access_policy and setter_access_policy require their accessor callback and cannot be combined with access_policy",
+        ));
+    }
+    if parsed.has_access_policy() {
         if !matches!(parsed.kind, FieldKind::Method | FieldKind::AccessorProperty)
             || parsed.getter_value.is_some()
         {
@@ -1196,6 +1247,29 @@ mod tests {
         assert!(!attrs[2].enumerable && attrs[2].receiver.is_some());
         assert!(!attrs[3].enumerable && attrs[3].receiver.is_none());
         assert!(attrs[4].enumerable && attrs[4].receiver.is_none());
+    }
+
+    #[test]
+    fn accessor_policies_are_selected_independently() {
+        let attrs = parse_field_attrs(&syn::parse_quote!(
+            #[webapi(accessor_property, getter = get, setter = set,
+                     setter_access_policy = authorize)]
+            value: ()
+        ))
+        .unwrap();
+        assert!(attrs.callback_access_policy(false).is_none());
+        assert!(attrs.callback_access_policy(true).is_some());
+        assert!(matches!(
+            attrs.receiver_access_check,
+            Some(ReceiverAccessCheck::None)
+        ));
+        for field in [
+            syn::parse_quote!(#[webapi(method, callback = call, setter_access_policy = authorize)] value: ()),
+            syn::parse_quote!(#[webapi(accessor_property, getter = get, setter_access_policy = authorize)] value: ()),
+            syn::parse_quote!(#[webapi(accessor_property, getter = get, getter_access_policy = authorize, access_policy = other)] value: ()),
+        ] {
+            assert!(parse_field_attrs(&field).is_err());
+        }
     }
 
     #[test]

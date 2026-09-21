@@ -4,7 +4,7 @@ use super::navigator::{
 };
 use crate::{
     context_bootstrap::{
-        GlobalCachesAccessorDeclaration, WINDOW_NAVIGATOR_SLOT,
+        WINDOW_NAVIGATOR_SLOT, WindowCachesAccessorDeclaration,
         window_accessors::window_child_context_handle,
     },
     util::{get_private_value, set_private_value, v8_string},
@@ -60,7 +60,7 @@ pub(in crate::context_bootstrap) fn install_navigator_runtime_state<'s>(
         storage_apis_available_value.into(),
     );
     if storage_apis_available {
-        GlobalCachesAccessorDeclaration::default()
+        WindowCachesAccessorDeclaration::default()
             .initialize(scope, global)
             .map_err(|error| anyhow!("failed to initialize window caches accessor: {error}"))?;
     }
