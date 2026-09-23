@@ -446,6 +446,7 @@ impl ConnectedStyleImportRoot {
 
 #[derive(Debug, Clone)]
 pub(crate) struct ConnectedLoadNetworkResult {
+    pub(crate) consumed_preload_error: bool,
     /// Exact request Document, independent of an element's current location.
     pub(crate) document_owner: Option<crate::frame_owner_model::FrameDocumentTaskOwner>,
     pub(crate) stylesheet_fetch: Option<crate::stylesheet_blocking::StylesheetFetch>,
@@ -2723,6 +2724,7 @@ mod tests {
             .ready_connected_load_network_results
             .push_back(ConnectedLoadNetworkResult {
                 network_observed: false,
+                consumed_preload_error: false,
                 document_owner: None,
                 stylesheet_fetch: None,
                 blocking_operation: None,
@@ -2772,6 +2774,7 @@ mod tests {
             .ready_connected_load_network_results
             .push_back(ConnectedLoadNetworkResult {
                 network_observed: false,
+                consumed_preload_error: false,
                 document_owner: None,
                 stylesheet_fetch: Some(active_load.fetch().clone()),
                 blocking_operation: None,
@@ -2826,6 +2829,7 @@ mod tests {
             .ready_connected_load_network_results
             .push_back(ConnectedLoadNetworkResult {
                 network_observed: false,
+                consumed_preload_error: false,
                 document_owner: None,
                 stylesheet_fetch: Some(detached_load.fetch().clone()),
                 blocking_operation: None,
@@ -2880,6 +2884,7 @@ mod tests {
             .ready_connected_load_network_results
             .push_back(ConnectedLoadNetworkResult {
                 network_observed: false,
+                consumed_preload_error: false,
                 document_owner: None,
                 stylesheet_fetch: Some(detached_load.fetch().clone()),
                 blocking_operation: None,
@@ -3488,6 +3493,7 @@ mod tests {
             successful: false,
             network_results: vec![ConnectedLoadNetworkResult {
                 network_observed: false,
+                consumed_preload_error: false,
                 document_owner: None,
                 stylesheet_fetch: None,
                 blocking_operation: None,
@@ -3584,6 +3590,7 @@ mod tests {
                 successful: true,
                 network_results: vec![ConnectedLoadNetworkResult {
                     network_observed: false,
+                    consumed_preload_error: false,
                     document_owner: None,
                     stylesheet_fetch: None,
                     blocking_operation: None,
@@ -3658,6 +3665,7 @@ mod tests {
             successful: true,
             network_results: vec![ConnectedLoadNetworkResult {
                 network_observed: false,
+                consumed_preload_error: false,
                 document_owner: None,
                 stylesheet_fetch: None,
                 blocking_operation: None,
@@ -3720,6 +3728,7 @@ mod tests {
             successful: true,
             network_results: vec![ConnectedLoadNetworkResult {
                 network_observed: false,
+                consumed_preload_error: false,
                 document_owner: None,
                 stylesheet_fetch: None,
                 blocking_operation: None,
@@ -3858,6 +3867,7 @@ mod tests {
             .ready_connected_load_network_results
             .push_back(ConnectedLoadNetworkResult {
                 network_observed: false,
+                consumed_preload_error: false,
                 document_owner: None,
                 stylesheet_fetch: None,
                 blocking_operation: None,
