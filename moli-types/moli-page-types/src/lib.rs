@@ -330,6 +330,7 @@ pub struct NavigationResponse {
     pub redirect_chain: Vec<NavigationRedirect>,
     pub from_cache: bool,
     pub cache_state: moli_fetch::ResponseCacheState,
+    pub preload_state: moli_fetch::ResponsePreloadState,
     pub negotiated_http_version: Option<NegotiatedHttpVersion>,
     network_request_headers: Option<Vec<(String, String)>>,
 }
@@ -351,6 +352,7 @@ impl Clone for NavigationResponse {
             redirect_chain: self.redirect_chain.clone(),
             from_cache: self.from_cache,
             cache_state: self.cache_state,
+            preload_state: self.preload_state.clone(),
             negotiated_http_version: self.negotiated_http_version,
             network_request_headers: self.network_request_headers.clone(),
         }
@@ -413,6 +415,7 @@ impl NavigationResponse {
                 .collect(),
             from_cache: self.from_cache,
             cache_state: self.cache_state,
+            preload_state: self.preload_state.clone(),
             negotiated_http_version: self.negotiated_http_version,
         }
     }
@@ -455,6 +458,7 @@ impl NavigationResponse {
             redirect_chain: head.redirect_chain.into_iter().map(Into::into).collect(),
             from_cache: head.from_cache,
             cache_state: head.cache_state,
+            preload_state: head.preload_state.clone(),
             negotiated_http_version: head.negotiated_http_version,
             network_request_headers: None,
         }
@@ -482,6 +486,7 @@ impl NavigationResponse {
                 redirect_chain: Vec::new(),
                 from_cache: false,
                 cache_state: Default::default(),
+                preload_state: Default::default(),
                 negotiated_http_version: None,
             },
             body,
@@ -515,6 +520,7 @@ impl NavigationResponse {
             redirect_chain: self.redirect_chain.into_iter().map(Into::into).collect(),
             from_cache: self.from_cache,
             cache_state: self.cache_state,
+            preload_state: self.preload_state.clone(),
             negotiated_http_version: self.negotiated_http_version,
         };
         let (body, body_bytes) = self
@@ -553,6 +559,7 @@ impl NavigationResponse {
             redirect_chain: self.redirect_chain.into_iter().map(Into::into).collect(),
             from_cache: self.from_cache,
             cache_state: self.cache_state,
+            preload_state: self.preload_state.clone(),
             negotiated_http_version: self.negotiated_http_version,
         };
         (head, self.body)
@@ -2532,6 +2539,7 @@ pub struct PendingSubresourceResponseInfo {
     pub response_body: SubresourceResponseBody,
     pub from_cache: bool,
     pub cache_state: moli_fetch::ResponseCacheState,
+    pub preload_state: moli_fetch::ResponsePreloadState,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -2554,6 +2562,7 @@ pub struct PendingSubresourceAuthInfo {
     pub response_body: SubresourceResponseBody,
     pub response_from_cache: bool,
     pub response_cache_state: moli_fetch::ResponseCacheState,
+    pub response_preload_state: moli_fetch::ResponsePreloadState,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -3494,6 +3503,8 @@ pub struct ChildFrameDocumentNetworkSnapshot {
     pub from_cache: bool,
     #[serde(default)]
     pub cache_state: moli_fetch::ResponseCacheState,
+    #[serde(skip)]
+    pub preload_state: moli_fetch::ResponsePreloadState,
 }
 
 /// A completed child main-resource request whose Network facts remain
@@ -4351,6 +4362,7 @@ mod tests {
                 redirect_chain: Vec::new(),
                 from_cache: false,
                 cache_state: Default::default(),
+                preload_state: Default::default(),
                 negotiated_http_version: None,
             },
             "hello".to_owned(),
@@ -4379,6 +4391,7 @@ mod tests {
                 redirect_chain: Vec::new(),
                 from_cache: false,
                 cache_state: Default::default(),
+                preload_state: Default::default(),
                 negotiated_http_version: None,
             },
             "é".to_owned(),
@@ -4418,6 +4431,7 @@ mod tests {
                 redirect_chain: Vec::new(),
                 from_cache: false,
                 cache_state: Default::default(),
+                preload_state: Default::default(),
                 negotiated_http_version: None,
             },
             String::new(),

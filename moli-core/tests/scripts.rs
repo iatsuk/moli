@@ -6841,9 +6841,6 @@ async fn parse_time_lifecycle_queue_can_stop_cleanly_at_load_stage_after_load_mi
     Ok(())
 }
 
-#[path = "scripts/document_write_errors.rs"]
-mod document_write_errors;
-
 #[path = "scripts/child_markup_insertion.rs"]
 mod child_markup_insertion;
 
@@ -6855,3 +6852,6 @@ mod text_modules;
 
 #[path = "scripts/child_stylesheet_imports.rs"]
 mod child_stylesheet_imports;
+
+#[path = "scripts/preload_consumption.rs"]
+mod preload_consumption;

@@ -101,6 +101,9 @@ pub(crate) fn network_response_filter(
     request_mode: RequestMode,
     redirect_mode: RequestRedirectMode,
 ) -> Option<crate::types::AsyncSubresourceFetchResponseFilter> {
+    if let Some(filter) = head.preload_state.response_filter() {
+        return Some(filter.clone().into());
+    }
     let kind = if redirect_mode == RequestRedirectMode::Manual
         && matches!(head.status, 301 | 302 | 303 | 307 | 308)
     {

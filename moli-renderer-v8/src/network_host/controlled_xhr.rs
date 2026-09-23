@@ -401,6 +401,8 @@ impl ControlledResourceLoad {
                         source_document: self.source_document,
                         event: Box::new(PendingSubresourceContinueEvent::AuthRequired(
                             PendingSubresourceAuthInfo {
+                                response_preload_state: response.head.preload_state.clone(),
+
                                 internal_id: self.info.internal_id,
                                 url: self.request.url.clone(),
                                 method: self.request.method.clone(),
@@ -448,6 +450,8 @@ impl ControlledResourceLoad {
                         source_document: self.source_document,
                         event: Box::new(PendingSubresourceContinueEvent::ResponsePaused(
                             PendingSubresourceResponseInfo {
+                                preload_state: response.head.preload_state.clone(),
+
                                 internal_id: self.info.internal_id,
                                 url: self.request.url.clone(),
                                 final_url: response.head.final_url.clone(),

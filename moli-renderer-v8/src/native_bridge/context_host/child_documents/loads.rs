@@ -1326,7 +1326,8 @@ impl ChildDocumentFetch {
                 self.set_response_body(body);
                 Ok(response)
             }
-            AsyncSubresourceFetchResult::Failure(error) => Err(error),
+            AsyncSubresourceFetchResult::Failure(error)
+            | AsyncSubresourceFetchResult::PreloadFailure(error) => Err(error),
             AsyncSubresourceFetchResult::Image { .. } => {
                 unreachable!("child navigation cannot receive an image result")
             }
@@ -1502,6 +1503,8 @@ fn child_document_load_outcome_from_response(
         response_body: None,
         from_cache: head.from_cache,
         cache_state: head.cache_state,
+
+        preload_state: head.preload_state.clone(),
     };
     let policy_container =
         DocumentPolicyContainer::from_navigation_response_headers(&head.headers, &navigation_url);
@@ -1738,6 +1741,7 @@ mod tests {
                 redirect_chain: Vec::new(),
                 from_cache: false,
                 cache_state: Default::default(),
+                preload_state: Default::default(),
                 negotiated_http_version: None,
             },
             moli_fetch::ResponseBody::materialized_bytes(body_bytes.clone()),
