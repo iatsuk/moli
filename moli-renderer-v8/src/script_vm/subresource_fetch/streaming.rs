@@ -1031,7 +1031,7 @@ impl ScriptVm {
                         PendingTextTrackLoadTerminal::FetchFailed,
                     ),
                     PendingSubresourceContinuation::FontFace(face) => {
-                        let face = v8::Local::new(scope, face);
+                        let face = v8::Local::new(scope, &face.face);
                         crate::context_bootstrap::finish_font_face_url_load(scope, face, None);
                     }
                     PendingSubresourceContinuation::StylesheetSubresource { binding, .. } => {
@@ -1283,7 +1283,7 @@ impl ScriptVm {
                     PendingTextTrackLoadTerminal::FetchFailed,
                 ),
                 PendingSubresourceContinuation::FontFace(face) => {
-                    let face = v8::Local::new(scope, face);
+                    let face = v8::Local::new(scope, &face.face);
                     crate::context_bootstrap::finish_font_face_url_load(scope, face, None);
                 }
                 PendingSubresourceContinuation::StylesheetSubresource { binding, .. } => {
