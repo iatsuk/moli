@@ -134,6 +134,7 @@ mod module_owner_tasks;
 mod mouse_click;
 pub(crate) use mouse_click::{MouseReleaseFollowUp, common_flat_tree_ancestor};
 mod navigation;
+mod navigation_permissions;
 mod navigator_overrides;
 mod opfs_tasks;
 mod permissions;
