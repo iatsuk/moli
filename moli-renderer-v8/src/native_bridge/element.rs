@@ -203,8 +203,8 @@ pub(crate) use activation::activate_handle_via_click;
 pub(crate) use activation::activate_handle_via_click_with_detail_and_modifiers;
 pub(crate) use activation::perform_clipboard_key_default_action;
 pub(crate) use activation::{
-    SpecialBrowsingContextTarget, TextInputSource, navigate_existing_browsing_context_target,
-    navigate_named_iframe_target, perform_text_input,
+    NamedHyperlinkPopup, SpecialBrowsingContextTarget, TextInputSource,
+    navigate_existing_browsing_context_target, navigate_named_iframe_target, perform_text_input,
 };
 pub(crate) use activation::{
     accepts_drop_default_action, activate_handle_after_pointer_release,
