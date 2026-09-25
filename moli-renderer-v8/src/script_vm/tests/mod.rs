@@ -19,6 +19,7 @@ mod native_drag_payloads;
 mod native_drag_pointer_coordinates;
 mod native_drag_pointer_suppression;
 mod native_drag_source_events;
+mod offline_audio_float;
 mod picture_in_picture_interfaces;
 mod touch_native_receivers;
 mod touch_snapshot;
@@ -2407,6 +2408,7 @@ mod observer_receivers;
 mod offline_audio_context_interfaces;
 mod offline_audio_float;
 mod periodic_wave_interfaces;
+mod popup_root_window;
 mod post_parse;
 
 mod promise_jobs;
