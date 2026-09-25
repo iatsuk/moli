@@ -21,14 +21,14 @@ pub(crate) struct V8FinalizerRegistry {
 struct ContextOwnedV8Finalizer {
     // Keep the weak before the shared cleanup so field teardown resets the V8
     // handle before releasing the final copy of the once-cell.
-    weak: v8::Weak<v8::Object>,
+    weak: v8::Weak<v8::Value>,
     cleanup: SharedFinalizerCleanup,
 }
 
 impl ContextOwnedV8Finalizer {
     fn new(
         scope: &mut v8::PinScope<'_, '_>,
-        object: v8::Local<'_, v8::Object>,
+        object: v8::Local<'_, v8::Value>,
         cleanup: FinalizerCleanup,
     ) -> Self {
         let cleanup = Rc::new(Cell::new(Some(cleanup)));
@@ -92,14 +92,27 @@ pub(crate) fn track_context_owned_v8_finalizer(
     object: v8::Local<'_, v8::Object>,
     cleanup: impl FnOnce() + 'static,
 ) {
-    let cleanup: FinalizerCleanup = Box::new(cleanup);
+    track_context_owned_value_finalizer(scope, object.into(), cleanup);
+}
 
+pub(crate) fn track_context_owned_external_finalizer(
+    scope: &mut v8::PinScope<'_, '_>,
+    external: v8::Local<'_, v8::External>,
+    cleanup: impl FnOnce() + 'static,
+) {
+    track_context_owned_value_finalizer(scope, external.into(), cleanup);
+}
+
+fn track_context_owned_value_finalizer(
+    scope: &mut v8::PinScope<'_, '_>,
+    value: v8::Local<'_, v8::Value>,
+    cleanup: impl FnOnce() + 'static,
+) {
+    let cleanup: FinalizerCleanup = Box::new(cleanup);
     let common = crate::common_runtime::CommonRuntimeState::from_scope(scope)
-        .expect("V8 finalizer object must belong to a page or worker context");
-    let entry = ContextOwnedV8Finalizer::new(scope, object, cleanup);
+        .expect("V8 finalizer must belong to a page or worker context");
+    let entry = ContextOwnedV8Finalizer::new(scope, value, cleanup);
     let retired = common.finalizers.borrow_mut().push(entry);
-    // Compaction can release a pending native cleanup as well. Keep those
-    // drops outside the component borrow, matching explicit teardown.
     drop(retired);
 }
 
@@ -160,7 +173,7 @@ mod tests {
             let cleanup_count_for_callback = Rc::clone(&cleanup_count);
             drop(registry.push(ContextOwnedV8Finalizer::new(
                 scope,
-                object,
+                object.into(),
                 Box::new(move || {
                     cleanup_count_for_callback
                         .set(cleanup_count_for_callback.get().saturating_add(1));
