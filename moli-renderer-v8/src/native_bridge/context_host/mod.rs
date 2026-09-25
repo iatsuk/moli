@@ -147,6 +147,7 @@ mod range_records;
 mod resource_loading;
 mod resource_timing;
 pub(crate) use resource_timing::ResourceTimingBufferId;
+mod animation_frames;
 mod rendering_updates;
 pub(crate) use rendering_updates::PostParseAutofocusAdmission;
 mod runtime_bindings;
@@ -1025,6 +1026,7 @@ pub(crate) struct PageScriptHost {
     popup_nested_histories: HashMap<OwnerDispatchScope, NestedHistoryStore>,
     claimed_child_histories: HashMap<DomHandle, HashSet<child_frames::ChildHistoryIdentity>>,
     rendering_updates: rendering_updates::RenderingUpdateState,
+    animation_frames: animation_frames::AnimationFrameState,
     scroll_observable_effect_batch: interaction_batch::ScrollObservableEffectBatchState,
     view_transition_updates: view_transition_updates::ViewTransitionUpdateState,
     media_element_events: media_element_events::MediaElementEventState,
