@@ -8,16 +8,28 @@ use url::Url;
 /// be active when the body finishes. This must not retain any V8 objects.
 #[derive(Clone)]
 pub(crate) struct FetchResourceTiming {
+    started: std::time::Instant,
     start_unix_millis: f64,
+    response_start_unix_millis: std::cell::Cell<Option<f64>>,
     initiator_url: String,
 }
 
 impl FetchResourceTiming {
     pub(crate) fn capture(scope: &mut v8::PinScope<'_, '_>, origin: &WebOrigin) -> Self {
         Self {
+            started: std::time::Instant::now(),
             start_unix_millis: crate::context_bootstrap::unix_epoch_millis(),
+            response_start_unix_millis: std::cell::Cell::new(None),
             initiator_url: crate::resource_initiator::current_url(scope, origin),
         }
+    }
+
+    fn now(&self) -> f64 {
+        self.start_unix_millis + self.started.elapsed().as_secs_f64() * 1000.0
+    }
+
+    pub(crate) fn response_started(&self) {
+        self.response_start_unix_millis.set(Some(self.now()));
     }
 
     pub(crate) fn completed(
@@ -53,6 +65,14 @@ impl FetchResourceTiming {
             // to this global, even when respondWith forwards a fetched body.
             entry.transfer_size = 0.0;
         }
+        entry.end_unix_millis = Some(self.now());
+        if Self::allows_timing(origin, head, filter) {
+            entry.response_start_unix_millis = self.response_start_unix_millis.get();
+            entry.next_hop_protocol = head
+                .negotiated_http_version
+                .map(|version| version.protocol_name().to_owned())
+                .unwrap_or_default();
+        }
         if !Self::allows_timing(origin, head, filter) {
             entry.transfer_size = 0.0;
             entry.encoded_body_size = 0.0;
@@ -75,10 +95,12 @@ impl FetchResourceTiming {
     }
 
     pub(crate) fn failed(&self, url: &Url) -> ResourcePerformanceEntry {
-        ResourcePerformanceEntry::from_network_failure(
+        let mut entry = ResourcePerformanceEntry::from_network_failure(
             url.as_str(),
             "fetch",
             Some(self.start_unix_millis),
-        )
+        );
+        entry.end_unix_millis = Some(self.now());
+        entry
     }
 }
