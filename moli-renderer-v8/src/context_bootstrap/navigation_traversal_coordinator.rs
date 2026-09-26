@@ -380,7 +380,6 @@ fn settle_aborted_admission<'s>(
     admission: &PendingHistoryTraversalAdmission,
     error: Option<v8::Local<'s, v8::Value>>,
 ) {
-    let canceled = error.is_none();
     let _execution = crate::script_cleanup::ScriptExecutionScope::enter(scope);
     let error = error.unwrap_or_else(|| {
         navigation_dom_exception(scope, "History traversal was canceled", "AbortError")
