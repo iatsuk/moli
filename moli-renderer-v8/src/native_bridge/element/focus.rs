@@ -1,5 +1,5 @@
 use super::global_attributes::parse_tab_index_attribute;
-use crate::dom::native::{Element, Node};
+use crate::dom::native::{Element, NativeDom, Node};
 
 use super::super::{
     PageScriptHost, PendingWindowMessageEndpoint, document, node::node_runtime_and_handle_from_args,
@@ -53,7 +53,13 @@ pub(crate) fn contenteditable_editing_host(
     runtime: &PageScriptHost,
     handle: DomHandle,
 ) -> Option<DomHandle> {
-    let dom = runtime.dom_host().dom();
+    contenteditable_editing_host_in_dom(runtime.dom_host().dom(), handle)
+}
+
+pub(crate) fn contenteditable_editing_host_in_dom(
+    dom: &NativeDom,
+    handle: DomHandle,
+) -> Option<DomHandle> {
     let mut current = Some(handle);
     let mut editing_host = None;
     while let Some(candidate) = current {
