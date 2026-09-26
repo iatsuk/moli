@@ -11,7 +11,8 @@ pub(crate) use events::{
 pub(crate) use selection::{
     is_text_control_user_editable, replace_text_control_selection,
     replace_text_control_selection_after_beforeinput,
-    replace_text_control_selection_for_insert_html, text_control_set_selection_range_internal,
+    replace_text_control_selection_for_insert_html, restore_focused_text_control_selection,
+    text_control_set_selection_range_internal,
     text_control_set_selection_range_with_direction_internal,
 };
 pub(in crate::native_bridge) use selection::{
