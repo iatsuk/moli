@@ -5210,6 +5210,7 @@ pub enum RendererPageCommand {
         reference: RendererDomNodeReference,
     },
     TriggerAutofill(RendererAutofillTriggerRequest),
+    UnloadMainDocumentForNavigationCommit,
     ResetNavigationHistory,
     SetFileInputFilesForBackendNodeId {
         backend_node_id: u32,
