@@ -258,7 +258,7 @@ impl PageScriptHost {
             browser_context_runtime,
             resource_loader,
             completion_tx,
-            parent_character_set: self.document_character_set().to_owned(),
+            encoding_context: self.child_document_encoding_context(handle),
         };
         let paused_fetch =
             self.start_child_document_fetch(handle, initiating_owner, &initiating_loader, fetch);
@@ -1110,7 +1110,7 @@ pub(crate) struct ChildDocumentFetch {
     browser_context_runtime: crate::runtime::RendererBrowserContextRuntime,
     resource_loader: crate::network::navigation::NavigationResourceLoader,
     completion_tx: crate::page_task_queue::RendererResourceCompletionSender,
-    parent_character_set: String,
+    encoding_context: super::encoding::ChildDocumentEncodingContext,
 }
 
 impl std::fmt::Debug for ChildDocumentFetch {
@@ -1422,7 +1422,7 @@ impl ChildDocumentFetch {
             head,
             body,
             navigation_url,
-            &self.parent_character_set,
+            &self.encoding_context,
             self.download_policy,
             self.response_body.take(),
         )
@@ -1487,7 +1487,7 @@ fn child_document_load_outcome_from_response(
     head: moli_fetch::ResponseHead,
     body: moli_fetch::ResponseBody,
     navigation_url: url::Url,
-    parent_character_set: &str,
+    encoding_context: &super::encoding::ChildDocumentEncodingContext,
     download_policy: ChildNavigationDownloadPolicy,
     download_body: Option<crate::network::ResourceInterceptionBody>,
 ) -> Result<ChildDocumentLoadOutcome, String> {
@@ -1553,6 +1553,13 @@ fn child_document_load_outcome_from_response(
     }
     let content_type = child_document_content_type_from_headers(&head.headers)
         .or_else(|| child_document_content_type_for_url(&navigation_url));
+    let policy_container =
+        DocumentPolicyContainer::from_navigation_response_headers(&head.headers, &navigation_url);
+    let fallback = encoding_context.fallback_encoding(
+        &navigation_url,
+        content_type.as_deref(),
+        policy_container.sandbox.forces_opaque_origin,
+    );
     let (markup, character_set) = {
         let body_bytes = response_body
             .try_bytes()
@@ -1562,7 +1569,7 @@ fn child_document_load_outcome_from_response(
             &head.headers,
             content_type.as_deref(),
             &navigation_url,
-            Some(parent_character_set),
+            fallback,
         );
         (markup, character_set.to_owned())
     };
@@ -1698,7 +1705,7 @@ mod tests {
                 browser_context_runtime: host.browser_context_runtime(),
                 resource_loader: resource_loader.clone(),
                 completion_tx: completions.sender(),
-                parent_character_set: "UTF-8".to_owned(),
+                encoding_context: Default::default(),
             };
             assert_eq!(
                 host.start_child_document_fetch(
@@ -1748,7 +1755,7 @@ mod tests {
             },
             moli_fetch::ResponseBody::materialized_bytes(body_bytes.clone()),
             url::Url::parse("https://example.test/child").unwrap(),
-            "UTF-8",
+            &super::super::encoding::ChildDocumentEncodingContext::default(),
             ChildNavigationDownloadPolicy {
                 source_allows: true,
                 target_allows: true,
