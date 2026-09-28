@@ -355,6 +355,7 @@ impl ServiceWorkerRuntimeService {
                             body,
                         );
                     ServiceWorkerDirectFetchResult::Response(ServiceWorkerDirectFetchResponse {
+                        response_url: Some(navigation_response.final_url.clone()),
                         response: Box::new(navigation_response),
                         response_filter,
                         from_network_fallback: true,
@@ -613,11 +614,9 @@ impl ServiceWorkerRuntimeService {
                 }
             }
         }
-        let final_url = response
-            .head
-            .metadata
-            .final_url()
-            .cloned()
+        let response_url = response.head.metadata.final_url().cloned();
+        let final_url = response_url
+            .clone()
             .unwrap_or_else(|| job.request.url.clone());
         if let Err(message) =
             validate_service_worker_fetch_response_security_policy(&job, &response, &final_url)
@@ -656,6 +655,7 @@ impl ServiceWorkerRuntimeService {
         if let Some(completion_tx) = job.direct_completion_tx.take() {
             let _ = completion_tx.send(ServiceWorkerDirectFetchResult::Response(
                 ServiceWorkerDirectFetchResponse {
+                    response_url,
                     response: Box::new(navigation_response),
                     response_filter,
                     from_network_fallback: false,
