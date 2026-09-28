@@ -47,6 +47,14 @@ impl PageScriptHost {
                     }),
                 )
                 .with_interception(interception.clone(), frame_id.clone())
+                .with_document_referrer_policy(
+                    self.child_browsing_context_document_handle(child_handle)
+                        .and_then(|document| {
+                            crate::context_bootstrap::document_referrer_policy_for_native_document(
+                                self, document,
+                            )
+                        }),
+                )
             });
         let mut accepted = 0;
         for input in inputs {
@@ -143,11 +151,9 @@ impl PageScriptHost {
             DocumentBlockingStylesheetSignature::Link { url, options } => {
                 let started = moli_time::unix_epoch_millis();
                 let request_url = url.clone();
-                let root_fetch = fetcher.fetch_stylesheet_resource(
-                    document_url.clone(),
-                    url.clone(),
-                    options.clone(),
-                );
+                let options = fetcher.prepare_stylesheet_fetch_options(options.clone());
+                let root_fetch =
+                    fetcher.fetch_stylesheet_resource(document_url.clone(), url.clone(), options);
                 Either::Left(async move {
                     crate::document_runtime::fetch_complete_stylesheet_import_graph_from_root(
                         fetcher,
