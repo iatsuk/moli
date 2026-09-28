@@ -584,6 +584,12 @@ interfaces! {
     SVGFEFuncRElement: SVGComponentTransferFunctionElement;
     SVGFEBlendElement: SVGElement;
     SVGFEColorMatrixElement: SVGElement;
+    SVGFEComponentTransferElement: SVGElement;
+    SVGFEFloodElement: SVGElement;
+    SVGFEImageElement: SVGElement;
+    SVGFEMergeElement: SVGElement;
+    SVGFEMergeNodeElement: SVGElement;
+    SVGFETileElement: SVGElement;
     SVGFECompositeElement: SVGElement;
     SVGFEDisplacementMapElement: SVGElement;
     SVGFEMorphologyElement: SVGElement;
@@ -600,12 +606,12 @@ interfaces! {
     SVGStopElement: SVGElement;
     SVGElement: Element;
     SVGEllipseElement: SVGGeometryElement;
-    SVGFEComponentTransferElement: SVGElement;
-    SVGFEFloodElement: SVGElement;
-    SVGFEImageElement: SVGElement;
-    SVGFEMergeElement: SVGElement;
-    SVGFEMergeNodeElement: SVGElement;
-    SVGFETileElement: SVGElement;
+
+
+
+
+
+
     SVGForeignObjectElement: SVGGraphicsElement;
     SVGGElement: SVGGraphicsElement;
     SVGGeometryElement: SVGGraphicsElement;
