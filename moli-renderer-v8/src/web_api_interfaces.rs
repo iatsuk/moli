@@ -444,6 +444,8 @@ interfaces! {
 
     MediaDevices: EventTarget;
     MediaElementAudioSourceNode: AudioNode;
+    WakeLock;
+    WakeLockSentinel: EventTarget;
     MediaError;
 
 
