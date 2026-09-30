@@ -2551,6 +2551,8 @@ mod window_sync_method_receivers;
 mod svg_legacy_rectangle_contracts;
 
 mod indexed_db_prototype_handlers;
+mod worklet_interfaces;
+
 mod frame_owner_origin_access;
 
 async fn drain_content_security_policy_violation_tasks_for_test(
