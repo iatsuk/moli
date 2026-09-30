@@ -51,12 +51,7 @@ pub(in crate::context_bootstrap) fn constructor<'s>(
     {
         return;
     }
-    crate::util::apply_webidl_constructor_prototype_fallback(
-        scope,
-        args.this(),
-        args.new_target(),
-        "GainNode",
-    );
+
     rv.set(args.this().into());
 }
 
@@ -107,6 +102,9 @@ fn initialize<'s>(
         return false;
     }
     graph::initialize_node(scope, node, context);
+    // The legacy oscillator signal is not a Gain processor. Preserve the
+    // explicit unsupported-rendering boundary until PCM processing exists.
+    graph::mark_unsupported_processor(scope, node);
     true
 }
 
