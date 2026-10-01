@@ -2402,4 +2402,5 @@ mod blob_support;
 
 mod request_body_transfer;
 
+mod canvas_blob_serialization;
 mod response_body_clone;

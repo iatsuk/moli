@@ -136,6 +136,7 @@ impl PageVm {
             | RendererPageReadyDescriptor::UserInteraction { .. }
             | RendererPageReadyDescriptor::FileReading { .. }
             | RendererPageReadyDescriptor::MiscPlatformApi { .. }
+            | RendererPageReadyDescriptor::CanvasBlobSerialization { .. }
             | RendererPageReadyDescriptor::DedicatedWorkerClientEvent { .. }
             | RendererPageReadyDescriptor::SharedWorkerClientEvent { .. }
             | RendererPageReadyDescriptor::ServiceWorkerInternal { .. }
