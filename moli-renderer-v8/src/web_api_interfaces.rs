@@ -71,6 +71,12 @@ interfaces! {
     VideoColorSpace;
     VideoFrame;
 
+    AudioListener;
+    AudioParamMap;
+    MediaStreamAudioDestinationNode: AudioNode;
+    MediaStreamAudioSourceNode: AudioNode;
+    PannerNode: AudioNode;
+    ScriptProcessorNode: AudioNode;
     AbortController;
     AbortSignal: EventTarget;
     AbstractRange;
@@ -86,8 +92,8 @@ interfaces! {
     AudioBufferSourceNode: AudioScheduledSourceNode;
     AudioContext: BaseAudioContext;
     AudioDestinationNode: AudioNode;
-    AudioListener;
-    AudioParamMap;
+
+
     AudioNode: EventTarget;
     AudioScheduledSourceNode: AudioNode;
     AudioParam;
