@@ -37,7 +37,6 @@ interfaces! {
     MediaKeyMessageEvent: Event;
     MediaKeySession: EventTarget;
     MediaKeyStatusMap;
-    MediaKeyStatusMapIterator = "MediaKeyStatusMap Iterator";
     MediaKeySystemAccess;
     MediaKeys;
     PaymentMethodChangeEvent: PaymentRequestUpdateEvent;
