@@ -96,6 +96,8 @@ interfaces! {
     PerformanceEventTiming: PerformanceEntry;
     PerformancePaintTiming: PerformanceEntry;
     PerformanceServerTiming;
+    ReportBody;
+    ReportingObserver;
     AbortController;
     AbortSignal: EventTarget;
     AbstractRange;
@@ -553,7 +555,7 @@ interfaces! {
     ReadableStreamBYOBRequest;
     ReadableStreamDefaultController;
     ReadableStreamDefaultReader;
-    ReportBody;
+
     Request;
 
     ResizeObserver;
