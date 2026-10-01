@@ -3,8 +3,8 @@ use crate::util::{
     callback_data_index_value, callback_data_item, get_private_value, set_private_value,
 };
 use crate::web_api_interfaces;
-use crate::webidl::{self, WebIdlDictionarySerialize};
-use moli_v8_util::set_resolved_promise;
+use crate::webidl::{self};
+
 use moli_webapi_declare::{WebApiFunctionTemplate, WebApiObject};
 
 mod configuration;
@@ -204,7 +204,7 @@ pub(in crate::context_bootstrap) fn install_webrtc_template_bindings<'s>(
             encoded_frames::install(scope, prototype, interface_name)
         }
         "RTCPeerConnectionIceErrorEvent" => ice_error_event::install(scope, prototype),
-        "RTCPeerConnectionIceEvent" | "RTCDataChannelEvent" => {
+        "RTCPeerConnectionIceEvent" | "RTCDataChannelEvent" | "RTCErrorEvent" => {
             events::install_event_template_bindings(scope, template, interface_name)
         }
         "RTCIceCandidate" => {
