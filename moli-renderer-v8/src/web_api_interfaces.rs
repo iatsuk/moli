@@ -91,6 +91,7 @@ interfaces! {
     RTCSctpTransport: EventTarget;
     RTCStatsReport;
     RTCTrackEvent: Event;
+    EncodedVideoChunk;
     AbortController;
     AbortSignal: EventTarget;
     AbstractRange;
@@ -261,7 +262,7 @@ interfaces! {
     DynamicsCompressorNode: AudioNode;
     Element: Node;
     ElementInternals;
-    EncodedVideoChunk;
+
     ErrorEvent: Event;
     Event;
     EventCounts;
