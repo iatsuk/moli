@@ -47,17 +47,15 @@ interfaces! {
     VideoEncoder: EventTarget;
     CSSAnimation: Animation;
     CSSTransition: Animation;
-    CanvasCaptureMediaStreamTrack: MediaStreamTrack;
     ImageBitmapRenderingContext;
     MediaEncryptedEvent: Event;
     MediaMetadata;
     MediaRecorder: EventTarget;
-    MediaSession;
     MediaSourceHandle;
     MediaStream: EventTarget;
     MediaStreamTrack: EventTarget;
-
-
+    CanvasCaptureMediaStreamTrack: MediaStreamTrack;
+    MediaSession;
     TimeRanges;
     VideoPlaybackQuality;
     MediaStreamTrackEvent: Event;
@@ -67,10 +65,8 @@ interfaces! {
     RemotePlayback: EventTarget;
     SourceBuffer: EventTarget;
     SourceBufferList: EventTarget;
-
     VideoColorSpace;
     VideoFrame;
-
     AudioListener;
     AudioParamMap;
     MediaStreamAudioDestinationNode: AudioNode;
@@ -722,6 +718,11 @@ interfaces! {
     XMLSerializer;
     XPathEvaluator;
     XPathExpression;
+
+
+
+
+
     XPathResult;
 }
 
