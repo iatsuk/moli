@@ -119,8 +119,6 @@ interfaces! {
     AudioBufferSourceNode: AudioScheduledSourceNode;
     AudioContext: BaseAudioContext;
     AudioDestinationNode: AudioNode;
-
-
     AudioNode: EventTarget;
     AudioScheduledSourceNode: AudioNode;
     AudioParam;
@@ -153,7 +151,6 @@ interfaces! {
     BroadcastChannel: EventTarget;
     ByteLengthQueuingStrategy;
     CDATASection: Text;
-
     CSSConditionRule: CSSGroupingRule;
     CSSContainerRule: CSSConditionRule;
     CSSCounterStyleRule: CSSRule;
@@ -198,7 +195,6 @@ interfaces! {
     CSSStyleSheet: StyleSheet;
     CSSStyleValue;
     CSSSupportsRule: CSSConditionRule;
-
     CSSUnitValue: CSSNumericValue;
     CSSTransformComponent;
     CSSTransformValue: CSSStyleValue;
@@ -274,7 +270,6 @@ interfaces! {
     DynamicsCompressorNode: AudioNode;
     Element: Node;
     ElementInternals;
-
     ErrorEvent: Event;
     Event;
     EventCounts;
@@ -312,14 +307,6 @@ interfaces! {
     GeolocationCoordinates;
     GeolocationPosition;
     GeolocationPositionError;
-
-
-
-
-
-
-
-
     HTMLAllCollection;
     HTMLAnchorElement: HTMLElement;
     HTMLAreaElement: HTMLElement;
@@ -419,7 +406,6 @@ interfaces! {
     IdleDeadline;
     IdleDetector: EventTarget;
     Image;
-
     ImageBitmap;
     ImageData;
     InputEvent: UIEvent;
@@ -428,41 +414,22 @@ interfaces! {
     IntersectionObserverEntry;
     KeyboardEvent: UIEvent;
     KeyframeEffect: AnimationEffect;
-
-
     Location;
     MathMLElement: Element;
     MediaCapabilities;
     MediaDeviceInfo;
     InputDeviceCapabilities;
     InputDeviceInfo: MediaDeviceInfo;
-
-
     MediaDevices: EventTarget;
     MediaElementAudioSourceNode: AudioNode;
     WakeLock;
     WakeLockSentinel: EventTarget;
     MediaError;
-
-
-
-
     MediaList;
     MediaQueryList: EventTarget;
     MediaQueryListEvent: Event;
-
-
-
-
-
     MediaSource: EventTarget;
     MemoryInfo;
-
-
-
-
-
-
     MessageChannel;
     MessageEvent: Event;
     MessagePort: EventTarget;
@@ -500,11 +467,6 @@ interfaces! {
     OscillatorNode: AudioScheduledSourceNode;
     PageTransitionEvent: Event;
     Path2D;
-
-
-
-
-
     Performance: EventTarget;
     PerformanceEntry;
     PerformanceMark: PerformanceEntry;
@@ -532,26 +494,15 @@ interfaces! {
     PushSubscription;
     PushSubscriptionOptions;
     QuotaExceededError: DOMException;
-
     RTCDataChannel: EventTarget;
-
-
-
-
     RTCIceCandidate;
-
     RTCEncodedAudioFrame;
     RTCEncodedVideoFrame;
     RTCPeerConnection: EventTarget;
     RTCPeerConnectionIceEvent: Event;
     RTCDataChannelEvent: Event;
-
     RTCRtpReceiver;
-
-
-
     RTCSessionDescription;
-
     RadioNodeList: NodeList;
     Range: AbstractRange;
     ReadableByteStreamController;
@@ -561,9 +512,7 @@ interfaces! {
     ReadableStreamBYOBRequest;
     ReadableStreamDefaultController;
     ReadableStreamDefaultReader;
-
     Request;
-
     ResizeObserver;
     ResizeObserverEntry;
     ResizeObserverSize;
@@ -626,12 +575,6 @@ interfaces! {
     SVGStopElement: SVGElement;
     SVGElement: Element;
     SVGEllipseElement: SVGGeometryElement;
-
-
-
-
-
-
     SVGForeignObjectElement: SVGGraphicsElement;
     SVGGElement: SVGGraphicsElement;
     SVGGeometryElement: SVGGraphicsElement;
@@ -681,8 +624,6 @@ interfaces! {
     SharedWorker: EventTarget;
     SharedWorkerGlobalScope: WorkerGlobalScope;
     SpeechSynthesis: EventTarget;
-
-
     SpeechSynthesisUtterance: EventTarget;
     SpeechSynthesisVoice;
     StaticRange: AbstractRange;
@@ -715,8 +656,6 @@ interfaces! {
     TextTrackCueList;
     TextTrackList: EventTarget;
     ToggleEvent: Event;
-
-
     ToolActivatedEvent: Event;
     ToolCancelEvent: Event;
     Touch;
@@ -737,8 +676,6 @@ interfaces! {
     URLSearchParams;
     URLSearchParamsIterator = "URLSearchParams Iterator";
     UserActivation;
-
-
     VTTCue: TextTrackCue;
     ValidityState;
     ViewTransition;
@@ -765,9 +702,6 @@ interfaces! {
     WebGLTransformFeedback: WebGLObject;
     WebGLVertexArrayObject: WebGLObject;
     WebGLUniformLocation;
-
-
-
     WebSocket: EventTarget;
     WebSocketError: DOMException;
     WebSocketStream;
