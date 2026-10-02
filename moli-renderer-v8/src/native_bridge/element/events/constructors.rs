@@ -104,7 +104,7 @@ struct MouseEventInitDeclaration<'scope> {
 
 #[derive(WebApiObject)]
 #[webapi(plain, data_properties, enumerable)]
-struct ClickPointerEventInitDeclaration<'scope> {
+struct ActivationPointerEventIdentityDeclaration<'scope> {
     pointer_id: i32,
     pointer_type: v8::Local<'scope, v8::String>,
 }
@@ -1144,9 +1144,75 @@ pub(in crate::native_bridge::element) fn construct_click_event<'s>(
     view: Option<v8::Local<'s, v8::Object>>,
     source: ClickEventSource<'_>,
 ) -> Option<v8::Local<'s, v8::Object>> {
-    let init = mouse_event_init(
+    construct_activation_pointer_event_in_context(
         scope,
         "click",
+        coordinates,
+        detail,
+        button,
+        buttons,
+        modifiers,
+        view,
+        source,
+    )
+}
+
+pub(crate) fn construct_activation_pointer_event<'s>(
+    scope: &mut v8::PinScope<'s, '_>,
+    runtime_ptr: *mut PageScriptHost,
+    target: DomHandle,
+    event_type: &str,
+    coordinates: InputEventCoordinates,
+    detail: i32,
+    button: i32,
+    buttons: i32,
+    modifiers: u8,
+    pointer: Option<&RendererPointerEventProperties>,
+) -> Option<v8::Local<'s, v8::Object>> {
+    let document = unsafe { &*runtime_ptr }
+        .dom_host()
+        .owner_document_handle(target);
+    let view = document.and_then(|document| {
+        crate::native_bridge::document::document_associated_window_for_handle(
+            scope,
+            runtime_ptr,
+            document,
+        )
+    });
+    let context =
+        crate::native_bridge::node_owner_document_relevant_context(scope, runtime_ptr, target)?;
+    let scope = &mut v8::ContextScope::new(scope, context);
+    let source = pointer.map_or(
+        ClickEventSource::UserAgent,
+        ClickEventSource::PointerWithProperties,
+    );
+    construct_activation_pointer_event_in_context(
+        scope,
+        event_type,
+        coordinates,
+        detail,
+        button,
+        buttons,
+        modifiers,
+        view,
+        source,
+    )
+}
+
+fn construct_activation_pointer_event_in_context<'s>(
+    scope: &mut v8::PinScope<'s, '_>,
+    event_type: &str,
+    coordinates: InputEventCoordinates,
+    detail: i32,
+    button: i32,
+    buttons: i32,
+    modifiers: u8,
+    view: Option<v8::Local<'s, v8::Object>>,
+    source: ClickEventSource<'_>,
+) -> Option<v8::Local<'s, v8::Object>> {
+    let init = mouse_event_init(
+        scope,
+        event_type,
         coordinates,
         detail,
         button,
@@ -1155,7 +1221,7 @@ pub(in crate::native_bridge::element) fn construct_click_event<'s>(
         None,
         view,
     )?;
-    // Click retains only the pointing device's identity. Pressure, tilt and
+    // Activation retains only the pointing device's identity. Pressure, tilt and
     // the remaining PointerEvent fields use their dictionary defaults.
     let (pointer_id, pointer_type, positionless) = match source {
         ClickEventSource::Pointer => (1, "mouse", false),
@@ -1166,10 +1232,10 @@ pub(in crate::native_bridge::element) fn construct_click_event<'s>(
         ClickEventSource::UserAgent | ClickEventSource::Script => (-1, "", true),
     };
     let pointer_type = v8_string(scope, pointer_type)?;
-    ClickPointerEventInitDeclaration::new(pointer_id, pointer_type)
+    ActivationPointerEventIdentityDeclaration::new(pointer_id, pointer_type)
         .initialize(scope, init)
         .ok()?;
-    let event = construct_event(scope, "PointerEvent", "click", init)?;
+    let event = construct_event(scope, "PointerEvent", event_type, init)?;
     crate::context_bootstrap::set_event_internal_flag(
         scope,
         event,
