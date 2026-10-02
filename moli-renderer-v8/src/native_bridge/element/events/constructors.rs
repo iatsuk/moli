@@ -1,3 +1,4 @@
+use crate::native_bridge::node_owner_document_relevant_context;
 use crate::runtime::RendererPointerEventProperties;
 use crate::util::{serialize_v8_iter_array, v8_string, v8str};
 use crate::{document_runtime::DomHandle, native_bridge::PageScriptHost};
@@ -6,17 +7,18 @@ use super::{construct_event, prepare_native_init};
 use crate::context_bootstrap::exposed_interfaces::ensure_intrinsic_interface_constructor;
 use moli_webapi_declare::WebApiObject;
 
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub(in crate::native_bridge::element) enum ClickEventSource {
+#[derive(Clone, Copy)]
+pub(in crate::native_bridge::element) enum ClickEventSource<'a> {
     Pointer,
+    PointerWithProperties(&'a RendererPointerEventProperties),
     Touch { pointer_id: i32 },
     UserAgent,
     Script,
 }
 
-impl ClickEventSource {
+impl ClickEventSource<'_> {
     pub(in crate::native_bridge::element) fn is_trusted(self) -> bool {
-        self != Self::Script
+        !matches!(self, Self::Script)
     }
 }
 
@@ -98,6 +100,13 @@ struct MouseEventInitDeclaration<'scope> {
     shift_key: bool,
     related_target: Option<v8::Local<'scope, v8::Value>>,
     view: Option<v8::Local<'scope, v8::Object>>,
+}
+
+#[derive(WebApiObject)]
+#[webapi(plain, data_properties, enumerable)]
+struct ClickPointerEventInitDeclaration<'scope> {
+    pointer_id: i32,
+    pointer_type: v8::Local<'scope, v8::String>,
 }
 
 #[derive(WebApiObject)]
@@ -764,7 +773,7 @@ pub(crate) fn construct_pointer_event_with_related_target_and_modifiers<'s>(
         f64::from(pointer.pointer_id),
         1.0,
         1.0,
-        pointer.is_primary,
+        true,
         related_target,
     )
     .bind(scope)
@@ -837,6 +846,27 @@ pub(crate) fn construct_wheel_event<'s>(
     init.set_prototype(scope, v8::null(scope).into())?
         .then_some(())?;
     construct_event(scope, "WheelEvent", event_type, init)
+}
+
+pub(crate) fn construct_touch_event<'s>(
+    scope: &mut v8::PinScope<'s, '_>,
+    event_type: &str,
+    x: f64,
+    y: f64,
+    target: v8::Local<'s, v8::Object>,
+) -> Option<v8::Local<'s, v8::Object>> {
+    let point = TouchEventPoint {
+        identifier: 0,
+        x,
+        y,
+        target,
+        is_target_touch: true,
+    };
+    let active_points = match event_type {
+        "touchend" | "touchcancel" => Vec::new(),
+        _ => vec![point],
+    };
+    construct_touch_event_with_points(scope, event_type, &active_points, &[point])
 }
 
 #[derive(Clone, Copy)]
@@ -1112,7 +1142,7 @@ pub(in crate::native_bridge::element) fn construct_click_event<'s>(
     buttons: i32,
     modifiers: u8,
     view: Option<v8::Local<'s, v8::Object>>,
-    source: ClickEventSource,
+    source: ClickEventSource<'_>,
 ) -> Option<v8::Local<'s, v8::Object>> {
     let init = mouse_event_init(
         scope,
@@ -1125,28 +1155,28 @@ pub(in crate::native_bridge::element) fn construct_click_event<'s>(
         None,
         view,
     )?;
-    let interface = if source == ClickEventSource::Pointer {
-        "MouseEvent"
-    } else if let ClickEventSource::Touch { pointer_id } = source {
-        let key = v8str(scope, "pointerId");
-        let id = v8::Integer::new(scope, pointer_id);
-        init.create_data_property(scope, key.into(), id.into())?
-            .then_some(())?;
-        let key = v8str(scope, "pointerType");
-        let kind = v8str(scope, "touch");
-        init.create_data_property(scope, key.into(), kind.into())?
-            .then_some(())?;
-        "PointerEvent"
-    } else {
-        // Blink reserves -1 for clicks with no pointing device. PointerEvent's
-        // other defaults describe a synthetic click, unlike physical input.
-        let key = v8str(scope, "pointerId");
-        let pointer_id = v8::Integer::new(scope, -1);
-        init.create_data_property(scope, key.into(), pointer_id.into())?
-            .then_some(())?;
-        "PointerEvent"
+    // Click retains only the pointing device's identity. Pressure, tilt and
+    // the remaining PointerEvent fields use their dictionary defaults.
+    let (pointer_id, pointer_type, positionless) = match source {
+        ClickEventSource::Pointer => (1, "mouse", false),
+        ClickEventSource::PointerWithProperties(pointer) => {
+            (pointer.pointer_id, pointer.pointer_type.as_str(), false)
+        }
+        ClickEventSource::Touch { pointer_id } => (pointer_id, "touch", false),
+        ClickEventSource::UserAgent | ClickEventSource::Script => (-1, "", true),
     };
-    construct_event(scope, interface, "click", init)
+    let pointer_type = v8_string(scope, pointer_type)?;
+    ClickPointerEventInitDeclaration::new(pointer_id, pointer_type)
+        .initialize(scope, init)
+        .ok()?;
+    let event = construct_event(scope, "PointerEvent", "click", init)?;
+    crate::context_bootstrap::set_event_internal_flag(
+        scope,
+        event,
+        crate::context_bootstrap::EVENT_MOUSE_POSITIONLESS_SLOT,
+        positionless,
+    );
+    Some(event)
 }
 
 pub(crate) fn construct_mouse_event_for_target<'s>(
