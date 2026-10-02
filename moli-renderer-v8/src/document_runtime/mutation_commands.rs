@@ -1493,14 +1493,18 @@ impl DocumentRuntime {
         }
     }
 
-    pub(crate) fn set_input_value(&mut self, handle: DomHandle, value: &str) -> bool {
+    pub(crate) fn set_input_value(
+        &mut self,
+        handle: DomHandle,
+        value: impl Into<moli_dom::native::DomStringValue>,
+    ) -> bool {
         self.dom_host.set_input_value(handle, value)
     }
 
     pub(crate) fn set_input_value_with_dirty(
         &mut self,
         handle: DomHandle,
-        value: &str,
+        value: impl Into<moli_dom::native::DomStringValue>,
         dirty: bool,
     ) -> bool {
         self.dom_host
@@ -1510,7 +1514,7 @@ impl DocumentRuntime {
     pub(crate) fn set_input_value_from_user_edit(
         &mut self,
         handle: DomHandle,
-        value: &str,
+        value: impl Into<moli_dom::native::DomStringValue>,
     ) -> bool {
         self.dom_host.set_input_value_from_user_edit(handle, value)
     }

@@ -2330,7 +2330,11 @@ impl PageScriptHost {
         changed
     }
 
-    pub(crate) fn set_input_value(&mut self, handle: DomHandle, value: &str) -> bool {
+    pub(crate) fn set_input_value(
+        &mut self,
+        handle: DomHandle,
+        value: impl Into<moli_dom::native::DomStringValue>,
+    ) -> bool {
         self.clear_text_control_change_pending(handle);
         let old_state = self.retained_current_element_state(handle);
         let container_old_states = self.retained_old_states_for_validity_container_change(handle);
@@ -2346,7 +2350,7 @@ impl PageScriptHost {
     pub(crate) fn set_input_value_with_dirty(
         &mut self,
         handle: DomHandle,
-        value: &str,
+        value: impl Into<moli_dom::native::DomStringValue>,
         dirty: bool,
     ) -> bool {
         self.clear_text_control_change_pending(handle);
@@ -2370,7 +2374,7 @@ impl PageScriptHost {
     pub(crate) fn set_input_value_from_user_edit(
         &mut self,
         handle: DomHandle,
-        value: &str,
+        value: impl Into<moli_dom::native::DomStringValue>,
     ) -> bool {
         let old_state = self.retained_current_element_state(handle);
         let container_old_states = self.retained_old_states_for_validity_container_change(handle);
