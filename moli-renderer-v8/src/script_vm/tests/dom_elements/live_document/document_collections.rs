@@ -713,3 +713,24 @@ fn class_name_collections_follow_the_owner_document_quirks_mode() {
         })()"#).unwrap(), format!("{mode}|1|{lowercase_matches}|1|0|0|1"), "doctype {doctype}");
     }
 }
+
+#[test]
+fn dom_token_list_content_reflection() {
+    let mut vm = new_storage_test_vm("https://reflected-dom-token-list-content-reflection.test/");
+    let result = vm
+        .eval(
+            r#"
+(() => {
+  const element = document.createElement('div');
+  const list = element.classList;
+  element.setAttributeNS('urn:custom', 'class', 'foreign');
+  if (list.value !== '' || list.length !== 0 || list.contains('foreign')) return false;
+  element.setAttributeNS(null, 'class', 'one two one');
+  return list.value === 'one two one' && list.length === 2 &&
+    list.contains('two') && !list.contains('foreign');
+})()
+"#,
+        )
+        .expect("attribute reflection should evaluate");
+    assert_eq!(result, "true");
+}

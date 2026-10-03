@@ -150,12 +150,10 @@ pub(super) fn class_list_add_callback<'s>(
     let Some(parsed) = webidl::parse_args::<ClassListAddArgs>(scope, &args) else {
         return;
     };
-    let had_attribute = element_attribute(
-        unsafe { &*runtime_ptr },
-        handle,
-        token_list_attribute_name(kind),
-    )
-    .is_some();
+    let had_attribute = (unsafe { &*runtime_ptr })
+        .dom_host()
+        .get_attribute_ns(handle, None, token_list_attribute_name(kind))
+        .is_some();
     let mut tokens = class_list_tokens(unsafe { &*runtime_ptr }, handle, kind);
     let mut changed = false;
     for token in parsed.tokens {
@@ -188,12 +186,10 @@ pub(super) fn class_list_remove_callback<'s>(
     let Some(parsed) = webidl::parse_args::<ClassListRemoveArgs>(scope, &args) else {
         return;
     };
-    let had_attribute = element_attribute(
-        unsafe { &*runtime_ptr },
-        handle,
-        token_list_attribute_name(kind),
-    )
-    .is_some();
+    let had_attribute = (unsafe { &*runtime_ptr })
+        .dom_host()
+        .get_attribute_ns(handle, None, token_list_attribute_name(kind))
+        .is_some();
     let mut tokens = class_list_tokens(unsafe { &*runtime_ptr }, handle, kind);
     for token in parsed.tokens {
         if let Err((name, code, message)) = validate_class_list_token(&token) {

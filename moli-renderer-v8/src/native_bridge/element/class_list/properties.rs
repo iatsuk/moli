@@ -30,12 +30,10 @@ pub(super) fn class_list_value_getter_callback(
         rv.set_null();
         return;
     };
-    let value = element_attribute(
-        unsafe { &*runtime_ptr },
-        handle,
-        token_list_attribute_name(kind),
-    )
-    .unwrap_or_default();
+    let value = (unsafe { &*runtime_ptr })
+        .dom_host()
+        .get_attribute_ns(handle, None, token_list_attribute_name(kind))
+        .unwrap_or_default();
     let Some(value) = v8_string(scope, &value) else {
         rv.set_null();
         return;
