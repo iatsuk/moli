@@ -1,6 +1,30 @@
 use super::*;
 
 #[test]
+fn html_translate_content_reflection() {
+    let mut vm = new_storage_test_vm("https://reflected-html-translate-content-reflection.test/");
+    let result = vm
+        .eval(
+            r#"
+(() => {
+  const parent = document.createElement('div');
+  const child = parent.appendChild(document.createElement('span'));
+  parent.setAttributeNS('urn:custom', 'translate', 'no');
+  if (!parent.translate || !child.translate) return false;
+  parent.setAttributeNS(null, 'translate', 'no');
+  if (parent.translate || child.translate) return false;
+  child.setAttributeNS('urn:custom', 'translate', 'yes');
+  if (child.translate) return false;
+  child.setAttributeNS(null, 'translate', 'yes');
+  return child.translate;
+})()
+"#,
+        )
+        .expect("attribute reflection should evaluate");
+    assert_eq!(result, "true");
+}
+
+#[test]
 fn svg_create_rect_supports_capability_detection_and_detached_float_values() {
     let mut vm = new_storage_test_vm("https://svg-rect.test/");
     assert_eq!(

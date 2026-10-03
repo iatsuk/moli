@@ -2126,7 +2126,10 @@ pub(in crate::native_bridge) fn node_translate_getter_function<'s>(
 fn element_translate_mode(runtime: &PageScriptHost, handle: DomHandle) -> bool {
     let mut current = Some(handle);
     while let Some(candidate) = current {
-        if let Some(value) = element_attribute(runtime, candidate, "translate") {
+        if let Some(value) = runtime
+            .dom_host()
+            .get_attribute_ns(candidate, None, "translate")
+        {
             if value.eq_ignore_ascii_case("no") {
                 return false;
             }
