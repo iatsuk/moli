@@ -47,7 +47,7 @@ use url::Url;
 use super::{
     decode_data_url_script_source,
     handle::{
-        WorkerConsoleMessage, WorkerFetchHandlerType, WorkerPendingFetchContinue,
+        WorkerConsoleMessage, WorkerFetchHandlerType, WorkerMessage, WorkerPendingFetchContinue,
         WorkerPendingSubresourceFetch, WorkerPendingXhrContinue, WorkerToParentMessage,
         WorkerWebSocketFrameEvent, WorkerWebSocketLifecycleEvent,
     },
