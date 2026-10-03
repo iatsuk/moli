@@ -3845,3 +3845,31 @@ fn media_query_list_listener_uses_callback_realm_and_exact_window_lifetime() {
         r#"{"facts":[[true,true,true,true],[true,true,true,true]],"reported":{"relevantTypeError":true,"targetIsCallbackWindow":true},"childDetached":true}"#
     );
 }
+
+#[test]
+fn track_kind_reflection() {
+    let mut vm = new_storage_test_vm("https://reflected-track-kind-reflection.test/");
+    let result = vm
+        .eval(
+            r#"
+(() => {
+  const namespace = 'urn:custom';
+  for (const [tag, attribute, property, foreignValue, nativeValue, initial, expected] of [["track", "kind", "kind", "captions", "metadata", "subtitles", "metadata"]]) {
+    const element = document.createElement(tag);
+    if (element[property] !== initial) return false;
+    element.setAttributeNS(namespace, attribute, foreignValue);
+    if (element[property] !== initial || element.getAttribute(attribute) !== foreignValue) {
+      throw new Error(tag + '.' + property + ' observed the foreign attribute');
+    }
+    element.setAttributeNS(null, attribute, nativeValue);
+    if (element[property] !== expected || element.getAttributeNS(namespace, attribute) !== foreignValue) {
+      throw new Error(tag + '.' + property + ' did not reflect the native attribute');
+    }
+  }
+  return true;
+})()
+"#,
+        )
+        .expect("attribute reflection should evaluate");
+    assert_eq!(result, "true");
+}
