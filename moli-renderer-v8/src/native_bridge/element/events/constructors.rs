@@ -744,16 +744,21 @@ pub(crate) fn construct_pointer_event_with_related_target_and_modifiers<'s>(
     modifiers: u8,
 ) -> Option<v8::Local<'s, v8::Object>> {
     let is_enter_or_leave = matches!(event_type, "pointerenter" | "pointerleave");
+    let cancelable = !matches!(
+        event_type,
+        "pointerenter"
+            | "pointerleave"
+            | "pointercancel"
+            | "pointerrawupdate"
+            | "gotpointercapture"
+            | "lostpointercapture"
+    );
     let pointer_type = v8_string(scope, &pointer.pointer_type)?;
     let modifier_keys = modifier_key_state(modifiers);
     let init = PointerEventInitDeclaration::new(
         !is_enter_or_leave,
-        !is_enter_or_leave
-            && !matches!(
-                event_type,
-                "pointercancel" | "gotpointercapture" | "lostpointercapture"
-            ),
-        true,
+        cancelable,
+        !is_enter_or_leave,
         coordinates.screen_x,
         coordinates.screen_y,
         coordinates.client_x,
