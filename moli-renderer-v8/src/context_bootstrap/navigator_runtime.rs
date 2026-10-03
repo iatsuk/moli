@@ -9,6 +9,7 @@ mod media_session;
 mod navigator;
 mod navigator_subobjects;
 mod promises;
+mod protocol_handlers;
 mod screen;
 mod user_activation;
 mod visual_viewport;
