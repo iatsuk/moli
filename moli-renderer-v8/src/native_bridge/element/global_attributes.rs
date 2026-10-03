@@ -1832,7 +1832,9 @@ pub(in crate::native_bridge) fn html_fetch_priority_getter_function<'s>(
     ) else {
         return;
     };
-    let value = element_attribute(unsafe { &*runtime_ptr }, handle, descriptor.attribute)
+    let value = (unsafe { &*runtime_ptr })
+        .dom_host()
+        .get_attribute_ns(handle, None, descriptor.attribute)
         .unwrap_or_default();
     let Some(value) = v8_string(scope, canonical_fetch_priority_value(&value)) else {
         rv.set_empty_string();
