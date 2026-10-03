@@ -164,14 +164,6 @@ struct LegacyCustomEventInitDeclaration<'scope> {
     detail: v8::Local<'scope, v8::Value>,
 }
 
-fn legacy_event_view_or_global<'s>(
-    scope: &mut v8::PinScope<'s, '_>,
-    view: Option<v8::Local<'s, v8::Value>>,
-) -> v8::Local<'s, v8::Value> {
-    view.filter(|value| !value.is_null_or_undefined())
-        .unwrap_or_else(|| scope.get_current_context().global(scope).into())
-}
-
 fn legacy_text_event_view_or_null<'s>(
     scope: &mut v8::PinScope<'s, '_>,
     view: Option<v8::Local<'s, v8::Value>>,
