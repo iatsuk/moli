@@ -191,7 +191,10 @@ fn html_loading_getter_function<'s>(
         rv.set_undefined();
         return;
     }
-    let value = element_attribute(unsafe { &*runtime_ptr }, handle, "loading").unwrap_or_default();
+    let value = (unsafe { &*runtime_ptr })
+        .dom_host()
+        .get_attribute_ns(handle, None, "loading")
+        .unwrap_or_default();
     let Some(value) = v8_string(scope, canonical_loading_value(&value)) else {
         rv.set_null();
         return;
@@ -210,7 +213,9 @@ fn image_loading_getter_function<'s>(
         rv.set_empty_string();
         return;
     };
-    let value = element_attribute(unsafe { &*runtime_ptr }, handle, "loading")
+    let value = (unsafe { &*runtime_ptr })
+        .dom_host()
+        .get_attribute_ns(handle, None, "loading")
         .unwrap_or_else(|| "eager".to_owned());
     let Some(value) = v8_string(scope, &value) else {
         rv.set_empty_string();
