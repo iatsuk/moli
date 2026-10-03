@@ -36,6 +36,7 @@ mod document_domain_setter;
 mod document_open_navigation_abort;
 mod document_open_origin;
 mod dom_event_worlds;
+mod error_event_init;
 mod event_constructor_type;
 mod event_handlers;
 mod event_listener_options;
@@ -138,7 +139,6 @@ mod window_open_special_targets;
 mod worker_listener_invocation;
 mod worker_options;
 
-mod error_event_init;
 mod window_current_event_private;
 
 mod video_codec_support;
