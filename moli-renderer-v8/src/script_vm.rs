@@ -1230,6 +1230,7 @@ pub(super) struct ActiveDragSession {
 
 #[derive(Clone, Copy)]
 pub(super) struct PendingDragGesture {
+    pub document: DomHandle,
     pub x: f64,
     pub y: f64,
     pub root_to_frame: moli_layout::LayoutTransform2D,
