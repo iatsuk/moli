@@ -1119,7 +1119,6 @@ pub(super) struct ScriptVm {
     /// Last hover target and ancestry, retaining its frame transform for exits.
     hovered_mouse: Option<HoverTarget>,
     hovered_pointers: HashMap<i32, HoverTarget>,
-    active_touch_pointer_handles: BTreeMap<i32, DomHandle>,
     active_touch_points: BTreeMap<i32, ActiveTouchPoint>,
     pending_touch_tap: Option<PendingTouchTap>,
     suppress_next_keypress_after_canceled_raw_keydown: bool,
@@ -1193,6 +1192,7 @@ pub(super) struct ActiveTouchPoint {
     pub x: f64,
     pub y: f64,
     pub target: DomHandle,
+    pub pointer_target: Option<DomHandle>,
     pub is_primary: bool,
 }
 
@@ -2625,7 +2625,6 @@ impl ScriptVmDefaultWorldBootstrap {
             mouse_frame_captures: BTreeMap::new(),
             hovered_mouse: None,
             hovered_pointers: HashMap::new(),
-            active_touch_pointer_handles: BTreeMap::new(),
             active_touch_points: BTreeMap::new(),
             pending_touch_tap: None,
             suppress_next_keypress_after_canceled_raw_keydown: false,
