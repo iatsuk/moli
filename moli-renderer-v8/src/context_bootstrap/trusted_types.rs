@@ -8,6 +8,7 @@ use moli_webapi_declare::{WebApiFunctionTemplate, WebApiObject};
 
 mod policy_callbacks;
 mod realm_state;
+pub(in crate::context_bootstrap) use realm_state::ensure_trusted_types_state;
 
 use policy_callbacks::{
     TrustedTypePolicyCallbackOutcome, invoke_policy_callback, parse_policy_callbacks,
@@ -36,6 +37,18 @@ const TRUSTED_TYPES_EMPTY_VALUE_SLOTS: [&str; 2] = [
     TRUSTED_TYPES_EMPTY_HTML_SLOT,
     TRUSTED_TYPES_EMPTY_SCRIPT_SLOT,
 ];
+
+pub(in crate::context_bootstrap) fn build_policy_constructor_template<'s>(
+    scope: &mut v8::PinScope<'s, '_, ()>,
+) -> v8::Local<'s, v8::FunctionTemplate> {
+    TrustedTypePolicyInterfaceDeclaration::build(scope)
+}
+
+pub(in crate::context_bootstrap) fn build_policy_factory_constructor_template<'s>(
+    scope: &mut v8::PinScope<'s, '_, ()>,
+) -> v8::Local<'s, v8::FunctionTemplate> {
+    TrustedTypePolicyFactoryInterfaceDeclaration::build(scope)
+}
 
 #[derive(WebApiFunctionTemplate)]
 #[webapi(
