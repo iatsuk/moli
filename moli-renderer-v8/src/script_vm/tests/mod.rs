@@ -4,6 +4,7 @@ mod fetch_cache_modes;
 mod selection_worlds;
 
 mod child_document_web_fonts;
+mod constructor_entry;
 mod credential_container;
 mod credential_json_options;
 mod cross_document_drag_events;
