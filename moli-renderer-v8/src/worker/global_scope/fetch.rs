@@ -1,6 +1,7 @@
 use super::*;
-
-use crate::network_host::{CapturedBlobUrl, local_url_response_with_blob_entry};
+use crate::network_host::{
+    BlobUrlFetchEnvironment, CapturedBlobUrl, local_url_response_with_blob_entry,
+};
 use crate::network_host::{FetchArgumentError, combined_headers_entries, convert_fetch_arguments};
 use crate::network_host::{HeadersGuard, validate_fetch_response_headers};
 use crate::service_worker_runtime::{
@@ -198,6 +199,9 @@ pub(in crate::worker) fn spawn_worker_fetch_network(
 ) {
     // Resolve local URLs before scheduling: fetch(url) already parsed and
     // captured its entry when JavaScript regains control and may revoke it.
+    let authorized_blob = blob_url_entry
+        .as_ref()
+        .is_some_and(|entry| entry.is_authorized_fetch(&resolved_url));
     let local_response = local_url_response_with_blob_entry(
         &resolved_url,
         &method,
@@ -206,15 +210,24 @@ pub(in crate::worker) fn spawn_worker_fetch_network(
     );
     tokio::task::spawn_local(async move {
         let loader = load.request_client();
-        let (result, network_request_headers) = if let Err(error) =
-            moli_fetch::FetchUrlList::new(&resolved_url, &[])
+        let (result, network_request_headers) = if !authorized_blob
+            && let Err(error) = moli_fetch::FetchUrlList::new(&resolved_url, &[])
                 .validate_request_mode(request_mode, &moli_url::WebOrigin::from_url(&document_url))
         {
             (Err(error.to_string()), None)
         } else if let Some(result) = local_response {
             (
                 result
-                    .map(|response| WorkerFetchResponse::Materialized(Box::new(response)))
+                    .map(|response| {
+                        if authorized_blob {
+                            WorkerFetchResponse::Filtered {
+                                response: Box::new(response),
+                                filter: moli_fetch_types::FetchResponseType::Basic.into(),
+                            }
+                        } else {
+                            WorkerFetchResponse::Materialized(Box::new(response))
+                        }
+                    })
                     .map_err(|error| format!("fetch: {}", error.into_message())),
                 None,
             )
@@ -2220,6 +2233,11 @@ pub(super) fn start_worker_resource_fetch<'s>(
         metadata: request_metadata,
         signal,
     } = input;
+    let blob_environment = BlobUrlFetchEnvironment::for_worker(scope);
+    let blob_url_entry =
+        blob_url_entry.map(|entry| entry.for_environment(blob_environment.as_ref()));
+    // Use the same normalized header list as Request before policy checks and
+    // context overrides can otherwise discard a repeated Range field.
     let request_headers = combined_headers_entries(&request_headers);
     let headers = merge_worker_request_headers(
         &extra_http_headers,
@@ -2317,8 +2335,11 @@ pub(super) fn start_worker_resource_fetch<'s>(
         return Some(make_rejected_promise(scope, &message));
     }
 
-    if let Err(error) = moli_fetch::FetchUrlList::new(&resolved_url, &[])
-        .validate_request_mode(request_mode, &moli_url::WebOrigin::from_url(&document_url))
+    if !blob_url_entry
+        .as_ref()
+        .is_some_and(|entry| entry.is_authorized_fetch(&resolved_url))
+        && let Err(error) = moli_fetch::FetchUrlList::new(&resolved_url, &[])
+            .validate_request_mode(request_mode, &moli_url::WebOrigin::from_url(&document_url))
     {
         return Some(make_rejected_promise(scope, &error.to_string()));
     }
@@ -3221,9 +3242,14 @@ pub(in crate::worker) fn drain_worker_fetch_completion_result(
         Ok(response) => {
             let response_head = response.head();
             let response_filter = response.response_filter();
-            let security_validation = if response_filter
+            let authorized_blob = pending
+                .blob_url_entry
                 .as_ref()
-                .is_some_and(|filter| filter.service_worker_metadata().is_some())
+                .is_some_and(|entry| entry.is_authorized_fetch(&response_head.final_url));
+            let security_validation = if authorized_blob
+                || response_filter
+                    .as_ref()
+                    .is_some_and(|filter| filter.service_worker_metadata().is_some())
             {
                 // respondWith has already enforced the request's response type.
                 // Its exposed headers cannot be revalidated as a raw CORS response.
