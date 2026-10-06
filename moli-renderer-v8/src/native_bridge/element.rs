@@ -1693,7 +1693,10 @@ pub(crate) fn install_element_template_bindings<'s>(
         "HTMLScriptElement" => install!(HtmlScriptElementPrototypeDeclaration),
         "SVGScriptElement" => install!(SvgScriptElementPrototypeDeclaration),
         "SVGImageElement" => install!(SvgImageElementPrototypeDeclaration),
-        "SVGAElement" => install!(SvgAElementRelListPrototypeDeclaration),
+        "SVGAElement" => install!(
+            SvgAElementPrototypeDeclaration,
+            SvgAElementUrlPrototypeDeclaration
+        ),
         "HTMLStyleElement" => install!(HtmlStyleElementPrototypeDeclaration),
         "SVGStyleElement" => install!(SvgStyleElementPrototypeDeclaration),
         "HTMLTableElement" => install!(HtmlTableElementPrototypeDeclaration),
