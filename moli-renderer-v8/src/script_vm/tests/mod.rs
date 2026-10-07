@@ -2571,6 +2571,7 @@ mod svg_transform_lists;
 mod svg_value_lists;
 
 mod indexed_db_prototype_handlers;
+mod path2d_native;
 
 mod frame_owner_origin_access;
 
