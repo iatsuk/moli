@@ -13,7 +13,9 @@ mod navigation_init;
 mod payload;
 mod pointer;
 mod security_policy;
+mod touch;
 mod values;
+pub(crate) use touch::construct_native_touch_event;
 
 pub(in crate::context_bootstrap::events) use basic::initialize_text_event;
 pub(in crate::context_bootstrap) use constructor::build_event_subclass_template;
