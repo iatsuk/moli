@@ -274,6 +274,7 @@ pub(super) enum DomStringReflection {
     SvgAnchorHreflang,
     SvgAnchorType,
     SvgAnchorReferrerPolicy,
+    SvgMarkerOrient,
     Count,
 }
 
@@ -856,6 +857,10 @@ const DOM_STRING_REFLECTION_DESCRIPTORS: &[(DomStringReflection, DomStringReflec
         (
             DomStringReflection::SvgAnchorReferrerPolicy,
             DomStringReflectionDescriptor::new("SVGAElement", "referrerpolicy", "referrerPolicy"),
+        ),
+        (
+            DomStringReflection::SvgMarkerOrient,
+            DomStringReflectionDescriptor::new("SVGMarkerElement", "orient", "orient"),
         ),
     ];
 
