@@ -39,8 +39,8 @@ use super::super::{
     update_focus_preserving_selection,
 };
 use super::targets::{
-    SpecialBrowsingContextTarget, named_iframe_target_handle_for_navigation,
-    navigate_element_target_browsing_context,
+    SpecialBrowsingContextTarget, browsing_context_window_for_dispatch_scope,
+    named_iframe_target_handle_for_navigation, navigate_element_target_browsing_context,
 };
 
 fn data_transfer_selected_files<'s>(
