@@ -19,6 +19,7 @@ mod time;
 mod ui;
 pub(in crate::context_bootstrap) use ui::initialize_legacy_ui_event;
 mod value;
+pub(in crate::context_bootstrap) use value::construct_css_animation_start_event;
 mod wrappers;
 
 pub(in crate::context_bootstrap) mod audio;
