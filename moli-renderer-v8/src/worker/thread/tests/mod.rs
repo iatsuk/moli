@@ -1614,6 +1614,7 @@ mod lifecycle;
 mod message_port_transfer;
 mod modules;
 mod offscreen_canvas_blob;
+mod offscreen_canvas_transfer;
 mod strict_script_mime;
 
 mod canvas_fill_rect;
