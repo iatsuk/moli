@@ -117,32 +117,8 @@ const CONSTRUCTOR_SPECS_BEFORE_STREAMS: &[ConstructorSpec] = &[
         kind: ConstructorKind::MediaKeyMessageEvent,
     },
     ConstructorSpec {
-        interface: web_api_interfaces::MediaKeySession::DESCRIPTOR,
-        kind: ConstructorKind::Illegal,
-    },
-    ConstructorSpec {
-        interface: web_api_interfaces::MediaKeyStatusMap::DESCRIPTOR,
-        kind: ConstructorKind::Illegal,
-    },
-    ConstructorSpec {
-        interface: web_api_interfaces::MediaKeySystemAccess::DESCRIPTOR,
-        kind: ConstructorKind::Illegal,
-    },
-    ConstructorSpec {
-        interface: web_api_interfaces::MediaKeys::DESCRIPTOR,
-        kind: ConstructorKind::Illegal,
-    },
-    ConstructorSpec {
-        interface: web_api_interfaces::PaymentMethodChangeEvent::DESCRIPTOR,
-        kind: ConstructorKind::Shell { length: 1 },
-    },
-    ConstructorSpec {
         interface: web_api_interfaces::PaymentRequest::DESCRIPTOR,
         kind: ConstructorKind::Shell { length: 2 },
-    },
-    ConstructorSpec {
-        interface: web_api_interfaces::PaymentRequestUpdateEvent::DESCRIPTOR,
-        kind: ConstructorKind::Shell { length: 1 },
     },
     ConstructorSpec {
         interface: web_api_interfaces::VideoDecoder::DESCRIPTOR,
@@ -195,14 +171,6 @@ const CONSTRUCTOR_SPECS_BEFORE_STREAMS: &[ConstructorSpec] = &[
     ConstructorSpec {
         interface: web_api_interfaces::OverconstrainedError::DESCRIPTOR,
         kind: ConstructorKind::OverconstrainedError,
-    },
-    ConstructorSpec {
-        interface: web_api_interfaces::PictureInPictureEvent::DESCRIPTOR,
-        kind: ConstructorKind::PictureInPictureEvent,
-    },
-    ConstructorSpec {
-        interface: web_api_interfaces::PictureInPictureWindow::DESCRIPTOR,
-        kind: ConstructorKind::Illegal,
     },
     ConstructorSpec {
         interface: web_api_interfaces::SourceBuffer::DESCRIPTOR,
@@ -342,11 +310,11 @@ const CONSTRUCTOR_SPECS_BEFORE_STREAMS: &[ConstructorSpec] = &[
     },
     ConstructorSpec {
         interface: web_api_interfaces::SpeechSynthesisErrorEvent::DESCRIPTOR,
-        kind: ConstructorKind::Shell { length: 2 },
+        kind: ConstructorKind::SpeechSynthesisErrorEvent,
     },
     ConstructorSpec {
         interface: web_api_interfaces::SpeechSynthesisEvent::DESCRIPTOR,
-        kind: ConstructorKind::Shell { length: 2 },
+        kind: ConstructorKind::SpeechSynthesisEvent,
     },
     ConstructorSpec {
         interface: web_api_interfaces::WebTransport::DESCRIPTOR,
@@ -977,14 +945,6 @@ const CONSTRUCTOR_SPECS_BEFORE_STREAMS: &[ConstructorSpec] = &[
         kind: ConstructorKind::WebTransportError,
     },
     ConstructorSpec {
-        interface: web_api_interfaces::WebTransportBidirectionalStream::DESCRIPTOR,
-        kind: ConstructorKind::Illegal,
-    },
-    ConstructorSpec {
-        interface: web_api_interfaces::WebTransportDatagramDuplexStream::DESCRIPTOR,
-        kind: ConstructorKind::Illegal,
-    },
-    ConstructorSpec {
         interface: web_api_interfaces::WebSocket::DESCRIPTOR,
         kind: ConstructorKind::WebSocket,
     },
@@ -995,22 +955,6 @@ const CONSTRUCTOR_SPECS_BEFORE_STREAMS: &[ConstructorSpec] = &[
     ConstructorSpec {
         interface: web_api_interfaces::WebSocketStream::DESCRIPTOR,
         kind: ConstructorKind::WebSocketStream,
-    },
-    ConstructorSpec {
-        interface: web_api_interfaces::PerformanceServerTiming::DESCRIPTOR,
-        kind: ConstructorKind::Illegal,
-    },
-    ConstructorSpec {
-        interface: web_api_interfaces::PerformancePaintTiming::DESCRIPTOR,
-        kind: ConstructorKind::Illegal,
-    },
-    ConstructorSpec {
-        interface: web_api_interfaces::PerformanceEventTiming::DESCRIPTOR,
-        kind: ConstructorKind::Illegal,
-    },
-    ConstructorSpec {
-        interface: web_api_interfaces::LargestContentfulPaint::DESCRIPTOR,
-        kind: ConstructorKind::Illegal,
     },
     ConstructorSpec {
         interface: web_api_interfaces::Performance::DESCRIPTOR,
@@ -1027,14 +971,6 @@ const CONSTRUCTOR_SPECS_BEFORE_STREAMS: &[ConstructorSpec] = &[
     ConstructorSpec {
         interface: web_api_interfaces::Animation::DESCRIPTOR,
         kind: ConstructorKind::Animation,
-    },
-    ConstructorSpec {
-        interface: web_api_interfaces::CSSAnimation::DESCRIPTOR,
-        kind: ConstructorKind::Illegal,
-    },
-    ConstructorSpec {
-        interface: web_api_interfaces::CSSTransition::DESCRIPTOR,
-        kind: ConstructorKind::Illegal,
     },
     ConstructorSpec {
         interface: web_api_interfaces::AnimationEffect::DESCRIPTOR,
@@ -1099,14 +1035,6 @@ const CONSTRUCTOR_SPECS_BEFORE_STREAMS: &[ConstructorSpec] = &[
     ConstructorSpec {
         interface: web_api_interfaces::NavigatorUAData::DESCRIPTOR,
         kind: ConstructorKind::NavigatorUAData,
-    },
-    ConstructorSpec {
-        interface: web_api_interfaces::LockManager::DESCRIPTOR,
-        kind: ConstructorKind::Illegal,
-    },
-    ConstructorSpec {
-        interface: web_api_interfaces::Lock::DESCRIPTOR,
-        kind: ConstructorKind::Illegal,
     },
     ConstructorSpec {
         interface: web_api_interfaces::StorageManager::DESCRIPTOR,
@@ -1251,14 +1179,6 @@ const CONSTRUCTOR_SPECS_BEFORE_STREAMS: &[ConstructorSpec] = &[
     ConstructorSpec {
         interface: web_api_interfaces::SpeechSynthesisUtterance::DESCRIPTOR,
         kind: ConstructorKind::SpeechSynthesisUtterance,
-    },
-    ConstructorSpec {
-        interface: web_api_interfaces::SpeechSynthesisEvent::DESCRIPTOR,
-        kind: ConstructorKind::SpeechSynthesisEvent,
-    },
-    ConstructorSpec {
-        interface: web_api_interfaces::SpeechSynthesisErrorEvent::DESCRIPTOR,
-        kind: ConstructorKind::SpeechSynthesisErrorEvent,
     },
     ConstructorSpec {
         interface: web_api_interfaces::SpeechSynthesisVoice::DESCRIPTOR,
@@ -1552,10 +1472,6 @@ const CONSTRUCTOR_SPECS_AFTER_STREAMS: &[ConstructorSpec] = &[
         kind: ConstructorKind::ImageData,
     },
     ConstructorSpec {
-        interface: web_api_interfaces::ImageBitmapRenderingContext::DESCRIPTOR,
-        kind: ConstructorKind::Illegal,
-    },
-    ConstructorSpec {
         interface: web_api_interfaces::ImageBitmap::DESCRIPTOR,
         kind: ConstructorKind::Illegal,
     },
@@ -1585,38 +1501,6 @@ const CONSTRUCTOR_SPECS_AFTER_STREAMS: &[ConstructorSpec] = &[
     },
     ConstructorSpec {
         interface: web_api_interfaces::RTCDataChannel::DESCRIPTOR,
-        kind: ConstructorKind::Illegal,
-    },
-    ConstructorSpec {
-        interface: web_api_interfaces::RTCCertificate::DESCRIPTOR,
-        kind: ConstructorKind::Illegal,
-    },
-    ConstructorSpec {
-        interface: web_api_interfaces::RTCDTMFSender::DESCRIPTOR,
-        kind: ConstructorKind::Illegal,
-    },
-    ConstructorSpec {
-        interface: web_api_interfaces::RTCDtlsTransport::DESCRIPTOR,
-        kind: ConstructorKind::Illegal,
-    },
-    ConstructorSpec {
-        interface: web_api_interfaces::RTCIceTransport::DESCRIPTOR,
-        kind: ConstructorKind::Illegal,
-    },
-    ConstructorSpec {
-        interface: web_api_interfaces::RTCRtpSender::DESCRIPTOR,
-        kind: ConstructorKind::Illegal,
-    },
-    ConstructorSpec {
-        interface: web_api_interfaces::RTCRtpTransceiver::DESCRIPTOR,
-        kind: ConstructorKind::Illegal,
-    },
-    ConstructorSpec {
-        interface: web_api_interfaces::RTCSctpTransport::DESCRIPTOR,
-        kind: ConstructorKind::Illegal,
-    },
-    ConstructorSpec {
-        interface: web_api_interfaces::RTCStatsReport::DESCRIPTOR,
         kind: ConstructorKind::Illegal,
     },
     ConstructorSpec {
@@ -1812,10 +1696,6 @@ const CONSTRUCTOR_SPECS_AFTER_STREAMS: &[ConstructorSpec] = &[
         kind: ConstructorKind::XmlSerializer,
     },
     ConstructorSpec {
-        interface: web_api_interfaces::ReportBody::DESCRIPTOR,
-        kind: ConstructorKind::Illegal,
-    },
-    ConstructorSpec {
         interface: web_api_interfaces::ResizeObserver::DESCRIPTOR,
         kind: ConstructorKind::ResizeObserver,
     },
@@ -1866,18 +1746,6 @@ const CONSTRUCTOR_SPECS_AFTER_STREAMS: &[ConstructorSpec] = &[
     ConstructorSpec {
         interface: web_api_interfaces::MediaQueryList::DESCRIPTOR,
         kind: ConstructorKind::MediaQueryList,
-    },
-    ConstructorSpec {
-        interface: web_api_interfaces::SourceBufferList::DESCRIPTOR,
-        kind: ConstructorKind::Illegal,
-    },
-    ConstructorSpec {
-        interface: web_api_interfaces::SourceBuffer::DESCRIPTOR,
-        kind: ConstructorKind::Illegal,
-    },
-    ConstructorSpec {
-        interface: web_api_interfaces::MediaSourceHandle::DESCRIPTOR,
-        kind: ConstructorKind::Illegal,
     },
     ConstructorSpec {
         interface: web_api_interfaces::MediaSource::DESCRIPTOR,
@@ -2034,14 +1902,6 @@ const CONSTRUCTOR_SPECS_AFTER_STREAMS: &[ConstructorSpec] = &[
     ConstructorSpec {
         interface: web_api_interfaces::AnalyserNode::DESCRIPTOR,
         kind: ConstructorKind::AnalyserNode,
-    },
-    ConstructorSpec {
-        interface: web_api_interfaces::AudioParamMap::DESCRIPTOR,
-        kind: ConstructorKind::Illegal,
-    },
-    ConstructorSpec {
-        interface: web_api_interfaces::AudioListener::DESCRIPTOR,
-        kind: ConstructorKind::Illegal,
     },
     ConstructorSpec {
         interface: web_api_interfaces::AudioParam::DESCRIPTOR,
