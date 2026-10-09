@@ -62,6 +62,8 @@ pub(in crate::context_bootstrap) enum ConstructorKind {
     RtcEncodedAudioFrame,
     RtcEncodedVideoFrame,
     RtcErrorEvent,
+    RtcDtmfToneChangeEvent,
+    RtcTrackEvent,
     DomError,
     QuotaExceededError,
     CustomElementRegistry,
