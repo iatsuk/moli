@@ -18,6 +18,10 @@ mod payload_events;
 mod peer_options;
 mod rtp_capabilities;
 mod session_description;
+pub(in crate::context_bootstrap) use encoded_frames::{
+    audio_constructor as rtc_encoded_audio_frame_constructor,
+    video_constructor as rtc_encoded_video_frame_constructor,
+};
 pub(in crate::context_bootstrap) use events::{
     rtc_data_channel_event_constructor_callback, rtc_error_event_constructor_callback,
     rtc_peer_connection_ice_event_constructor_callback,

@@ -86,6 +86,7 @@ use super::super::{
     },
     webrtc::{
         rtc_data_channel_event_constructor_callback, rtc_dtmf_tone_event_constructor,
+        rtc_encoded_audio_frame_constructor, rtc_encoded_video_frame_constructor,
         rtc_error_event_constructor_callback, rtc_ice_candidate_constructor_callback,
         rtc_peer_connection_constructor_callback, rtc_peer_connection_ice_error_event_constructor,
         rtc_peer_connection_ice_event_constructor_callback,
@@ -182,6 +183,22 @@ pub(in crate::context_bootstrap) fn build_constructor_template_for_profile<'s>(
             .length(2)
             .build(scope)
         }
+        ConstructorKind::RtcEncodedAudioFrame => {
+            v8::FunctionTemplate::builder(moli_webapi_declare::web_api_constructor!(
+                web_api_interfaces::RTCEncodedAudioFrame,
+                rtc_encoded_audio_frame_constructor
+            ))
+            .length(1)
+            .build(scope)
+        }
+        ConstructorKind::RtcEncodedVideoFrame => {
+            v8::FunctionTemplate::builder(moli_webapi_declare::web_api_constructor!(
+                web_api_interfaces::RTCEncodedVideoFrame,
+                rtc_encoded_video_frame_constructor
+            ))
+            .length(1)
+            .build(scope)
+        }
         ConstructorKind::WebGLContextEvent => {
             build_value_event_template(scope, ValueEventKind::WebGlContext)
         }
@@ -196,22 +213,6 @@ pub(in crate::context_bootstrap) fn build_constructor_template_for_profile<'s>(
         }
         ConstructorKind::PaymentMethodChangeEvent => {
             build_value_event_template(scope, ValueEventKind::PaymentMethodChange)
-        }
-        ConstructorKind::RtcEncodedAudioFrame => {
-            v8::FunctionTemplate::builder(moli_webapi_declare::web_api_constructor!(
-                web_api_interfaces::RTCEncodedAudioFrame,
-                super::super::webrtc::encoded_frames::audio_constructor
-            ))
-            .length(1)
-            .build(scope)
-        }
-        ConstructorKind::RtcEncodedVideoFrame => {
-            v8::FunctionTemplate::builder(moli_webapi_declare::web_api_constructor!(
-                web_api_interfaces::RTCEncodedVideoFrame,
-                super::super::webrtc::encoded_frames::video_constructor
-            ))
-            .length(1)
-            .build(scope)
         }
         ConstructorKind::UiEvent => {
             build_event_subclass_template(scope, EventSubclassKind::UiEvent)
