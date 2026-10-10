@@ -1,4 +1,5 @@
 use super::super::*;
+use super::encrypted_media::MediaKeysRequirement;
 use crate::web_api_interfaces;
 use crate::{
     util::get_private_value,
@@ -116,14 +117,6 @@ enum TransferFunction {
     Srgb,
     Pq,
     Hlg,
-}
-
-#[derive(Clone, Copy, Debug, webidl::WebIdlEnum)]
-#[webidl(name = "MediaKeysRequirement", rename_all = "kebab-case")]
-enum MediaKeysRequirement {
-    Required,
-    Optional,
-    NotAllowed,
 }
 
 #[derive(webidl::WebIdlDictionary)]
