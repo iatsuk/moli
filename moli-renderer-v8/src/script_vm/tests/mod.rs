@@ -2537,6 +2537,7 @@ mod webidl_receivers;
 mod webidl_trusted_types;
 mod webrtc_event_init;
 mod webrtc_local_description;
+mod webrtc_signaling_state;
 mod websocket;
 mod websocket_close_info_numbers;
 
