@@ -2353,6 +2353,7 @@ mod history_referrer;
 mod history_replace_forward;
 mod http_fixture;
 mod iframe_load_delivery;
+mod video_frame;
 
 mod svg_point_list_native_receivers;
 
