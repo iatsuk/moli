@@ -142,6 +142,7 @@ impl PageVm {
             | RendererPageReadyDescriptor::ServiceWorkerInternal { .. }
             | RendererPageReadyDescriptor::ServiceWorkerClientMessage { .. }
             | RendererPageReadyDescriptor::BitmapTask { .. }
+            | RendererPageReadyDescriptor::WebLocksTask { .. }
             | RendererPageReadyDescriptor::WebCryptoTask { .. }
             | RendererPageReadyDescriptor::IndexedDbTask { .. }
             | RendererPageReadyDescriptor::OpfsTask { .. }
