@@ -4,6 +4,7 @@ mod projection;
 
 pub(crate) use self::entries::{
     HeadersGuard, combined_headers_entries, filter_headers_for_guard, headers_entries,
+    normalized_headers_entries, validated_header_entry_or_throw,
 };
 pub(in crate::network_host::headers) use self::entries::{
     header_allowed_by_guard, header_append_allowed_by_guard, headers_are_immutable, headers_guard,

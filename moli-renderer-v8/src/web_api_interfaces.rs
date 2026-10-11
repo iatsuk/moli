@@ -99,6 +99,8 @@ interfaces! {
     SpeechSynthesisErrorEvent: SpeechSynthesisEvent;
     SpeechSynthesisEvent: Event;
     WebTransport;
+    WebTransportSendGroup;
+    WebTransportDatagramsWritable: WritableStream;
     WebTransportBidirectionalStream;
     WebTransportDatagramDuplexStream;
     WebTransportError: DOMException;
