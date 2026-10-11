@@ -84,6 +84,9 @@ interfaces! {
     RTCIceTransport: EventTarget;
     RTCPeerConnectionIceErrorEvent: Event;
     RTCRtpScriptTransform;
+    RTCRtpScriptTransformer: EventTarget;
+    RTCTransformEvent: Event;
+    KeyFrameRequestEvent: Event;
     RTCRtpSender;
     RTCRtpTransceiver;
     RTCSctpTransport: EventTarget;

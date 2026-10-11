@@ -66,7 +66,8 @@ pub(in crate::context_bootstrap) enum ConstructorKind {
     RtcErrorEvent,
     RtcDtmfToneChangeEvent,
     RtcTrackEvent,
-
+    RtcRtpScriptTransform,
+    KeyFrameRequestEvent,
     DomError,
     QuotaExceededError,
     CustomElementRegistry,
