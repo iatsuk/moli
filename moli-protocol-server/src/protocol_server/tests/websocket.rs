@@ -8,6 +8,7 @@ mod dialog_sessions;
 mod inspector_json;
 mod navigation_debugger;
 mod prepared_document_actions;
+mod runtime_console_order;
 mod target_message;
 
 fn assert_cdp_event_precedes_response(
