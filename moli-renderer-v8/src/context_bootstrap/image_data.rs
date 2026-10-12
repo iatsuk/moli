@@ -385,6 +385,15 @@ fn image_data_dimension_from_object_slot<'s>(
 
 use crate::util::private_string_property as image_data_string_from_object_slot;
 
+pub(super) fn image_data_buffer_is_detached<'s>(
+    scope: &mut v8::PinScope<'s, '_>,
+    object: v8::Local<'s, v8::Object>,
+) -> Option<bool> {
+    let view = get_private_value(scope, object, IMAGE_DATA_DATA_SLOT)
+        .and_then(|value| v8::Local::<v8::Uint8ClampedArray>::try_from(value).ok())?;
+    Some(view.buffer(scope)?.was_detached())
+}
+
 pub(super) fn image_data_bytes_from_object<'s>(
     scope: &mut v8::PinScope<'s, '_>,
     object: v8::Local<'s, v8::Object>,
