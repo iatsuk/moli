@@ -322,6 +322,7 @@ impl PageScriptHost {
             root.stylesheet_id,
         );
         if refreshed {
+            self.request_realtime_rendering_opportunity();
             self.clear_layout_rect_cache();
             self.queue_stylesheet_source_css_projection(root.owner);
         }
@@ -916,8 +917,12 @@ impl PageScriptHost {
         document: DomHandle,
         installations: Vec<AdoptedStyleSheetInstallation>,
     ) {
-        self.style_engine
-            .set_document_adopted_style_sheet_installations(document, installations);
+        if self
+            .style_engine
+            .set_document_adopted_style_sheet_installations(document, installations)
+        {
+            self.request_realtime_rendering_opportunity();
+        }
     }
 
     pub(crate) fn adopted_style_sheet_sources_for_document(
@@ -1116,6 +1121,7 @@ impl PageScriptHost {
             owner,
             stylesheet_id,
         ) {
+            self.request_realtime_rendering_opportunity();
             let canceled_load_event_bindings =
                 unsafe { &mut *self.document_runtime }.invalidate_style_related_state(owner);
             for binding in canceled_load_event_bindings {
@@ -1138,6 +1144,7 @@ impl PageScriptHost {
             owner,
             stylesheet_id,
         ) {
+            self.request_realtime_rendering_opportunity();
             self.clear_layout_rect_cache();
             self.queue_stylesheet_source_css_projection(owner);
             let host_ptr = self as *mut Self;
@@ -1164,6 +1171,7 @@ impl PageScriptHost {
             stylesheet_id,
         );
         if refreshed {
+            self.request_realtime_rendering_opportunity();
             self.clear_layout_rect_cache();
         }
         refreshed
@@ -1232,6 +1240,7 @@ impl PageScriptHost {
                 prepared.source().clone(),
                 live_stylesheet,
             );
+        self.request_realtime_rendering_opportunity();
         self.queue_stylesheet_source_css_projection(owner);
     }
 
@@ -1308,6 +1317,7 @@ impl PageScriptHost {
                 source,
                 live_stylesheet,
             );
+        self.request_realtime_rendering_opportunity();
         self.queue_stylesheet_source_css_projection(owner);
         true
     }
@@ -1347,12 +1357,16 @@ impl PageScriptHost {
     ) {
         self.clear_layout_rect_cache();
         let dom_host = self.dom_host() as *const _;
-        self.style_engine
+        if self
+            .style_engine
             .set_shadow_root_adopted_style_sheet_installations_with_host(
                 unsafe { &*dom_host },
                 root,
                 installations,
-            );
+            )
+        {
+            self.request_realtime_rendering_opportunity();
+        }
     }
 
     pub(crate) fn shadow_root_adopted_style_sheet_sources(
