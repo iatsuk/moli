@@ -245,7 +245,7 @@ async fn realtime_layout_stale_image_decode_does_not_invalidate_the_replacement(
         &loader,
     );
     vm.set_layout_policy(moli_page_types::LayoutPolicy::Realtime);
-    vm.set_fetch_subresource_interception(true, Some(crate::types::SubresourceResourceType::Image));
+    vm.set_fetch_subresource_interception(crate::SubresourceInterceptionClasses::IMAGE);
     vm.eval(
         "globalThis.image=document.createElement('img');document.body.append(image);\
          globalThis.loads=0;image.onload=()=>loads++;image.src='/old.gif'",
