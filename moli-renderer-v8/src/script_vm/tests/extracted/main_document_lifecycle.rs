@@ -2409,7 +2409,7 @@ async fn capture_request_keeps_original_client_and_capability_across_document_op
         "<!doctype html><html><body>before</body></html>",
         &loader,
     );
-    vm.set_fetch_subresource_interception(true, Some(crate::types::SubresourceResourceType::Image));
+    vm.set_fetch_subresource_interception(crate::SubresourceInterceptionClasses::IMAGE);
     let request = RendererCaptureScreenshotRequest {
         purpose: RendererScreenshotPurpose::Print {
             print_background: true,
