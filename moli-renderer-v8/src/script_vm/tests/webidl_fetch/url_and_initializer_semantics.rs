@@ -1775,7 +1775,7 @@ async fn filtered_response_materialization_preserves_internal_head_across_clone_
         )
         .expect("final URL should parse");
         let context_ptr: *const v8::Global<v8::Context> =
-            &vm.page_default_runtime.context as *const _;
+            &vm.current_main_world().unwrap().context as *const _;
 
         vm.renderer_document_isolate
         .with_entered_renderer_document_isolate({
@@ -1891,7 +1891,7 @@ async fn filtered_response_materialization_preserves_internal_head_across_clone_
         );
 
         let context_ptr: *const v8::Global<v8::Context> =
-            &vm.page_default_runtime.context as *const _;
+            &vm.current_main_world().unwrap().context as *const _;
         vm.renderer_document_isolate
             .with_entered_renderer_document_isolate(move |isolate| {
                 let scope = std::pin::pin!(v8::HandleScope::new(isolate));
