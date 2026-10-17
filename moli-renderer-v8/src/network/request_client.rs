@@ -21,10 +21,10 @@ use crate::{protocol_types::OptionalResourceFetchMask, types::SubresourceResourc
 use super::{
     backend::{
         BrowserResourceRuntime, BrowserResourceRuntimeDiagnostics, BrowserResourceRuntimeOwner,
-        BrowserResourceRuntimeOwnerRoot, RawSubresourceCacheKey, ScriptTextCacheLookup,
-        SharedMemoryResourceCacheDiagnostics, raw_subresource_memory_cache_expiry,
-        raw_subresource_memory_cache_key, script_text_cache_key,
-        script_text_request_is_memory_cacheable,
+        BrowserResourceRuntimeOwnerRoot, RawSubresourceCacheKey, ScriptResponseStartCallback,
+        ScriptTextCacheLookup, SharedMemoryResourceCacheDiagnostics,
+        raw_subresource_memory_cache_expiry, raw_subresource_memory_cache_key,
+        script_text_cache_key, script_text_request_is_memory_cacheable,
     },
     loads,
     policy::PageNetworkPolicy,
@@ -46,6 +46,42 @@ pub struct ResourceRequestClient {
 pub struct ResourceRequestClientOwner {
     client: ResourceRequestClient,
     _resource_runtime_owner: BrowserResourceRuntimeOwnerRoot,
+}
+
+/// Worker imports block their own execution-context runner. Their shared
+/// transport must stay runnable even when that consumer blocks or retires.
+enum ScriptTextLoadExecution {
+    Context(super::RendererResourceTaskRunner),
+    BlockingWorker,
+}
+
+impl ScriptTextLoadExecution {
+    fn dispatch<F>(
+        self,
+        task: impl std::future::Future<Output = Result<Response>> + Send + 'static,
+        callback: F,
+    ) -> Result<()>
+    where
+        F: FnOnce(Result<Response>) + Send + 'static,
+    {
+        match self {
+            Self::Context(runner) => runner.spawn(async move { callback(task.await) }),
+            Self::BlockingWorker => {
+                thread::Builder::new()
+                    .name("lm-worker-cached-script-fetch".to_owned())
+                    .spawn(move || {
+                        let result = tokio::runtime::Builder::new_current_thread()
+                            .enable_all()
+                            .build()
+                            .context("failed to build cached worker script runtime")
+                            .and_then(|runtime| runtime.block_on(task));
+                        callback(result);
+                    })
+                    .context("failed to spawn cached worker script fetch thread")?;
+            }
+        }
+        Ok(())
+    }
 }
 
 impl ResourceRequestClient {
@@ -391,6 +427,7 @@ impl ResourceRequestClient {
                 .fetch_script_text_stream_with_cancel_after_policy(
                     request,
                     FetchCancelHandle::new(),
+                    None,
                 )
                 .await;
             if let (Some(started), Some(url)) = (started, timing_url.as_deref()) {
@@ -444,7 +481,11 @@ impl ResourceRequestClient {
                         stage = "script_text_cache_wait_start",
                     );
                 }
-                let result = load.wait().await.map_err(anyhow::Error::msg);
+                let result = load
+                    .wait()
+                    .await
+                    .and_then(|response| script_response_for_cache_consumer(&request, response))
+                    .map_err(anyhow::Error::msg);
                 if let (Some(started), Some(url)) = (started, timing_url.as_deref()) {
                     let status = result.as_ref().ok().map(|response| response.status);
                     tracing::info!(
@@ -463,6 +504,7 @@ impl ResourceRequestClient {
             ScriptTextCacheLookup::CompletedHit(result) => {
                 let result = result
                     .map(response_with_memory_cache_hit)
+                    .and_then(|response| script_response_for_cache_consumer(&request, response))
                     .map_err(anyhow::Error::msg);
                 if let Some(url) = timing_url.as_deref() {
                     let status = result.as_ref().ok().map(|response| response.status);
@@ -492,7 +534,14 @@ impl ResourceRequestClient {
         }
         let cache_request = request.clone();
         let result = self
-            .fetch_script_text_stream_with_cancel_after_policy(request, FetchCancelHandle::new())
+            .fetch_script_text_stream_with_cancel_after_policy(
+                request,
+                FetchCancelHandle::new(),
+                Some(Box::new({
+                    let load = Arc::clone(&load);
+                    move || load.notify_response_started()
+                })),
+            )
             .await
             .map_err(|error| format!("{error:#}"));
         if let (Some(started), Some(url)) = (started, timing_url.as_deref()) {
@@ -525,13 +574,22 @@ impl ResourceRequestClient {
     where
         F: FnOnce(Result<Response>) + Send + 'static,
     {
-        self.fetch_cacheable_script_text_callback_inner(request, resource_load, callback)
+        let execution = ScriptTextLoadExecution::Context(resource_load.task_runner());
+        self.fetch_cacheable_script_text_callback_inner(
+            request,
+            resource_load,
+            None,
+            execution,
+            callback,
+        )
     }
 
     fn fetch_cacheable_script_text_callback_inner<F>(
         &self,
         mut request: Request,
         resource_load: loads::ResourceLoadLease,
+        response_start: Option<ScriptResponseStartCallback>,
+        execution: ScriptTextLoadExecution,
         callback: F,
     ) -> Result<()>
     where
@@ -546,23 +604,29 @@ impl ResourceRequestClient {
             resource_load.attach_consumer_cancel(move || {
                 let _ = cancel_tx.send(());
             });
-            resource_load.task_runner().spawn(async move {
-                let result = tokio::select! {
+            return execution.dispatch(async move {
+                tokio::select! {
                     result = preload.response() => result.map(|preload| preload.response.into()).map_err(|error| super::preloads::ConsumedPreloadError(error).into()),
                     _ = cancel_rx => Err(super::preloads::ConsumedPreloadError("preload consumer cancelled".to_owned()).into()),
-                };
+                }
+            }, move |result| {
+                if result.is_ok() && let Some(response_start) = response_start {
+                    response_start();
+                }
                 resource_load.finish();
                 callback(result);
             });
-            return Ok(());
         }
         if let Some(result) = local_text_response(&request) {
-            let task_runner = resource_load.task_runner();
-            task_runner.spawn(async move {
+            return execution.dispatch(async move { result }, move |result| {
+                if result.is_ok()
+                    && let Some(response_start) = response_start
+                {
+                    response_start();
+                }
                 resource_load.finish();
                 callback(result);
             });
-            return Ok(());
         }
         let timing_enabled = moli_trace::cdp_nav_timing_enabled();
         let timing_url = timing_enabled.then(|| request.url.to_string());
@@ -583,7 +647,8 @@ impl ResourceRequestClient {
             let started_fetch = self.fetch_script_text_callback_with_cancel_after_policy(
                 request,
                 cancel_handle,
-                resource_load.task_runner(),
+                execution,
+                response_start,
                 move |result| {
                     callback_resource_load.finish();
                     if let (Some(started), Some(url)) = (started, timing_url.as_deref()) {
@@ -636,6 +701,7 @@ impl ResourceRequestClient {
             ScriptTextCacheLookup::CompletedHit(result) => {
                 let result = result
                     .map(response_with_memory_cache_hit)
+                    .and_then(|response| script_response_for_cache_consumer(&request, response))
                     .map_err(anyhow::Error::msg);
                 resource_load.finish();
                 if let Some(url) = timing_url.as_deref() {
@@ -649,6 +715,11 @@ impl ResourceRequestClient {
                         ok = result.is_ok(),
                         stage = "script_text_cache_hit",
                     );
+                }
+                if result.is_ok()
+                    && let Some(response_start) = response_start
+                {
+                    response_start();
                 }
                 callback(result);
                 return Ok(());
@@ -672,23 +743,33 @@ impl ResourceRequestClient {
         }
         let callback_resource_load = resource_load.clone();
         let callback_timing_url = timing_url.clone();
-        let consumer = load.wait_callback(Box::new(move |result| {
-            callback_resource_load.finish();
-            if let (Some(started), Some(url)) = (started, callback_timing_url.as_deref()) {
-                let status = result.as_ref().ok().map(|response| response.status);
-                tracing::info!(
-                    target: "moli_cdp_nav_timing",
-                    url,
-                    cacheable = true,
-                    cache_role,
-                    status,
-                    ok = result.is_ok(),
-                    elapsed_ms = started.elapsed().as_millis(),
-                    stage = "script_text_cache_wait_done",
-                );
-            }
-            callback(result.map_err(anyhow::Error::msg));
-        }));
+        let consumer_request = (!owns_transport).then(|| request.clone());
+        let completion: Box<dyn FnOnce(std::result::Result<Response, String>) + Send> =
+            Box::new(move |result| {
+                let result = result.and_then(|response| match &consumer_request {
+                    Some(request) => script_response_for_cache_consumer(request, response),
+                    None => Ok(response),
+                });
+                callback_resource_load.finish();
+                if let (Some(started), Some(url)) = (started, callback_timing_url.as_deref()) {
+                    let status = result.as_ref().ok().map(|response| response.status);
+                    tracing::info!(
+                        target: "moli_cdp_nav_timing",
+                        url,
+                        cacheable = true,
+                        cache_role,
+                        status,
+                        ok = result.is_ok(),
+                        elapsed_ms = started.elapsed().as_millis(),
+                        stage = "script_text_cache_wait_done",
+                    );
+                }
+                callback(result.map_err(anyhow::Error::msg));
+            });
+        let consumer = match response_start {
+            Some(start) => load.wait_callback_with_response_start(completion, Some(start)),
+            None => load.wait_callback(completion),
+        };
         if let Some(consumer) = consumer {
             resource_load.attach_consumer_cancel(move || consumer.cancel());
         }
@@ -712,10 +793,12 @@ impl ResourceRequestClient {
         let callback_key = key.clone();
         let cancel_handle = FetchCancelHandle::new();
         load.attach_transport_cancel(cancel_handle.clone());
+        let header_load = Arc::clone(&load);
         if let Err(error) = self.fetch_script_text_callback_with_cancel_after_policy(
             request,
             cancel_handle,
-            resource_load.task_runner(),
+            execution,
+            Some(Box::new(move || header_load.notify_response_started())),
             move |result| {
                 let result = result.map_err(|error| format!("{error:#}"));
                 request_client
@@ -745,6 +828,7 @@ impl ResourceRequestClient {
         &self,
         request: Request,
         cancel_handle: FetchCancelHandle,
+        response_start: Option<ScriptResponseStartCallback>,
     ) -> Result<Response> {
         if request.request_mode == moli_fetch::RequestMode::Cors
             && request.request_origin().is_some()
@@ -753,34 +837,75 @@ impl ResourceRequestClient {
                 .await
                 .map_err(anyhow::Error::msg);
         }
-        self.fetch_text_stream_with_cancel_after_policy(request, cancel_handle)
-            .await
+        match response_start {
+            Some(response_start) => {
+                self.fetch_text_stream_with_response_start_after_policy(
+                    request,
+                    cancel_handle,
+                    response_start,
+                )
+                .await
+            }
+            None => {
+                self.fetch_text_stream_with_cancel_after_policy(request, cancel_handle)
+                    .await
+            }
+        }
     }
 
     fn fetch_script_text_callback_with_cancel_after_policy<F>(
         &self,
         request: Request,
         cancel_handle: FetchCancelHandle,
-        task_runner: super::RendererResourceTaskRunner,
+        execution: ScriptTextLoadExecution,
+        response_start: Option<ScriptResponseStartCallback>,
         callback: F,
     ) -> Result<()>
     where
         F: FnOnce(Result<Response>) + Send + 'static,
     {
-        if request.request_mode == moli_fetch::RequestMode::Cors
-            && request.request_origin().is_some()
-        {
-            let client = self.clone();
-            task_runner.spawn(async move {
-                callback(
-                    client
-                        .fetch_script_text_stream_with_cancel_after_policy(request, cancel_handle)
-                        .await,
-                );
-            });
-            return Ok(());
+        if response_start.is_none() && request.request_mode != moli_fetch::RequestMode::Cors {
+            return self.fetch_text_callback_with_cancel_after_policy(
+                request,
+                cancel_handle,
+                callback,
+            );
         }
-        self.fetch_text_callback_with_cancel_after_policy(request, cancel_handle, callback)
+        let client = self.clone();
+        execution.dispatch(
+            async move {
+                client
+                    .fetch_script_text_stream_with_cancel_after_policy(
+                        request,
+                        cancel_handle,
+                        response_start,
+                    )
+                    .await
+            },
+            callback,
+        )
+    }
+
+    async fn fetch_text_stream_with_response_start_after_policy(
+        &self,
+        request: Request,
+        cancel_handle: FetchCancelHandle,
+        on_response_start: impl FnOnce() + Send,
+    ) -> Result<Response> {
+        // These buffered transport modes have no distinct header boundary.
+        if request.auth_requires_buffered_transport()
+            || (!request.follow_redirects
+                && request.redirect_mode != moli_fetch::RequestRedirectMode::Error)
+        {
+            return self
+                .fetch_text_stream_with_cancel_after_policy(request, cancel_handle)
+                .await;
+        }
+        let response = self
+            .fetch_raw_stream_with_cancel_after_policy(request, cancel_handle)
+            .await?;
+        on_response_start();
+        collect_streaming_raw_response_as_text(response).await
     }
 
     async fn fetch_text_stream_with_cancel_after_policy(
@@ -1014,6 +1139,36 @@ impl ResourceRequestClient {
         )
     }
 
+    pub(crate) fn fetch_cacheable_script_text_for_worker_blocking_boundary_with_load(
+        &self,
+        request: Request,
+        resource_load: loads::ResourceLoadLease,
+        on_response_start: impl FnOnce() + Send + 'static,
+    ) -> Result<Response> {
+        let (response_tx, response_rx) = mpsc::sync_channel(1);
+        let load = resource_load.clone();
+        let started = self.fetch_cacheable_script_text_callback_inner(
+            request,
+            resource_load,
+            Some(Box::new(on_response_start)),
+            ScriptTextLoadExecution::BlockingWorker,
+            move |result| {
+                let _ = response_tx.send(result);
+            },
+        );
+        if let Err(error) = started {
+            load.finish();
+            return Err(error);
+        }
+        // Retiring this consumer drops its callback and sender. The Worker
+        // unblocks even if a sibling still needs the shared transport.
+        let result = response_rx
+            .recv()
+            .context("worker script cache consumer retired");
+        load.finish();
+        result?
+    }
+
     pub(crate) fn fetch_text_for_worker_blocking_boundary(
         &self,
         request: Request,
@@ -1055,25 +1210,13 @@ impl ResourceRequestClient {
                     .and_then(|runtime| {
                         runtime.block_on(async {
                             let request = request_client.apply_network_policy(request)?;
-                            // Buffered authentication and manual redirects keep their
-                            // existing transport path. It has no separate header boundary.
-                            if request.auth_requires_buffered_transport()
-                                || (!request.follow_redirects
-                                    && request.redirect_mode
-                                        != moli_fetch::RequestRedirectMode::Error)
-                            {
-                                return request_client
-                                    .fetch_text_stream_with_cancel_after_policy(
-                                        request,
-                                        cancel_handle,
-                                    )
-                                    .await;
-                            }
-                            let response = request_client
-                                .fetch_raw_stream_with_cancel_after_policy(request, cancel_handle)
-                                .await?;
-                            on_response_start();
-                            collect_streaming_raw_response_as_text(response).await
+                            request_client
+                                .fetch_text_stream_with_response_start_after_policy(
+                                    request,
+                                    cancel_handle,
+                                    on_response_start,
+                                )
+                                .await
                         })
                     });
                 let _ = response_tx.send(result);
@@ -1304,6 +1447,16 @@ impl fmt::Debug for ResourceRequestClientOwner {
             .field("client", &self.client)
             .finish_non_exhaustive()
     }
+}
+
+fn script_response_for_cache_consumer(
+    request: &Request,
+    response: Response,
+) -> std::result::Result<Response, String> {
+    for redirect in &response.redirect_chain {
+        request.check_redirect_target(&redirect.to_url)?;
+    }
+    Ok(response)
 }
 
 async fn collect_streaming_raw_response_as_text(
