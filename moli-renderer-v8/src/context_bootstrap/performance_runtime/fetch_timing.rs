@@ -42,6 +42,29 @@ impl FetchResourceTiming {
         self.response_start_unix_millis.set(Some(self.now()));
     }
 
+    /// Use the transport's header boundary even when Worker JS delayed delivery.
+    pub(crate) fn response_started_at(&self, start: Option<std::time::Instant>) {
+        self.response_start_unix_millis
+            .set(start.map(|instant| self.unix_millis(instant)));
+    }
+
+    pub(crate) fn completed_at(
+        &self,
+        mut entry: ResourcePerformanceEntry,
+        end: std::time::Instant,
+    ) -> ResourcePerformanceEntry {
+        entry.end_unix_millis = Some(self.unix_millis(end));
+        entry
+    }
+
+    fn unix_millis(&self, instant: std::time::Instant) -> f64 {
+        self.start_unix_millis
+            + instant
+                .saturating_duration_since(self.started)
+                .as_secs_f64()
+                * 1000.0
+    }
+
     pub(crate) fn completed(
         &self,
         url: &Url,
@@ -51,7 +74,12 @@ impl FetchResourceTiming {
         body_size: usize,
         filter: Option<&AsyncSubresourceFetchResponseFilter>,
     ) -> ResourcePerformanceEntry {
-        let network_filter = crate::network_host::network_response_filter(origin, head, mode);
+        let network_filter = crate::network_host::network_response_filter(
+            origin,
+            head,
+            mode,
+            moli_fetch::RequestRedirectMode::Follow,
+        );
         let filter = filter.or(network_filter.as_ref());
         let readable = filter.is_none_or(|filter| filter.is_readable());
         let mut entry = ResourcePerformanceEntry::from_streaming_network_response(
