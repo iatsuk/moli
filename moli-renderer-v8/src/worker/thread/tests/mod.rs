@@ -1637,6 +1637,7 @@ mod geometry_point_transform;
 mod network;
 mod onerror;
 mod performance_observer_contract;
+mod performance_resource_timing;
 mod postmessage;
 mod stream_clone_failures;
 mod canvas_transfer_to_image_bitmap;

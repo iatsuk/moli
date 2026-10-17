@@ -8,6 +8,7 @@ use url::Url;
 /// be active when the body finishes. This must not retain any V8 objects.
 #[derive(Clone)]
 pub(crate) struct FetchResourceTiming {
+    initiator_type: &'static str,
     started: std::time::Instant,
     start_unix_millis: f64,
     response_start_unix_millis: std::cell::Cell<Option<f64>>,
@@ -16,7 +17,16 @@ pub(crate) struct FetchResourceTiming {
 
 impl FetchResourceTiming {
     pub(crate) fn capture(scope: &mut v8::PinScope<'_, '_>, origin: &WebOrigin) -> Self {
+        Self::capture_for_initiator_type(scope, origin, "fetch")
+    }
+
+    pub(crate) fn capture_for_initiator_type(
+        scope: &mut v8::PinScope<'_, '_>,
+        origin: &WebOrigin,
+        initiator_type: &'static str,
+    ) -> Self {
         Self {
+            initiator_type,
             started: std::time::Instant::now(),
             start_unix_millis: crate::context_bootstrap::unix_epoch_millis(),
             response_start_unix_millis: std::cell::Cell::new(None),
@@ -46,7 +56,7 @@ impl FetchResourceTiming {
         let readable = filter.is_none_or(|filter| filter.is_readable());
         let mut entry = ResourcePerformanceEntry::from_streaming_network_response(
             url.as_str(),
-            "fetch",
+            self.initiator_type,
             Some(self.start_unix_millis),
             head,
             body_size,
@@ -94,10 +104,20 @@ impl FetchResourceTiming {
             )
     }
 
+    pub(crate) fn classic_script_response(
+        &self,
+        name: &Url,
+        origin: &WebOrigin,
+        head: &ResponseHead,
+        body_size: usize,
+    ) -> ResourcePerformanceEntry {
+        self.completed(name, origin, RequestMode::NoCors, head, body_size, None)
+    }
+
     pub(crate) fn failed(&self, url: &Url) -> ResourcePerformanceEntry {
         let mut entry = ResourcePerformanceEntry::from_network_failure(
             url.as_str(),
-            "fetch",
+            self.initiator_type,
             Some(self.start_unix_millis),
         );
         entry.end_unix_millis = Some(self.now());
