@@ -770,6 +770,9 @@ impl ScriptVm {
                         record_started,
                     );
                     if let PendingSubresourceContinuation::Fetch(fetch) = &pending.continuation {
+                        if let Some(native) = pending.load.response_timing() {
+                            fetch.resource_timing().observe_native_timing(native);
+                        }
                         let entry = if opaque_response_blocked {
                             // ORB removes the original headers and body measurements;
                             // its TAO header cannot re-enable those measurements.
