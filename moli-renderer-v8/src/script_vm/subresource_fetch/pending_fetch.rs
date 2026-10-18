@@ -63,6 +63,9 @@ pub(super) fn request_for_pending_subresource(
         request.request_headers = request_headers;
         let request = request.with_redirect_headers(pending.redirect_headers.clone());
         return match &pending.continuation {
+            PendingSubresourceContinuation::Image {
+                request_metadata, ..
+            } => request.with_subresource_request_metadata(request_metadata.clone()),
             PendingSubresourceContinuation::ResponsePreload(preload) => {
                 crate::network_host::apply_response_preload_request_metadata(request, preload)
                     .with_network_partition_key(pending.network_partition_key.clone())
@@ -145,6 +148,9 @@ pub(super) fn request_for_pending_subresource(
         SubresourceResourceType::WebSocket | SubresourceResourceType::Document => request,
     };
     let request = match &pending.continuation {
+        PendingSubresourceContinuation::Image {
+            request_metadata, ..
+        } => request.with_subresource_request_metadata(request_metadata.clone()),
         PendingSubresourceContinuation::ResponsePreload(preload) => {
             crate::network_host::apply_response_preload_request_metadata(request, preload)
                 .with_network_partition_key(pending.network_partition_key.clone())
@@ -864,6 +870,13 @@ impl ScriptVm {
                 .and_then(|_| pending_fetch.info.request_body_bytes.clone()),
         );
         for redirect in &response.redirect_chain {
+            if matches!(
+                &pending_fetch.continuation,
+                PendingSubresourceContinuation::Image { .. }
+            ) {
+                // Authentication must not restore referrer data stripped before the challenge.
+                request.update_referrer_for_redirect(&redirect.from_url, &redirect.headers);
+            }
             request.apply_redirect_status(redirect.status);
         }
         request.url = response.final_url.clone();
