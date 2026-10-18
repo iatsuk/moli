@@ -360,12 +360,14 @@ impl<'vm> ChildModuleFetchOwner<'vm> {
         &mut self,
         completion: ChildModulepreloadFetchCompletion,
     ) -> FrameDocumentModuleTerminalQueueFollowup {
+        let policy_checked = completion.fetch_context().is_some();
         let (target, load_id, result) = completion.into_module_terminal_parts();
         self.finish_modulepreload_fetch_completion(
             target.task_owner(),
             target.realm_id(),
             load_id,
             result,
+            policy_checked,
         )
     }
 
@@ -375,6 +377,7 @@ impl<'vm> ChildModuleFetchOwner<'vm> {
         realm_id: FrameRealmId,
         load_id: u64,
         result: std::result::Result<crate::module_runtime::ModuleGraphFetchedSource, String>,
+        _policy_checked: bool,
     ) -> FrameDocumentModuleTerminalQueueFollowup {
         let owner = task_owner.document_owner();
         let Some(request) = self
@@ -456,7 +459,7 @@ impl FrameDocumentModulepreloadStartActionHooks for ScriptVmChildModulepreloadSt
     fn schedule_modulepreload_fetch(
         &mut self,
         target: ChildDocumentModuleFetchTarget,
-        link_handle: DomHandle,
+        link_handle: Option<DomHandle>,
         key: ModuleMapKey,
         load_id: u64,
         request: Box<NativeModuleGraphFetchRequest>,
@@ -504,8 +507,31 @@ impl FrameDocumentModulepreloadStartActionHooks for ScriptVmChildModulepreloadSt
                 .send_child_modulepreload_fetch(completion);
             return;
         };
+        let context = match self.vm.capture_module_fetch_context(
+            crate::native_bridge::OwnerDispatchScope::Child(target.child_handle()),
+            request.module_kind(),
+            request.fetch_metadata(),
+        ) {
+            Ok(context) => context,
+            Err(error) => {
+                let _ = self
+                    .vm
+                    ._context_host
+                    .borrow()
+                    .resource_completion_sender()
+                    .send_child_modulepreload_fetch(ChildModulepreloadFetchCompletion::new(
+                        target,
+                        load_id,
+                        Err(error.clone()),
+                        Some(std::sync::Arc::new(Err(error))),
+                        network_attribution,
+                    ));
+                return;
+            }
+        };
         self.vm
             .resource_scheduler()
+            .with_module_fetch_context(context)
             .schedule_child_modulepreload_graph_fetch(
                 loader,
                 target,
@@ -526,7 +552,7 @@ impl FrameDocumentModulepreloadStartActionHooks for ScriptVmChildModulepreloadSt
         &mut self,
         owner: FrameDocumentOwner,
         realm_id: FrameRealmId,
-        link_handle: DomHandle,
+        link_handle: Option<DomHandle>,
         key: &ModuleMapKey,
     ) {
         tracing::debug!(
@@ -542,7 +568,7 @@ impl FrameDocumentModulepreloadStartActionHooks for ScriptVmChildModulepreloadSt
         &mut self,
         owner: FrameDocumentOwner,
         realm_id: FrameRealmId,
-        link_handle: DomHandle,
+        link_handle: Option<DomHandle>,
         key: &ModuleMapKey,
     ) {
         tracing::debug!(
@@ -558,7 +584,7 @@ impl FrameDocumentModulepreloadStartActionHooks for ScriptVmChildModulepreloadSt
         &mut self,
         owner: FrameDocumentOwner,
         realm_id: FrameRealmId,
-        link_handle: DomHandle,
+        link_handle: Option<DomHandle>,
         key: &ModuleMapKey,
     ) {
         tracing::debug!(
