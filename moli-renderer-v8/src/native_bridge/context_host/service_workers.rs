@@ -1808,7 +1808,7 @@ impl PageScriptHost {
             _ => None,
         };
         if let Some(metadata) = metadata {
-            let request = moli_fetch::Request::new_browser(
+            let mut request = moli_fetch::Request::new_browser(
                 &dispatch.request.method,
                 dispatch.request.url.clone(),
                 dispatch.request.body.clone(),
@@ -1826,6 +1826,9 @@ impl PageScriptHost {
                     ..Default::default()
                 },
             );
+            if dispatch.request.metadata.link_preload {
+                request = request.with_link_preload();
+            }
             if let Some(preload) = dispatch.request_client.consume_document_preload(&request) {
                 dispatch.resource_task_runner.spawn(async move {
                     let completion = preload.into_completion(dispatch.internal_id, request).await;

@@ -752,7 +752,7 @@ impl ScriptVm {
         &mut self,
         mut pending: PendingSubresourceFetchState,
         started: crate::types::AsyncSubresourceStreamingStarted,
-    ) -> Result<()> {
+    ) -> Result<AsyncSubresourceFetchBodyActivity> {
         let detached_window_fetch = pending.continuation.is_detached_window_fetch();
         debug_assert!(
             detached_window_fetch || pending.execution_context.is_window_network_only(),
@@ -762,36 +762,46 @@ impl ScriptVm {
             .borrow_mut()
             .record_deferred_pending_subresource_request_started(&mut pending);
 
-        let security_error = detached_window_fetch
-            .then(|| {
-                if !started.head.redirect_chain.is_empty()
-                    && !window_fetch_redirect_policy_was_checked(&pending, &started.head)
-                {
-                    detached_window_fetch_csp_redirect_failure_message(
-                        &self._context_host,
-                        &pending,
-                        &started.head.final_url,
-                    )
-                } else {
-                    None
+        let security_error = (detached_window_fetch
+            || matches!(
+                pending.continuation,
+                PendingSubresourceContinuation::ResponsePreload(_)
+            ))
+        .then(|| {
+            if !started.head.redirect_chain.is_empty()
+                && !window_fetch_redirect_policy_was_checked(&pending, &started.head)
+            {
+                detached_window_fetch_csp_redirect_failure_message(
+                    &self._context_host,
+                    &pending,
+                    &started.head.final_url,
+                )
+            } else {
+                None
+            }
+            .or_else(|| {
+                if started.skip_fetch_security_validation {
+                    return None;
                 }
-                .or_else(|| {
-                    if started.skip_fetch_security_validation {
-                        return None;
-                    }
-                    crate::network_host::validate_fetch_response_headers(
-                        &pending.request_origin(),
-                        &started.head,
-                        pending.request_mode,
-                        pending.credentials_mode,
-                        pending.policy_context,
-                    )
-                    .err()
-                })
+                crate::network_host::validate_fetch_response_headers(
+                    &pending.request_origin,
+                    &started.head,
+                    pending.request_mode,
+                    pending.credentials_mode,
+                    pending.policy_context,
+                )
+                .err()
             })
-            .flatten();
+        })
+        .flatten();
 
         if let Some(error_text) = security_error {
+            let activity = self.complete_response_preload(
+                &mut pending,
+                started.response_filter.as_ref(),
+                started.skip_fetch_security_validation,
+                &Err(error_text.clone()),
+            )?;
             pending.load.cancel();
             let mut network_record = crate::types::SubresourceNetworkRecord::failure(
                 pending.info.frame_id.clone(),
@@ -818,7 +828,7 @@ impl ScriptVm {
                         internal_id: started.internal_id,
                     },
                 );
-            return Ok(());
+            return Ok(activity);
         }
 
         let detached_identity = pending.execution_context.detached_window_fetch_identity();
@@ -851,7 +861,7 @@ impl ScriptVm {
             ?accepted_document,
             "continued network-only subresource streaming without a V8 body source"
         );
-        Ok(())
+        Ok(AsyncSubresourceFetchBodyActivity::NoWindowRealmEntered)
     }
     /// Standalone ScriptVm test turn for a streaming-start terminal.
     #[cfg(test)]
@@ -914,9 +924,7 @@ impl ScriptVm {
         if pending.continuation.is_detached_window_fetch()
             || pending.execution_context.is_window_network_only()
         {
-            return self
-                .start_network_only_subresource_stream(pending, started)
-                .map(|()| AsyncSubresourceFetchBodyActivity::NoWindowRealmEntered);
+            return self.start_network_only_subresource_stream(pending, started);
         }
         if !window_subresource_owner_is_current(&self._context_host, &pending) {
             pending.load.cancel();
@@ -1108,6 +1116,7 @@ impl ScriptVm {
                         apply_stylesheet_subresource_terminal(&self._context_host, *binding);
                     }
                     PendingSubresourceContinuation::Dictionary(_)
+                        | PendingSubresourceContinuation::ResponsePreload(_)
                         | PendingSubresourceContinuation::Beacon
                     | PendingSubresourceContinuation::CspReport { .. }
                     | PendingSubresourceContinuation::WebSocket(_)
@@ -1416,6 +1425,7 @@ impl ScriptVm {
                     event_source_to_open = Some(event_source);
                 }
                 PendingSubresourceContinuation::Dictionary(_)
+                        | PendingSubresourceContinuation::ResponsePreload(_)
                         | PendingSubresourceContinuation::Beacon
                 | PendingSubresourceContinuation::CspReport { .. }
                 | PendingSubresourceContinuation::Xhr { .. }
@@ -1693,10 +1703,10 @@ impl ScriptVm {
     }
     pub(super) fn finish_network_only_subresource_stream(
         &mut self,
-        streaming: StreamingSubresourceFetchState,
+        mut streaming: StreamingSubresourceFetchState,
         internal_id: u64,
         result: std::result::Result<(), String>,
-    ) -> Result<()> {
+    ) -> Result<AsyncSubresourceFetchBodyActivity> {
         debug_assert!(
             streaming.pending.continuation.is_detached_window_fetch()
                 || streaming.pending.execution_context.is_window_network_only(),
@@ -1728,6 +1738,31 @@ impl ScriptVm {
                 Ok(())
             }
         });
+        let activity = if matches!(
+            streaming.pending.continuation,
+            PendingSubresourceContinuation::ResponsePreload(_)
+        ) {
+            let response = result.clone().and_then(|()| {
+                response_body
+                    .try_bytes()
+                    .map(|bytes| {
+                        crate::protocol_types::NavigationResponse::from_head_and_body(
+                            streaming.head.clone(),
+                            String::new(),
+                            bytes.to_vec(),
+                        )
+                    })
+                    .map_err(|error| error.to_string())
+            });
+            self.complete_response_preload(
+                &mut streaming.pending,
+                streaming.response_filter.as_ref(),
+                streaming.skip_fetch_security_validation,
+                &response,
+            )?
+        } else {
+            AsyncSubresourceFetchBodyActivity::NoWindowRealmEntered
+        };
         match result {
             Ok(()) => {
                 let request_cookie_report = streaming
@@ -1831,7 +1866,7 @@ impl ScriptVm {
             ?accepted_document,
             "finished network-only subresource without entering V8"
         );
-        Ok(())
+        Ok(activity)
     }
     /// Standalone ScriptVm test turn for a streaming-finish terminal.
     #[cfg(test)]
@@ -1887,9 +1922,7 @@ impl ScriptVm {
         if streaming.pending.continuation.is_detached_window_fetch()
             || streaming.pending.execution_context.is_window_network_only()
         {
-            return self
-                .finish_network_only_subresource_stream(streaming, internal_id, result)
-                .map(|()| AsyncSubresourceFetchBodyActivity::NoWindowRealmEntered);
+            return self.finish_network_only_subresource_stream(streaming, internal_id, result);
         }
         if !window_subresource_owner_is_current(&self._context_host, &streaming.pending) {
             self._context_host
