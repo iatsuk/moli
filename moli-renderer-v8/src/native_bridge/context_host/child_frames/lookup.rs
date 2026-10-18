@@ -374,8 +374,7 @@ impl PageScriptHost {
     }
 
     pub(crate) fn child_browsing_context_handle_by_name_for_navigation_from_document(
-        &mut self,
-        scope: &mut v8::PinScope<'_, '_>,
+        &self,
         key: &str,
         document: DomHandle,
     ) -> Option<DomHandle> {
@@ -390,7 +389,6 @@ impl PageScriptHost {
         {
             return Some(handle);
         }
-        self.sync_child_browsing_context_subtree(scope, document);
         self.child_browsing_context_handle_by_name_in_document_order_from_document(key, document)
     }
 
@@ -481,7 +479,6 @@ impl PageScriptHost {
             return Some(root);
         }
         if let Some(source) = related_to {
-            self.sync_child_browsing_context_subtree(scope, document);
             let mut handles = Vec::new();
             self.collect_child_browsing_context_handles_in_document_order_from_document(
                 document,
@@ -497,10 +494,8 @@ impl PageScriptHost {
                 .then_some(target)
             });
         }
-        self.child_browsing_context_handle_by_name_for_navigation_from_document(
-            scope, name, document,
-        )
-        .map(OwnerDispatchScope::Child)
+        self.child_browsing_context_handle_by_name_for_navigation_from_document(name, document)
+            .map(OwnerDispatchScope::Child)
     }
 
     fn browsing_contexts_are_familiar(
