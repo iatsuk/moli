@@ -668,6 +668,7 @@ fn parser_meta_csp_acknowledgement_admits_all_scanned_scripts_at_first_handoff()
                     buffered_document_preloads: &mut state.buffered_document_preloads,
                     service_worker_preload_context: state.service_worker_preload_context.as_ref(),
                     input_closed: &state.input_closed,
+                    image_document: &mut state.image_document,
                 };
                 let _ = driver
                     .advance_parser_step(&mut page_vm, html, None)
@@ -784,6 +785,7 @@ fn parser_meta_csp_admission_starts_later_request_before_first_settles() {
                     buffered_document_preloads: &mut state.buffered_document_preloads,
                     service_worker_preload_context: state.service_worker_preload_context.as_ref(),
                     input_closed: &state.input_closed,
+                    image_document: &mut state.image_document,
                 };
                 let _ = driver
                     .advance_parser_step(&mut page_vm, html, None)
@@ -830,6 +832,7 @@ fn parser_meta_csp_owner_admission_blocks_without_starting_preload() {
                 buffered_document_preloads: &mut state.buffered_document_preloads,
                 service_worker_preload_context: state.service_worker_preload_context.as_ref(),
                 input_closed: &state.input_closed,
+                image_document: &mut state.image_document,
             };
             let _ = driver
                 .advance_parser_step(&mut page_vm, html, None)
@@ -1413,6 +1416,7 @@ fn parser_blocking_ready_preload_executes_without_source_boundary() {
                 buffered_document_preloads: &mut state.buffered_document_preloads,
                 service_worker_preload_context: state.service_worker_preload_context.as_ref(),
                 input_closed: &state.input_closed,
+                image_document: &mut state.image_document,
             };
             let local_executor = page_vm.local_executor.clone();
             let page_vm_ptr: *mut PageVm = &mut page_vm;
@@ -1492,6 +1496,7 @@ fn parser_blocking_external_script_without_preload_starts_source_load_after_inpu
                 buffered_document_preloads: &mut state.buffered_document_preloads,
                 service_worker_preload_context: state.service_worker_preload_context.as_ref(),
                 input_closed: &state.input_closed,
+                image_document: &mut state.image_document,
             };
             let outcome = tokio::time::timeout(
                 std::time::Duration::from_millis(50),
@@ -1608,6 +1613,7 @@ fn parser_blocking_source_boundary_scans_later_preloads_without_parsing_later_do
                 buffered_document_preloads: &mut state.buffered_document_preloads,
                 service_worker_preload_context: state.service_worker_preload_context.as_ref(),
                 input_closed: &state.input_closed,
+                image_document: &mut state.image_document,
             };
             let outcome = driver
                 .advance_parser_step(
@@ -1689,6 +1695,7 @@ fn stylesheet_gated_parser_blocking_script_reuses_completed_preload() {
                 buffered_document_preloads: &mut state.buffered_document_preloads,
                 service_worker_preload_context: state.service_worker_preload_context.as_ref(),
                 input_closed: &state.input_closed,
+                image_document: &mut state.image_document,
             };
             let outcome = driver
                 .advance_parser_step(
@@ -1908,6 +1915,7 @@ async fn parser_driver_finish_parser_blocking_pause_uses_service_worker_preload_
         buffered_document_preloads: &mut state.buffered_document_preloads,
         service_worker_preload_context: state.service_worker_preload_context.as_ref(),
         input_closed: &state.input_closed,
+        image_document: &mut state.image_document,
     };
     driver.finish_parser_blocking_pause(|| None);
 
@@ -1966,6 +1974,7 @@ fn parser_driver_finish_parser_blocking_pause_resets_insertion_scanner_state() {
             buffered_document_preloads: &mut state.buffered_document_preloads,
             service_worker_preload_context: state.service_worker_preload_context.as_ref(),
             input_closed: &state.input_closed,
+            image_document: &mut state.image_document,
         };
 
         session.enqueue_script_input_preload_html("<script sr".to_owned());
