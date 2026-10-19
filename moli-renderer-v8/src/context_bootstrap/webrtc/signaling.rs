@@ -3,7 +3,7 @@
 
 use crate::{
     context_bootstrap::{events, exposed_interfaces, media_queries},
-    util::{callback_data_index_value, callback_data_item, get_private_value, set_private_value},
+    util::{callback_data_index_value, callback_data_item, get_private_value},
     web_api_interfaces,
 };
 use moli_webapi_declare::WebApiFunctionTemplate;

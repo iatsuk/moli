@@ -237,7 +237,7 @@ pub(super) fn close_sctp<'s>(scope: &mut v8::PinScope<'s, '_>, pc: v8::Local<'s,
         // Unlike rollback, close retains pc.sctp. Notify within the SCTP shutdown
         // step; the following steps of PC.close() shut down DTLS and ICE.
         set_string_slot(scope, sctp, STATE, "closed");
-        signaling::dispatch_event(scope, sctp, LISTENERS, "statechange");
+        signaling::dispatch_event(scope, sctp, "statechange");
     }
 }
 

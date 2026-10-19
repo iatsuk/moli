@@ -28,6 +28,17 @@ pub(super) struct UiEventInit<'s> {
 }
 
 impl<'s> UiEventInit<'s> {
+    pub(super) fn with_event_flags(bubbles: bool, cancelable: bool, composed: bool) -> Self {
+        Self {
+            base: super::EventInit {
+                bubbles,
+                cancelable,
+                composed,
+            },
+            ..Default::default()
+        }
+    }
+
     pub(super) fn event_flags(&self) -> (bool, bool, bool) {
         (self.base.bubbles, self.base.cancelable, self.base.composed)
     }

@@ -728,11 +728,6 @@ interfaces! {
     XMLSerializer;
     XPathEvaluator;
     XPathExpression;
-
-
-
-
-
     XPathResult;
 }
 
