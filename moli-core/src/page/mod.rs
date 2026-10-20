@@ -113,7 +113,7 @@ pub use moli_renderer_v8::{
     RendererJavaScriptDialogId, RendererJavaScriptDialogResult, RendererJavaScriptDialogSource,
     RendererLayoutMetrics, RendererLifecycleEpoch, RendererLifecycleEventStamp,
     RendererLifecycleStartReason, RendererLifecycleTerminationStamp, RendererMainDocumentCommit,
-    RendererMainDocumentResource, RendererMarkdownOptions, RendererNavigationInitiator,
+    RendererMainDocumentResource, RendererMarkdownOptions, RendererNavigationInitiator, RendererNavigationPolicy,
     RendererPageCommandPostResponseContinuation, RendererPageCreationArtifacts,
     RendererPageCreationDiagnostics, RendererPageDiagnosticsSnapshot, RendererPageReplacementError,
     RendererPageReplacementFailureDisposition, RendererPageWindowIdentity, RendererPdfOptions,
