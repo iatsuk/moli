@@ -1582,56 +1582,35 @@ fn invalid_font_face_defers_loaded_rejection_until_promise_is_observed() {
 
 #[tokio::test]
 async fn font_face_invalid_data_url_uses_later_sources_without_eager_loading() {
-    let loader = static_http_loader(std::iter::empty::<String>());
-    let mut vm = new_storage_page_task_executor_test_vm_with_loader(
-        "https://font-face-data-url-fallback.test/",
-        &loader,
+    let valid_source = format!(
+        "url({:?})",
+        crate::script_vm::tests::browser_api::fonts::fixture_font_url()
     );
-    vm.eval(&format!(
-        "globalThis.fontFixtureSource = {:?}",
-        format!(
-            "url({:?})",
-            crate::script_vm::tests::browser_api::fonts::fixture_font_url()
-        )
-    ))
-    .unwrap();
-    vm.eval(
+    let script = format!(
         r#"
-globalThis.fontDataFallback = {done: false, result: null, error: null};
-(async () => {
+(async () => {{
   const face = new FontFace(
     'FallbackFace',
-    'url("data:font/woff2;base64,d09GMmdhcmJhZ2U="), ' + fontFixtureSource
+    'url("data:font/woff2;base64,d09GMmdhcmJhZ2U="), ' + {valid_source:?}
   );
   const loaded = face.loaded;
   const before = face.status;
   const returned = face.load();
   const value = await returned;
-  return {
+  return JSON.stringify({{
     before,
     returnedLoaded: returned === loaded,
     resolvedSelf: value === face,
     stableLoaded: face.loaded === loaded,
     final: face.status
-  };
-})().then(
-  result => { fontDataFallback.result = result; fontDataFallback.done = true; },
-  error => { fontDataFallback.error = String(error); fontDataFallback.done = true; }
-);
-"#,
-    )
-    .unwrap();
-    advance_page_task_executor_until_eval_equals(
-        &mut vm,
-        &loader,
-        "String(fontDataFallback.done)",
-        "true",
-        "font data source fallback",
-    )
-    .await;
-    assert_eq!(vm.eval("fontDataFallback.error === null").unwrap(), "true");
+  }});
+}})()
+"#
+    );
+    let result =
+        eval_owned_font_loading_fixture("https://font-face-data-url-fallback.test/", &script).await;
     assert_eq!(
-        vm.eval("JSON.stringify(fontDataFallback.result)").unwrap(),
+        result,
         r#"{"before":"unloaded","returnedLoaded":true,"resolvedSelf":true,"stableLoaded":true,"final":"loaded"}"#
     );
 }
