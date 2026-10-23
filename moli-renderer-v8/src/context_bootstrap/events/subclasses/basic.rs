@@ -1,4 +1,4 @@
-use super::super::{EventInit, ui::UiEventInit};
+use super::super::ui::UiEventInit;
 use super::custom::CustomEventInit;
 use super::*;
 use crate::{web_api_interfaces, webidl};
