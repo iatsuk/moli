@@ -699,7 +699,7 @@ impl PageScriptHost {
                 info.request_cookie_report.clone(),
             )
             .with_request_body_bytes(info.request_body_bytes.clone())
-            .with_keepalive(disposition == ResourceLoadDisposition::Keepalive),
+            .with_keepalive(disposition.is_keepalive()),
         );
     }
 
@@ -754,20 +754,25 @@ impl PageScriptHost {
         policy_context: crate::types::SubresourcePolicyContext,
         blob_url_entry: Option<crate::network_host::CapturedBlobUrl>,
         mut info: PendingSubresourceFetchInfo,
-    ) -> u64 {
+    ) -> Option<u64> {
         self.assign_pending_subresource_fetch_identity(&mut info);
         let internal_id = info.internal_id;
         let disposition = if keepalive {
-            ResourceLoadDisposition::Keepalive
+            ResourceLoadDisposition::Keepalive {
+                body_bytes: info
+                    .request_body_bytes
+                    .as_ref()
+                    .map_or(0, bytes::Bytes::len),
+            }
         } else {
             ResourceLoadDisposition::Ordinary
         };
-        let (load, _) = self.require_document_resource_load_for_dispatch_scope(
+        let (load, _) = self.register_document_resource_load_for_dispatch_scope(
             fetch_context.request_target().dispatch_scope(),
             info.resource_type,
             disposition,
             None,
-        );
+        )?;
         let mut visible_info = info.clone();
         visible_info.request_headers = request.interception_request_headers();
         self.push_pending_subresource_fetch_info(visible_info);
@@ -802,7 +807,7 @@ impl PageScriptHost {
             },
         );
         self.note_subresource_activity();
-        internal_id
+        Some(internal_id)
     }
 
     pub(crate) fn record_pending_worker_subresource_fetch(
@@ -1059,20 +1064,25 @@ impl PageScriptHost {
         policy_context: crate::types::SubresourcePolicyContext,
         mut info: PendingSubresourceFetchInfo,
         defer_request_started: bool,
-    ) -> u64 {
+    ) -> Option<u64> {
         self.assign_pending_subresource_fetch_identity(&mut info);
         let internal_id = info.internal_id;
         let disposition = if keepalive {
-            ResourceLoadDisposition::Keepalive
+            ResourceLoadDisposition::Keepalive {
+                body_bytes: info
+                    .request_body_bytes
+                    .as_ref()
+                    .map_or(0, bytes::Bytes::len),
+            }
         } else {
             ResourceLoadDisposition::Ordinary
         };
-        let (load, _) = self.require_document_resource_load_for_dispatch_scope(
+        let (load, _) = self.register_document_resource_load_for_dispatch_scope(
             fetch_context.request_target().dispatch_scope(),
             info.resource_type,
             disposition,
             cancel_handle.clone(),
-        );
+        )?;
         if !defer_request_started {
             self.record_pending_subresource_request_started(&info, load.disposition());
         }
@@ -1106,7 +1116,7 @@ impl PageScriptHost {
             },
         );
         self.note_subresource_activity();
-        internal_id
+        Some(internal_id)
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -1629,15 +1639,20 @@ impl PageScriptHost {
         cancel_handle: Option<moli_fetch::FetchCancelHandle>,
         network_partition_key: Option<String>,
         mut info: PendingSubresourceFetchInfo,
-    ) -> u64 {
+    ) -> Option<u64> {
         self.assign_pending_subresource_fetch_identity(&mut info);
         let internal_id = info.internal_id;
-        let (load, request_origin) = self.require_document_resource_load_for_dispatch_scope(
+        let (load, request_origin) = self.register_document_resource_load_for_dispatch_scope(
             execution_context.dispatch_scope(),
             info.resource_type,
-            ResourceLoadDisposition::Keepalive,
+            ResourceLoadDisposition::Keepalive {
+                body_bytes: info
+                    .request_body_bytes
+                    .as_ref()
+                    .map_or(0, bytes::Bytes::len),
+            },
             cancel_handle.clone(),
-        );
+        )?;
         self.record_pending_subresource_request_started(&info, load.disposition());
         self.pending_subresource_fetches.insert(
             internal_id,
@@ -1660,7 +1675,7 @@ impl PageScriptHost {
             },
         );
         self.note_subresource_activity();
-        internal_id
+        Some(internal_id)
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -1680,7 +1695,7 @@ impl PageScriptHost {
             load.kind(),
             crate::network::loads::ResourceLoadKind::CspReport
         );
-        debug_assert_eq!(load.disposition(), ResourceLoadDisposition::Keepalive);
+        debug_assert!(load.disposition().is_keepalive());
         self.record_pending_subresource_request_started(&info, load.disposition());
         self.pending_subresource_fetches.insert(
             internal_id,
@@ -1711,15 +1726,20 @@ impl PageScriptHost {
         execution_context: super::WindowExecutionContextIdentity,
         network_partition_key: Option<String>,
         mut info: PendingSubresourceFetchInfo,
-    ) -> u64 {
+    ) -> Option<u64> {
         self.assign_pending_subresource_fetch_identity(&mut info);
         let internal_id = info.internal_id;
-        let (load, request_origin) = self.require_document_resource_load_for_dispatch_scope(
+        let (load, request_origin) = self.register_document_resource_load_for_dispatch_scope(
             execution_context.dispatch_scope(),
             info.resource_type,
-            ResourceLoadDisposition::Keepalive,
+            ResourceLoadDisposition::Keepalive {
+                body_bytes: info
+                    .request_body_bytes
+                    .as_ref()
+                    .map_or(0, bytes::Bytes::len),
+            },
             None,
-        );
+        )?;
         self.push_pending_subresource_fetch_info(info.clone());
         self.pending_subresource_fetches.insert(
             internal_id,
@@ -1742,7 +1762,7 @@ impl PageScriptHost {
             },
         );
         self.note_subresource_activity();
-        internal_id
+        Some(internal_id)
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -1762,7 +1782,7 @@ impl PageScriptHost {
             load.kind(),
             crate::network::loads::ResourceLoadKind::CspReport
         );
-        debug_assert_eq!(load.disposition(), ResourceLoadDisposition::Keepalive);
+        debug_assert!(load.disposition().is_keepalive());
         self.push_pending_subresource_fetch_info(info.clone());
         self.pending_subresource_fetches.insert(
             internal_id,
@@ -2956,7 +2976,7 @@ impl PageScriptHost {
         let mut detached_window_fetches = 0;
         self.for_each_subresource_fetch_state_mut(|pending| {
             if pending.load.registry_id() == registry_id
-                && pending.load.disposition() == ResourceLoadDisposition::Keepalive
+                && pending.load.disposition().is_keepalive()
             {
                 detached_window_fetches += usize::from(pending.detach_keepalive_window_fetch());
             }
