@@ -84,6 +84,13 @@ pub(in crate::worker) enum WorkerFetchResponse {
 }
 
 impl WorkerFetchResponse {
+    pub(super) fn skips_fetch_security_validation(&self) -> bool {
+        match self {
+            Self::Filtered { filter, .. } => filter.service_worker_metadata().is_some(),
+            Self::Streamed { .. } => false,
+            Self::Materialized(_) => false,
+        }
+    }
     pub(super) fn response_filter(
         &self,
     ) -> Option<crate::types::AsyncSubresourceFetchResponseFilter> {
@@ -171,6 +178,8 @@ impl PendingWorkerFetchNetworkRecord {
 
 pub(in crate::worker) struct PendingWorkerXhr {
     pub(super) timing: WorkerResourceTiming,
+    pub(in crate::worker) connect_policy: crate::document_runtime::DocumentConnectPolicySnapshot,
+    pub(in crate::worker) redirect_csp_state: crate::network_host::FetchCspRedirectState,
     pub(in crate::worker) xhr: v8::Global<v8::Object>,
     pub(in crate::worker) document_url: Url,
     pub(in crate::worker) credentials_mode: RequestCredentialsMode,
