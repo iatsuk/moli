@@ -1194,6 +1194,7 @@ mod tests {
             moli_dom::NodeId::new(7),
             Ok(ChildDocumentLoadOutcome::Loaded(Box::new(
                 LoadedChildDocument {
+                    response_status: None,
                     response_links: Default::default(),
                     final_url: Url::parse("https://example.test/child").unwrap(),
                     policy_container: crate::document_runtime::DocumentPolicyContainer::default(),
@@ -1220,6 +1221,7 @@ mod tests {
             ),
             Ok(PopupDocumentLoadOutcome::Loaded(Box::new(
                 LoadedChildDocument {
+                    response_status: None,
                     response_links: Default::default(),
                     final_url: Url::parse("https://example.test/popup").unwrap(),
                     policy_container: crate::document_runtime::DocumentPolicyContainer::default(),
