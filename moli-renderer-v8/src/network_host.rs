@@ -21,6 +21,7 @@ mod loaded_response;
 mod media;
 mod preflight_events;
 mod preload;
+mod redirect_owner;
 mod request;
 mod request_scope;
 mod response;
@@ -38,6 +39,7 @@ pub(crate) use font_face::{
 pub(crate) use headers::validated_header_entry_or_throw;
 use moli_fetch::{Request, Response, observe_cookie_access_report_for_request};
 
+pub(crate) use self::redirect_owner::{RedirectAdmission, RedirectOwner};
 use crate::network::ResourceRequestClient;
 
 pub(in crate::network_host) use self::blob_url_entry::BLOB_URL_ENTRY_SLOT;
@@ -46,11 +48,10 @@ pub(crate) use self::blob_url_entry::{
 };
 
 pub(crate) use self::async_fetch::{
-    collect_image_response_into_parkable,
+    collect_image_response_into_parkable, fetch_browser_subresource_for_owner,
+    fetch_browser_subresource_raw_stream_for_owner,
     fetch_browser_subresource_raw_stream_with_preflight_headers_and_network_metadata,
-    fetch_browser_subresource_with_preflight_and_network_metadata,
-    fetch_browser_subresource_with_preflight_headers,
-    fetch_browser_subresource_with_preflight_headers_and_network_metadata, fetch_cors_script_text,
+    fetch_browser_subresource_with_preflight_headers, fetch_cors_script_text,
     fetch_intercepted_window_hop, observe_async_xhr_upload, spawn_async_subresource_fetch,
 };
 pub(crate) use self::beacon::{navigator_send_beacon_callback, send_link_audit_ping};
