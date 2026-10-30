@@ -940,11 +940,11 @@ impl TestContext {
         navigation.commit(permit, configuration).await
     }
 
-    async fn install_loaded_navigation_fixture_for_session_owner(
+    pub(crate) async fn install_loaded_navigation_fixture_for_session_owner(
         &mut self,
         navigation: crate::conn::LoadedNavigation,
         session_id: Option<&str>,
-    ) {
+    ) -> Vec<moli_core::page::RendererDocumentLifecycleEvent> {
         let owner =
             self.with_fixture(|conn| crate::conn::CommandOwnerScope::capture(conn, session_id));
         let (_, target_id) = self.with_fixture(|conn| {
@@ -988,7 +988,7 @@ impl TestContext {
                 &final_url,
             )
         });
-        let (binding, _) = self.with_fixture(|conn| {
+        let (binding, initial_events) = self.with_fixture(|conn| {
             conn.bind_renderer_document_lifecycle_for_owner(
                 &owner,
                 page_creation_artifacts,
@@ -1015,6 +1015,7 @@ impl TestContext {
             self.route_renderer_output_predecessor_before_command_response(predecessor)
                 .await;
         }
+        initial_events
     }
 
     /// Feed a JSON-serialisable message through the async CDP entrypoint and

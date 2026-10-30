@@ -390,6 +390,7 @@ pub(super) async fn complete_using(
         CompletedPageCommandKind::ChildFrameNavigate(completed) => {
             super::child_navigation::finish_navigation(driver, context, owner, *completed).await?
         }
+
         CompletedPageCommandKind::Navigate(completed) => {
             let prepared =
                 driver.with_state(move |state| state.prepare_page_navigation(*completed))?;
@@ -467,7 +468,9 @@ pub(super) async fn complete_to_output_using(
     loop {
         match complete_using(driver, context, completed).await? {
             PageCommandTaskStep::Complete(plan) => return Ok(plan),
-            PageCommandTaskStep::Pending(pending) => completed = pending.wait().await,
+            PageCommandTaskStep::Pending(pending) => {
+                completed = Box::pin(pending.wait()).await;
+            }
         }
     }
 }
