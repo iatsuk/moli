@@ -314,7 +314,7 @@ pub(crate) use focus::{
     perform_access_key_default_action_for_dispatched_event,
     perform_hover_interest_default_action_for_dispatched_event, perform_mouse_focus_default_action,
     perform_tab_focus_default_action_for_dispatched_event, post_parse_autofocus_is_pending,
-    process_post_parse_autofocus, reset_document_navigation_focus, update_focus, update_focus_preserving_selection,
+    process_post_parse_autofocus, reset_document_navigation_focus, update_focus,
 };
 pub(super) use focus::{node_blur_callback, node_focus_callback};
 pub(super) use forms::{
