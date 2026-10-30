@@ -15,6 +15,7 @@ mod document_location_activity;
 mod dom_rect_factory_descriptors;
 mod drag_drop_outcomes;
 mod idb_transaction_gc;
+mod idb_transaction_scope;
 mod message_port_transfer;
 mod native_drag_payloads;
 mod native_drag_pointer_coordinates;
