@@ -253,7 +253,7 @@ async fn indexed_db_key_ranges_protect_bounds_and_validate_receivers() -> Result
         assert_eq!(result["state"], "pass", "{target}: {result}");
         assert_eq!(
             result["checks"].as_array().unwrap().len(),
-            if target == "worker" { 317 } else { 329 },
+            if target == "worker" { 341 } else { 353 },
             "{target}: {result}"
         );
     }
@@ -801,8 +801,9 @@ async fn indexed_db_schema_validation_preserves_key_paths_conversion_and_excepti
         );
         let result = run_probe(&browser, &server, target, &source).await?;
         assert_eq!(result["state"], "pass", "{target}: {result}");
-        assert!(
-            result["checks"].as_array().unwrap().len() >= 160,
+        assert_eq!(
+            result["checks"].as_array().unwrap().len(),
+            if target == "worker" { 165 } else { 174 },
             "{target}: {result}"
         );
     }
