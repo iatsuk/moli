@@ -204,6 +204,8 @@ impl PageScriptHost {
         outside_settings_load: ResourceLoadLease,
         owner: super::super::WindowExecutionContextBinding,
     ) -> DedicatedWorkerId {
+        let shared_memory_agent_cluster =
+            self.window_shared_memory_agent_cluster(owner.dispatch_scope());
         let worker_id = DedicatedWorkerId::new(self.next_worker_id);
         self.next_worker_id += 1;
         let renderer_instance_id = self
@@ -231,6 +233,7 @@ impl PageScriptHost {
                     storage_key_top_level_site,
                     creator_storage_key,
                     creator_message_security,
+                    shared_memory_agent_cluster,
                     reserved_service_worker_client_id,
                 },
             },
@@ -445,6 +448,7 @@ impl PageScriptHost {
             creator_storage_key: MoliStorageKey,
             creator_message_security:
                 Option<crate::context_bootstrap::RuntimeMessageSourceSecurity>,
+            shared_memory_agent_cluster: Option<crate::structured_clone::SharedMemoryAgentCluster>,
             reserved_service_worker_client_id: Option<ServiceWorkerClientId>,
             module_credentials_mode: moli_fetch::RequestCredentialsMode,
             module_static_import_policy: Option<Box<WorkerModuleStaticImportPolicySnapshot>>,
@@ -470,6 +474,7 @@ impl PageScriptHost {
                     storage_key_top_level_site,
                     creator_storage_key,
                     creator_message_security,
+                    shared_memory_agent_cluster,
                     reserved_service_worker_client_id,
                     outside_settings_load,
                 } => {
@@ -483,6 +488,7 @@ impl PageScriptHost {
                             storage_key_top_level_site: storage_key_top_level_site.clone(),
                             creator_storage_key: creator_storage_key.clone(),
                             creator_message_security: creator_message_security.clone(),
+                            shared_memory_agent_cluster: shared_memory_agent_cluster.clone(),
                             reserved_service_worker_client_id: reserved_service_worker_client_id
                                 .take(),
                             module_credentials_mode: *module_credentials_mode,
@@ -502,6 +508,7 @@ impl PageScriptHost {
             storage_key_top_level_site,
             creator_storage_key,
             creator_message_security,
+            shared_memory_agent_cluster,
             reserved_service_worker_client_id,
             module_credentials_mode,
             module_static_import_policy,
@@ -538,6 +545,7 @@ impl PageScriptHost {
         .with_content_security_reporting_endpoints(content_security_reporting_endpoints)
         .with_network_policy(network_policy)
         .with_policy_context(policy_context)
+        .with_shared_memory_agent_cluster(shared_memory_agent_cluster)
         .with_worker_context_runtime(self.browser_context_runtime().worker_context_runtime())
         .with_service_worker_runtime(self.browser_context_runtime().service_worker_runtime())
         .with_global_kind(WorkerGlobalKind::Dedicated { name })
