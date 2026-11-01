@@ -5,6 +5,10 @@ use crate::content_security_policy::ContentSecurityPolicy;
 use super::*;
 
 impl WorkerGlobalState {
+    pub(in crate::worker) fn mixed_content_policy(&self) -> moli_fetch::RequestMixedContentPolicy {
+        self.policy_context.mixed_content_policy()
+    }
+
     pub(in crate::worker) fn subresource_interception_config(
         &self,
     ) -> SubresourceInterceptionClasses {
