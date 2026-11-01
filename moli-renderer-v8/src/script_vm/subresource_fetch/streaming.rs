@@ -861,7 +861,7 @@ impl ScriptVm {
                     &pending.request_origin,
                     &started.head,
                     pending.request_mode,
-                    pending.credentials_mode,
+                    pending.network_credentials_mode(),
                     pending.policy_context,
                 )
                 .err()
@@ -1097,7 +1097,7 @@ impl ScriptVm {
                         &pending.request_origin(),
                         &started.head,
                         pending.request_mode,
-                        pending.credentials_mode,
+                        pending.network_credentials_mode(),
                         pending.policy_context,
                     )
                     .err()
