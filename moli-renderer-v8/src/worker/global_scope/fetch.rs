@@ -296,6 +296,7 @@ pub(in crate::worker) fn spawn_worker_fetch_network(
                         .unwrap_or_default();
                     let mut request = request
                         .with_mixed_content_policy(request_metadata.mixed_content_policy)
+                        .with_body_source_is_null(request_metadata.body_source_is_null)
                         .with_redirect_headers(redirect_headers)
                         .with_redirect_chain(redirect_chain)
                         .with_initiator_url(&document_url)
@@ -2209,6 +2210,7 @@ pub(in crate::worker) fn resolve_worker_fetch_input<'s>(
         });
         let metadata = ServiceWorkerFetchRequestMetadata {
             mixed_content_policy: Default::default(),
+            body_source_is_null: has_stream_body,
             cache: init.cache.unwrap_or(inherited.cache),
             referrer: inherited.referrer,
             referrer_policy: init.referrer_policy.unwrap_or(inherited.referrer_policy),
@@ -2260,6 +2262,7 @@ pub(in crate::worker) fn resolve_worker_fetch_input<'s>(
         let redirect_mode = init.redirect_mode.unwrap_or(RequestRedirectMode::Follow);
         let metadata = ServiceWorkerFetchRequestMetadata {
             mixed_content_policy: Default::default(),
+            body_source_is_null: has_stream_body,
             cache: init.cache.unwrap_or_else(|| "default".to_owned()),
             referrer: "about:client".to_owned(),
             referrer_policy: init.referrer_policy.unwrap_or_default(),
