@@ -1145,6 +1145,8 @@ fn xml_http_request_blob_response_uses_final_mime_type() {
                     scope,
                     xhr,
                     moli_fetch::ResponseHead {
+                        request_include_credentials: false,
+
                         status_text: None,
                         final_url: Url::parse("https://xhr-override-mime.test/mime")
                             .expect("response URL should parse"),
@@ -1248,6 +1250,8 @@ fn xml_http_request_default_response_type_parses_response_xml_for_document_mime(
                 scope,
                 xml_xhr,
                 moli_fetch::ResponseHead {
+                    request_include_credentials: false,
+
                     status_text: None,
                     final_url: Url::parse("https://xhr-response-xml.test/xml-doc")
                         .expect("XML response URL should parse"),
@@ -1277,6 +1281,8 @@ fn xml_http_request_default_response_type_parses_response_xml_for_document_mime(
                 scope,
                 plain_xhr,
                 moli_fetch::ResponseHead {
+                    request_include_credentials: false,
+
                     status_text: None,
                     final_url: Url::parse("https://xhr-response-xml.test/plain")
                         .expect("plain response URL should parse"),
@@ -1356,6 +1362,8 @@ fn xml_http_request_response_document_uses_response_url_and_requester_origin() {
                     scope,
                     xhr,
                     moli_fetch::ResponseHead {
+request_include_credentials: false,
+
                         status_text: None,
                         final_url: Url::parse("https://response.example/resource/doc#fragment").unwrap(),
                         status: 200,
@@ -1480,6 +1488,8 @@ fn xhr_streamed_response_documents_keep_distinct_source_modification_times() {
                     response_filter: None,
                     body_source_id,
                     head: moli_fetch::ResponseHead {
+                        request_include_credentials: false,
+
                         final_url: request.url.clone(),
                         status: 200,
                         status_text: None,
@@ -1591,6 +1601,8 @@ fn xhr_response_decoding_uses_headers_received_overrides_for_buffered_and_stream
             let request = &requests[0];
             let bytes = chunks.concat();
             let head = moli_fetch::ResponseHead {
+                request_include_credentials: false,
+
                 final_url: request.url.clone(),
                 status: 200,
                 status_text: None,
@@ -2844,6 +2856,8 @@ __streamingXhr.send();
     let request_url = pending.url.clone();
     let body_source_id = crate::network_host::new_network_body_source_id();
     let response_head = moli_fetch::ResponseHead {
+        request_include_credentials: false,
+
         status_text: Some("Streamed message".to_owned()),
         final_url: request_url.clone(),
         status: 200,
@@ -2970,6 +2984,8 @@ __xhrGate.send();
         request_body: None,
         body_source_id,
         head: moli_fetch::ResponseHead {
+            request_include_credentials: false,
+
             final_url: request.url.clone(),
             status: 200,
             status_text: None,
@@ -3133,6 +3149,8 @@ async fn streaming_subresource_finish_preserves_response_head_cache_state() {
                         request_body: None,
                         body_source_id,
                         head: moli_fetch::ResponseHead {
+                            request_include_credentials: false,
+
                             status_text: None,
                             final_url: final_url.clone(),
                             status: 200,
@@ -3437,6 +3455,8 @@ async fn streaming_fetch_body_error_records_response_started_then_body_failed() 
                         request_body: None,
                         body_source_id,
                         head: moli_fetch::ResponseHead {
+                            request_include_credentials: false,
+
                             status_text: None,
                             final_url: final_url.clone(),
                             status: 206,
@@ -3541,6 +3561,8 @@ fn install_streaming_fetch_response_fixture(
                         mode: moli_fetch::RequestMode::Cors,
                     },
                     moli_fetch::ResponseHead {
+                        request_include_credentials: false,
+
                         status_text: None,
                         final_url: request_url.clone(),
                         status: 200,
@@ -3606,6 +3628,8 @@ fn install_streaming_fetch_response_fixture(
                     request_body: None,
                     body_source_id,
                     head: moli_fetch::ResponseHead {
+                        request_include_credentials: false,
+
                         status_text: None,
                         final_url: request_url,
                         status: 200,
@@ -3722,6 +3746,8 @@ async fn streaming_fetch_body_cancel_aborts_streaming_subresource() {
                         request_body: None,
                         body_source_id,
                         head: moli_fetch::ResponseHead {
+                            request_include_credentials: false,
+
                             status_text: None,
                             final_url: request_url,
                             status: 200,
@@ -4392,6 +4418,8 @@ async fn streaming_xhr_materialization_failure_errors_body_source_before_close()
                     request_body: None,
                     body_source_id,
                     head: moli_fetch::ResponseHead {
+                        request_include_credentials: false,
+
                         status_text: None,
                         final_url: request_url,
                         status: 200,
@@ -4599,6 +4627,8 @@ fn xhr_response_documents_keep_distinct_source_modification_times() {
                     headers.push(("lAsT-mOdIfIeD".to_owned(), header.as_bytes().to_vec()));
                 }
                 let head = moli_fetch::ResponseHead {
+                    request_include_credentials: false,
+
                     final_url: request.url.clone(),
                     status: 200,
                     status_text: None,
@@ -4873,6 +4903,8 @@ fn xml_http_request_document_response_requires_an_eligible_mime_and_well_formed_
                 assert_eq!(pending.len(), 1);
                 let request = &pending[0];
                 let head = moli_fetch::ResponseHead {
+                    request_include_credentials: false,
+
                     status_text: None,
                     final_url: request.url.clone(),
                     status: 200,

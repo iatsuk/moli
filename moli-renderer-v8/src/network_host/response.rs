@@ -3,6 +3,11 @@ mod body_methods;
 mod cors;
 mod materialize;
 mod metadata;
+pub(crate) use metadata::fetch_response_metadata;
+#[cfg(test)]
+pub(crate) use metadata::response_metadata;
+#[cfg(test)]
+pub(crate) use metadata::set_response_metadata;
 pub(in crate::network_host) use metadata::{RESPONSE_METADATA_SLOT, response_metadata_attribute};
 
 use super::headers::{
@@ -54,7 +59,5 @@ pub(crate) use materialize::build_fetch_response_object_for_request_mode;
 
 #[cfg(test)]
 pub(crate) use self::materialize::materialize_response_object_head;
-
-pub(crate) use metadata::fetch_response_metadata;
 
 pub(crate) use self::materialize::set_cached_response_head;

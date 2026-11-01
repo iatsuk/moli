@@ -993,10 +993,13 @@ impl RuntimeOwner {
                     &job.current_url,
                     cookie_header.as_deref(),
                 );
-                let response = match materialize_cached_response(cached, request_cookie_report) {
+                let mut response = match materialize_cached_response(cached, request_cookie_report)
+                {
                     Ok(response) => response,
                     Err(error) => return Err((job.response_tx, error)),
                 };
+                response.request_include_credentials =
+                    job.request.allows_credentials_for_url(&response.final_url);
                 return self.finish_buffered_response(job, response, None);
             }
             Ok(Some(_)) | Ok(None) => {}
@@ -1759,6 +1762,7 @@ impl RuntimeOwner {
                 let response = proxy_connect_raw_response(
                     &job.current_url,
                     &job.request.redirect_chain,
+                    job.request.allows_credentials_for_url(&job.current_url),
                     request_cookie_report,
                     response,
                 );
@@ -1872,6 +1876,8 @@ impl RuntimeOwner {
         }
 
         response.request_cookie_report = request_cookie_report;
+        response.request_include_credentials =
+            job.request.allows_credentials_for_url(&response.final_url);
         response.cookie_set_reports = cookie_set_reports;
         response = response.with_network_request_extra_info(request_extra_info.clone());
 
@@ -2661,12 +2667,15 @@ impl RuntimeOwner {
                 tracing::debug!(url = %job.current_url, "failed to store raw streaming manual redirect response in disk cache: {error}");
             }
             if let Some(started_tx) = started_tx {
+                let request_include_credentials =
+                    job.request.allows_credentials_for_url(&final_url);
                 let _ = started_tx.send(Ok(StreamingHtmlResponseStart {
                     status_text: status_text.clone(),
                     final_url,
                     status,
                     headers,
                     request_cookie_report,
+                    request_include_credentials,
                     cookie_set_reports,
                     redirected: !job.request.redirect_chain.is_empty(),
                     redirect_chain: job.request.redirect_chain,
@@ -3594,6 +3603,7 @@ fn complete_streaming_html_job(job: StreamingRuntimeJob, response: Response) {
             status: head.status,
             headers: head.headers,
             request_cookie_report: head.request_cookie_report,
+            request_include_credentials: head.request_include_credentials,
             cookie_set_reports: head.cookie_set_reports,
             redirected: head.redirected,
             redirect_chain: head.redirect_chain,
@@ -3635,6 +3645,7 @@ fn materialize_cached_response(
             status_text: metadata.status_text,
             headers,
             request_cookie_report,
+            request_include_credentials: false,
             cookie_set_reports: Vec::new(),
             redirected: false,
             redirect_chain: Vec::new(),
@@ -3712,6 +3723,7 @@ fn complete_cached_streaming_html_job(
         .response_progress
         .mark_cached_response_available(body_sizes);
 
+    let request_include_credentials = job.request.allows_credentials_for_url(&final_url);
     if let Some(started_tx) = job.started_tx {
         let _ = started_tx.send(Ok(StreamingHtmlResponseStart {
             status_text: metadata.status_text,
@@ -3719,6 +3731,7 @@ fn complete_cached_streaming_html_job(
             status,
             headers,
             request_cookie_report,
+            request_include_credentials,
             cookie_set_reports: Vec::new(),
             redirected,
             redirect_chain,
@@ -3862,6 +3875,7 @@ fn complete_cached_streaming_raw_job(
         .response_progress
         .mark_cached_response_available(body_sizes);
 
+    let request_include_credentials = job.request.allows_credentials_for_url(&final_url);
     if let Some(started_tx) = job.started_tx {
         let _ = started_tx.send(Ok(StreamingHtmlResponseStart {
             status_text: metadata.status_text,
@@ -3869,6 +3883,7 @@ fn complete_cached_streaming_raw_job(
             status,
             headers,
             request_cookie_report,
+            request_include_credentials,
             cookie_set_reports: Vec::new(),
             redirected,
             redirect_chain,
@@ -4343,6 +4358,7 @@ fn cache_only_miss_start(request: &Request, current_url: &Url) -> StreamingHtmlR
             ("cache-control".to_owned(), b"no-store".to_vec()),
         ],
         request_cookie_report: None,
+        request_include_credentials: false,
         cookie_set_reports: Vec::new(),
         redirected: !request.redirect_chain.is_empty(),
         redirect_chain: request.redirect_chain.clone(),
@@ -4395,6 +4411,7 @@ fn complete_cache_only_raw_miss(mut job: StreamingRawRuntimeJob) {
 fn proxy_connect_response_start(
     current_url: &Url,
     redirect_chain: &[RedirectInfo],
+    request_include_credentials: bool,
     request_cookie_report: Option<StoredCookieQueryReport>,
     response: ProxyConnectResponse,
 ) -> StreamingHtmlResponseStart {
@@ -4404,6 +4421,7 @@ fn proxy_connect_response_start(
         status_text: Some(response.status_text),
         headers: response.headers,
         request_cookie_report,
+        request_include_credentials,
         cookie_set_reports: Vec::new(),
         redirected: !redirect_chain.is_empty(),
         redirect_chain: redirect_chain.to_vec(),
@@ -4418,12 +4436,19 @@ fn proxy_connect_response_start(
 fn proxy_connect_raw_response(
     current_url: &Url,
     redirect_chain: &[RedirectInfo],
+    request_include_credentials: bool,
     request_cookie_report: Option<StoredCookieQueryReport>,
     response: ProxyConnectResponse,
 ) -> RawResponse {
     RawResponse::from_head_and_body(
-        proxy_connect_response_start(current_url, redirect_chain, request_cookie_report, response)
-            .into_head(),
+        proxy_connect_response_start(
+            current_url,
+            redirect_chain,
+            request_include_credentials,
+            request_cookie_report,
+            response,
+        )
+        .into_head(),
         Vec::new(),
     )
 }
@@ -4437,6 +4462,7 @@ fn complete_streaming_proxy_connect_response(
     let start = proxy_connect_response_start(
         &job.current_url,
         &job.request.redirect_chain,
+        job.request.allows_credentials_for_url(&job.current_url),
         request_cookie_report,
         response,
     );
@@ -4462,6 +4488,7 @@ fn complete_raw_streaming_proxy_connect_response(
     let start = proxy_connect_response_start(
         &job.current_url,
         &job.request.redirect_chain,
+        job.request.allows_credentials_for_url(&job.current_url),
         request_cookie_report,
         response,
     );
@@ -4509,6 +4536,7 @@ fn collect_buffered_response(
                 status,
                 headers,
                 request_cookie_report: None,
+                request_include_credentials: false,
                 cookie_set_reports: Vec::new(),
                 redirected: false,
                 redirect_chain: Vec::new(),
@@ -5196,6 +5224,7 @@ mod tests {
                     status: 200,
                     headers: vec![("content-type".to_owned(), b"text/html".to_vec())],
                     request_cookie_report: Some(request_cookie_report.clone()),
+                    request_include_credentials: false,
                     cookie_set_reports: Vec::new(),
                     redirected: false,
                     redirect_chain: Vec::new(),

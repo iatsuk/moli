@@ -270,6 +270,8 @@ impl ControlledResourceLoad {
         body: crate::RendererSyntheticResponseBody,
     ) -> Response {
         body.into_fetch_response(ResponseHead {
+            request_include_credentials: self.request.allows_credentials_for_url(&self.request.url),
+
             final_url: self.request.url.clone(),
             status,
             status_text: None,
@@ -280,8 +282,8 @@ impl ControlledResourceLoad {
             redirect_chain: self.request.redirect_chain().to_vec(),
             from_cache: false,
             cache_state: Default::default(),
-            negotiated_http_version: None,
             preload_state: Default::default(),
+            negotiated_http_version: None,
         })
     }
 
@@ -403,6 +405,10 @@ impl ControlledResourceLoad {
                             PendingSubresourceAuthInfo {
                                 response_preload_state: response.head.preload_state.clone(),
 
+                                request_include_credentials: response
+                                    .head
+                                    .request_include_credentials,
+
                                 internal_id: self.info.internal_id,
                                 url: self.request.url.clone(),
                                 method: self.request.method.clone(),
@@ -451,6 +457,10 @@ impl ControlledResourceLoad {
                         event: Box::new(PendingSubresourceContinueEvent::ResponsePaused(
                             PendingSubresourceResponseInfo {
                                 preload_state: response.head.preload_state.clone(),
+
+                                request_include_credentials: response
+                                    .head
+                                    .request_include_credentials,
 
                                 internal_id: self.info.internal_id,
                                 url: self.request.url.clone(),
