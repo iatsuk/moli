@@ -2619,6 +2619,7 @@ mod window_scheduling_receivers;
 
 mod window_immutable_prototype_chain;
 
+mod window_agent_clusters;
 mod window_getter_consolidation;
 mod window_node_events;
 mod window_node_worlds;
