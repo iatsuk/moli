@@ -186,6 +186,26 @@ pub(crate) struct RequestInitMembers<'s> {
 }
 
 impl RequestInitMembers<'_> {
+    // Match Blink's AreAnyMembersPresent after dictionary conversion. In
+    // particular, null body/signal members count, undefined and unknown ones
+    // do not, and checking presence must not run JavaScript getters again.
+    pub(super) fn has_any_member(&self) -> bool {
+        self.body.is_some()
+            || self.signal.is_some()
+            || self.method.is_some()
+            || self.cache.is_some()
+            || self.mode.is_some()
+            || self.redirect.is_some()
+            || self.referrer.is_some()
+            || self.referrer_policy.is_some()
+            || self.integrity.is_some()
+            || self.duplex.is_some()
+            || self.headers.is_some()
+            || self.credentials_mode.is_some()
+            || self.priority.is_some()
+            || self.keepalive.is_some()
+    }
+
     pub(super) fn validation(&self) -> RequestInitValidation {
         RequestInitValidation {
             mode: self.mode.map(|value| value.0),
@@ -210,23 +230,6 @@ fn request_init_window_member<'s>(
 }
 
 impl RequestInitMembers<'_> {
-    pub(super) fn has_any_member(&self) -> bool {
-        self.body.is_some()
-            || self.signal.is_some()
-            || self.method.is_some()
-            || self.cache.is_some()
-            || self.mode.is_some()
-            || self.redirect.is_some()
-            || self.referrer.is_some()
-            || self.referrer_policy.is_some()
-            || self.integrity.is_some()
-            || self.duplex.is_some()
-            || self.headers.is_some()
-            || self.credentials_mode.is_some()
-            || self.priority.is_some()
-            || self.keepalive.is_some()
-    }
-
     pub(crate) fn body_is_present(&self) -> bool {
         // Explicit null is an init member but does not replace an input body.
         self.body.is_some_and(|body| !body.is_null_or_undefined())
