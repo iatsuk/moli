@@ -71,6 +71,7 @@ pub struct Request {
     /// Optional protocol view supplied by the body serializer (e.g. multipart
     /// with file contents omitted). Never used as the transport upload.
     body_text: Option<std::sync::Arc<str>>,
+    pub(crate) upload_body: Option<crate::UploadBody>,
     body_source_is_null: bool,
     pub(crate) new_connection_fetch: bool,
     /// Wire bytes, with the source encoding resolved before header merging.
@@ -693,6 +694,7 @@ impl Request {
             method: "GET".to_owned(),
             body: None,
             body_text: None,
+            upload_body: None,
             body_source_is_null: false,
             new_connection_fetch: false,
             request_headers: crate::RequestHeaders::default(),
@@ -741,6 +743,7 @@ impl Request {
             method: "GET".to_owned(),
             body: None,
             body_text: None,
+            upload_body: None,
             body_source_is_null: false,
             new_connection_fetch: false,
             request_headers: crate::RequestHeaders::default(),
@@ -822,6 +825,7 @@ impl Request {
             method: method.to_owned(),
             body,
             body_text: None,
+            upload_body: None,
             body_source_is_null: false,
             new_connection_fetch: false,
             request_headers: request_headers.into(),
@@ -1218,11 +1222,22 @@ impl Request {
     }
 
     pub fn body_source_is_null(&self) -> bool {
-        self.body_source_is_null
+        self.body_source_is_null || self.upload_body.is_some()
+    }
+
+    /// Attach a single-use streaming body. Cloning a Request does not make
+    /// this source replayable; redirects and retries must retain that fact.
+    pub fn with_upload_body(mut self, body: crate::UploadBody) -> Self {
+        self.body = None;
+        self.body_text = None;
+        self.body_source_is_null = true;
+        self.upload_body = Some(body);
+        self.use_cors_preflight = true;
+        self
     }
 
     pub(crate) fn can_retry_misdirected_request(&self) -> bool {
-        !self.new_connection_fetch && !self.body_source_is_null
+        !self.new_connection_fetch && !self.body_source_is_null()
     }
 
     /// Sets the browser's redirect policy and its default transport handling.
@@ -1343,6 +1358,7 @@ impl Request {
             self.method = "GET".to_owned();
             self.body = None;
             self.body_text = None;
+            self.upload_body = None;
             self.body_source_is_null = false;
             self.request_headers
                 .retain(|(name, _)| !is_request_body_header_name(name));
@@ -1455,6 +1471,8 @@ impl Request {
     /// Replace an upload and its protocol view together during interception.
     /// `None` uses the replacement bytes' ordinary UTF-8 lossy text view.
     pub fn set_body(&mut self, body: Option<bytes::Bytes>, text: Option<std::sync::Arc<str>>) {
+        self.upload_body = None;
+        self.body_source_is_null = false;
         self.body = body;
         self.body_text = text;
     }
