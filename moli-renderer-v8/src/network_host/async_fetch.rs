@@ -362,6 +362,19 @@ impl ManualCorsRedirectState {
     }
 }
 
+async fn wait_for_request_upload(
+    request: &Request,
+    cancel: &FetchCancelHandle,
+) -> Result<(), String> {
+    if let Some(body) = request.upload_body() {
+        tokio::select! {
+            _ = cancel.cancelled() => return Err("Request upload was cancelled".to_owned()),
+            result = body.transmission() => result.map_err(|error| error.to_string())?,
+        }
+    }
+    Ok(())
+}
+
 async fn fetch_browser_subresource_with_cors_redirect_checks(
     loader: ResourceRequestClient,
     request: Request,
@@ -430,6 +443,7 @@ async fn fetch_browser_subresource_with_cors_redirect_checks(
         let network_extra_info_available = observed.request_observation().is_some();
         let (mut response, hop_journal) = observed.into_parts_with_observation_journal();
         journal.append(hop_journal);
+        wait_for_request_upload(redirects.request(), &cancel_handle).await?;
         let transition = redirects.advance(
             response.head(),
             network_extra_info_available,
@@ -491,6 +505,7 @@ async fn fetch_browser_subresource_raw_stream_with_cors_redirect_checks(
         let network_extra_info_available = observed.request_observation().is_some();
         let (mut response, hop_journal) = observed.into_parts_with_observation_journal();
         journal.append(hop_journal);
+        wait_for_request_upload(redirects.request(), &cancel_handle).await?;
         let transition = redirects.advance(
             response.head(),
             network_extra_info_available,
@@ -648,7 +663,7 @@ async fn fetch_browser_subresource_raw_stream_with_preflight_headers_and_observe
     Ok(result)
 }
 
-fn format_network_error(error: anyhow::Error) -> String {
+pub(super) fn format_network_error(error: anyhow::Error) -> String {
     format!("{error:#}")
 }
 

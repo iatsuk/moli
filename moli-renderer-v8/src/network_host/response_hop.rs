@@ -38,6 +38,11 @@ pub(crate) fn advance_subresource_response(
     if source == moli_fetch::RedirectSource::Network {
         request.validate_cors_response_for_url(&head.final_url, &head.headers)?;
     }
+    if source == moli_fetch::RedirectSource::Network {
+        request
+            .validate_authentication_response(&head)
+            .map_err(super::async_fetch::format_network_error)?;
+    }
     if !is_redirect_status(head.status) {
         return Ok(SubresourceResponseTransition::FinalResponse);
     }
