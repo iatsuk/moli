@@ -282,6 +282,9 @@ impl ServiceWorkerRuntimeService {
             .with_browser_navigation_kind(request.metadata.navigation_kind(request.is_reload));
         let initial_redirect_count = native_request.redirect_count();
         let fetch_job = ServiceWorkerFetchJob {
+            direct_streaming_tx: None,
+            request_body_owner: dispatch.request_body_owner,
+            body_stream: request.body_stream.clone(),
             request: {
                 let native_request = if request.metadata.link_preload {
                     native_request.with_link_preload()

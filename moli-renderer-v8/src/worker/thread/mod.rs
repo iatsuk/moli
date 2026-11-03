@@ -1906,6 +1906,7 @@ async fn worker_main(
         service_worker_window_interaction_allowed_count: 0,
         pending_service_worker_lifecycle_events: std::collections::HashMap::new(),
         pending_service_worker_fetch_events: std::collections::HashMap::new(),
+        pending_service_worker_request_uploads: std::collections::HashMap::new(),
         pending_service_worker_navigation_preloads: std::collections::HashMap::new(),
         pending_service_worker_message_events: std::collections::HashMap::new(),
         pending_service_worker_notification_events: std::collections::HashMap::new(),
@@ -3788,6 +3789,10 @@ async fn worker_main(
         crate::context_bootstrap::retire_indexed_db_context(ctx);
         runtime_inspector.context_destroyed(ctx);
     }
+    state
+        .borrow_mut()
+        .pending_service_worker_request_uploads
+        .clear();
     let common = Rc::clone(&state.borrow().common);
     common.clear_for_context_teardown();
     state.borrow_mut().file_reading_tasks.clear();
