@@ -13,7 +13,10 @@ use crate::automation::{
 use chromiumoxide_cdp::cdp::browser_protocol::page::{
     NavigateParams, NavigateToHistoryEntryParams, ReloadParams,
 };
-use moli_core::page::{ChildFrameDocumentOpenedSnapshot, CompletedPageCommand, PendingPageCommand};
+use moli_core::page::{
+    ChildFrameDocumentOpenedSnapshot, CompletedPageCommand, PendingPageCommand,
+    RendererPendingTopLevelHistoryTraversal,
+};
 use moli_fetch::NET_ERR_ABORTED_ERROR_TEXT;
 use moli_url_policy::{LocalFileNavigationAccess, route_navigation_url};
 use serde_json::{Value, json};
@@ -1198,6 +1201,7 @@ fn start_devtools_navigate_command(
         allow_background_navigation,
         NavigationRequestLoadPolicy::BrowserInitiated,
         NavigationStartInitiator::Browser,
+        BeforeUnloadCheck::Required,
     )
 }
 
@@ -1422,6 +1426,7 @@ fn start_devtools_reload_command(
         options.allow_background_navigation,
         NavigationRequestLoadPolicy::Reload,
         NavigationStartInitiator::Browser,
+        BeforeUnloadCheck::Required,
     );
     finish_started_navigation_command_for_parts(
         conn,
@@ -1669,8 +1674,9 @@ pub(super) fn renderer_history_traversal_has_destination(
 pub(super) fn start_session_owner_history_traversal_from_renderer(
     conn: &mut CdpConnection,
     owner: &CommandOwnerScope,
-    delta: i64,
+    traversal: RendererPendingTopLevelHistoryTraversal,
 ) -> PageCommandTaskStep {
+    let delta = traversal.delta;
     let reloaded_after_crash_session_ids = reloaded_after_crash_session_ids(conn, owner);
     let destination = DevToolsHistoryTraversalDestination::Delta(delta);
     let (entry_id, url) =
@@ -1703,14 +1709,16 @@ pub(super) fn start_session_owner_history_traversal_from_renderer(
             // traversal checks beforeunload and loads its destination.
             allow_background_navigation: true,
         },
-        HistoryTraversalStartSource::Renderer,
+        HistoryTraversalStartSource::Renderer {
+            beforeunload_checked: traversal.beforeunload_checked,
+        },
     )
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum HistoryTraversalStartSource {
     BrowserCommand,
-    Renderer,
+    Renderer { beforeunload_checked: bool },
 }
 
 fn start_resolved_history_traversal_command(
@@ -1727,9 +1735,21 @@ fn start_resolved_history_traversal_command(
     {
         return PageCommandTaskStep::Complete(CommandOutputPlan::error(-31998, "TargetNotLoaded"));
     }
-    let initiator = match source {
-        HistoryTraversalStartSource::BrowserCommand => NavigationStartInitiator::Browser,
-        HistoryTraversalStartSource::Renderer => NavigationStartInitiator::Renderer,
+    let (initiator, beforeunload) = match source {
+        HistoryTraversalStartSource::BrowserCommand => (
+            NavigationStartInitiator::Browser,
+            BeforeUnloadCheck::Required,
+        ),
+        HistoryTraversalStartSource::Renderer {
+            beforeunload_checked,
+        } => (
+            NavigationStartInitiator::Renderer,
+            if beforeunload_checked {
+                BeforeUnloadCheck::RendererHandled
+            } else {
+                BeforeUnloadCheck::Required
+            },
+        ),
     };
     let DevToolsNavigationStartOptions {
         owner,
@@ -1747,6 +1767,7 @@ fn start_resolved_history_traversal_command(
         allow_background_navigation,
         NavigationRequestLoadPolicy::BrowserInitiated,
         initiator,
+        beforeunload,
     );
     finish_started_navigation_command_for_parts(
         conn,
@@ -2700,6 +2721,7 @@ fn start_navigate_to_url_command_with_background_policy(
     allow_background_navigation: bool,
     request_load_policy: NavigationRequestLoadPolicy,
     initiator: NavigationStartInitiator,
+    beforeunload: BeforeUnloadCheck,
 ) -> NavigateCommandStart {
     start_navigate_to_url_command_with_background_policy_and_request(
         conn,
@@ -2714,13 +2736,7 @@ fn start_navigate_to_url_command_with_background_policy(
         allow_background_navigation,
         request_load_policy,
         initiator,
-        // Renderer History API handoffs have already checked the outgoing
-        // tree. Browser commands still own that check here.
-        if matches!(initiator, NavigationStartInitiator::Renderer) {
-            BeforeUnloadCheck::RendererHandled
-        } else {
-            BeforeUnloadCheck::Required
-        },
+        beforeunload,
         None,
         None,
         None,
@@ -3211,6 +3227,7 @@ pub(super) fn start_initial_document_navigation_for_session_owner(
         true,
         NavigationRequestLoadPolicy::BrowserInitiated,
         NavigationStartInitiator::Browser,
+        BeforeUnloadCheck::Required,
     ))
 }
 
