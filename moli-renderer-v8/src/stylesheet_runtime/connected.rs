@@ -1319,6 +1319,7 @@ impl DocumentRuntime {
                     )
                 })
                 .unwrap_or_else(|| ConnectedLinkReadinessFetchOptions {
+                    network_partition_key: None,
                     resource_type,
                     request_resource_type: crate::network::request_resource_type_for_subresource(
                         resource_type,
@@ -1331,6 +1332,17 @@ impl DocumentRuntime {
                     link_preload: false,
                     link_fetch_options: StylesheetFetchOptions::default(),
                 });
+            if fetch_options.request_resource_type == Some(RequestResourceType::LinkPrefetch)
+                && !host_ptr.is_null()
+            {
+                let host = unsafe { &*host_ptr };
+                if let Some(crate::native_bridge::OwnerDispatchScope::Child(frame)) =
+                    host.owner_dispatch_scope_for_node(handle)
+                {
+                    fetch_options.network_partition_key =
+                        host.child_browsing_context_network_partition_key(frame);
+                }
+            }
             if fetch_options.script_fetch_metadata.is_some() {
                 fetch_options.document_referrer_policy = document_referrer_policy.or_else(|| {
                     if host_ptr.is_null() {
@@ -2584,6 +2596,7 @@ fn preload_like_link_readiness_fetch_options(
         RequestCredentialsMode::Include
     };
     ConnectedLinkReadinessFetchOptions {
+        network_partition_key: None,
         resource_type,
         request_resource_type,
         script_fetch_metadata,
@@ -2700,6 +2713,7 @@ fn connected_link_readiness_request(
         .with_initiator_url(document_url)
         .with_request_origin(request_origin.clone());
     let mut request = request
+        .with_network_partition_key(options.network_partition_key.clone())
         .with_request_mode(options.request_mode)
         .with_credentials_mode(options.credentials_mode);
     if options.link_preload {
@@ -5598,6 +5612,7 @@ mod tests {
             document_url,
             script_url,
             ConnectedLinkReadinessFetchOptions {
+                network_partition_key: None,
                 document_referrer_policy: None,
                 resource_type: SubresourceResourceType::Script,
                 request_resource_type: Some(RequestResourceType::Script),
