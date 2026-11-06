@@ -128,6 +128,7 @@ impl PageScriptHost {
     ) -> Option<u64> {
         let PendingChildFrameNavigation {
             bootstrap,
+            navigation_start,
             browser_navigation_kind,
             blob_resource,
             initiator,
@@ -144,6 +145,7 @@ impl PageScriptHost {
                 initiating_loader.request_client().clone(),
                 target_url.clone(),
                 initiating_loader.task_runner(),
+                navigation_start,
             );
         let frame_id = self
             .child_browsing_contexts
