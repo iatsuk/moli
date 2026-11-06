@@ -103,6 +103,17 @@ pub(super) struct PendingFontFaceFetch {
     pub(super) report_context: crate::network_host::WindowCspReportRequestContext,
 }
 
+pub(super) struct PendingInputImageFetch {
+    pub(super) element: crate::document_runtime::DomHandle,
+    pub(super) id: crate::native_bridge::InputImageRequestId,
+    pub(super) target: crate::native_bridge::WindowDocumentTaskTarget,
+    pub(super) timing: crate::context_bootstrap::FetchResourceTiming,
+    pub(super) policy: crate::document_runtime::DocumentRequestPolicySnapshot,
+    pub(super) redirect_state: crate::network_host::FetchCspRedirectState,
+    pub(super) report_context: crate::network_host::WindowCspReportRequestContext,
+    pub(super) request_initiator_type: SubresourceRequestInitiatorType,
+}
+
 pub(super) enum PendingSubresourceContinuation {
     Beacon(Box<PendingBeacon>),
     Dictionary(Box<PendingDictionaryFetch>),
@@ -113,6 +124,7 @@ pub(super) enum PendingSubresourceContinuation {
     EventSource(Box<PendingEventSourceRequest>),
     Fetch(Box<PendingWindowFetchContinuation>),
     FontFace(Box<PendingFontFaceFetch>),
+    InputImage(Box<PendingInputImageFetch>),
     Image {
         image_handle: crate::document_runtime::DomHandle,
         sequence: crate::native_bridge::ImageLoadEventId,
@@ -265,6 +277,9 @@ impl PendingSubresourceContinuation {
             Self::FontFace(font) => {
                 Some((&font.policy, &font.redirect_state, &font.report_context))
             }
+            Self::InputImage(input) => {
+                Some((&input.policy, &input.redirect_state, &input.report_context))
+            }
             Self::Dictionary(dictionary) => Some((
                 &dictionary.policy,
                 &dictionary.redirect_state,
@@ -300,6 +315,7 @@ impl PendingSubresourceContinuation {
 
     pub(super) fn request_initiator_type(&self) -> SubresourceRequestInitiatorType {
         match self {
+            Self::InputImage(input) => input.request_initiator_type,
             Self::Image {
                 request_initiator_type,
                 ..
@@ -320,6 +336,7 @@ impl PendingSubresourceContinuation {
         matches!(
             self,
             Self::Image { .. }
+                | Self::InputImage(_)
                 | Self::Media { .. }
                 | Self::TextTrack { .. }
                 | Self::StylesheetSubresource { .. }
@@ -392,6 +409,7 @@ impl PendingSubresourceContinuation {
     ) -> Option<&mut crate::context_bootstrap::FetchResourceTiming> {
         match self {
             Self::Fetch(fetch) => Some(&mut fetch.resource_timing),
+            Self::InputImage(input) => Some(&mut input.timing),
             Self::Xhr { timing, .. } => timing.as_mut(),
             _ => None,
         }
