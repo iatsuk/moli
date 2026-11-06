@@ -304,6 +304,7 @@ impl ResourceConnectionTiming {
     }
 }
 
+#[derive(Debug)]
 pub(crate) struct ResourcePerformanceEntry {
     preload_state: moli_fetch::ResponsePreloadState,
     name: String,
