@@ -69,10 +69,9 @@ use crate::network_host::{
     capture_xhr_upload_listener_flag, close_pending_network_body_stream,
     convert_xhr_send_body_from_args, dispatch_xhr_loadstart, enqueue_pending_network_body_chunk,
     error_pending_network_body_stream_with_reason, extract_subresource_auth_challenge,
-    filter_cors_exposed_response_headers, filter_headers_for_guard, is_cors_policy_failure_message,
-    parse_fetch_init, request_headers_guard_for_mode, request_object_credentials_mode,
-    resolve_context_url, set_xhr_state_number, throw_synchronous_xhr_failure,
-    validate_fetch_response_headers, validate_fetch_response_security_policy,
+    filter_headers_for_guard, is_cors_policy_failure_message, parse_fetch_init,
+    request_headers_guard_for_mode, request_object_credentials_mode, resolve_context_url,
+    set_xhr_state_number, throw_synchronous_xhr_failure, validate_fetch_response_security_policy,
     validate_fetch_response_security_policy_with_body_classified, xhr_author_request_headers,
     xhr_ensure_send_allowed, xhr_state_bool_property, xhr_state_number_property,
     xhr_state_string_property,
@@ -214,8 +213,8 @@ pub(crate) use nested_workers::{
 pub(super) use nested_workers::{dispatch_nested_worker_event, retire_nested_workers};
 pub(super) use network_state::{
     PausedWorkerSubresourceResponse, PendingWorkerCspReport, PendingWorkerFetch,
-    PendingWorkerFetchNetworkRecord, PendingWorkerXhr, WorkerFetchCompletion, WorkerFetchEvent,
-    WorkerFetchResponse, WorkerFetchStreamingChunk, WorkerFetchStreamingFinished,
+    PendingWorkerFetchNetworkRecord, PendingWorkerXhr, WorkerFetchClient, WorkerFetchCompletion,
+    WorkerFetchEvent, WorkerFetchResponse, WorkerFetchStreamingChunk, WorkerFetchStreamingFinished,
     WorkerFetchStreamingStarted, WorkerWebSocketState, WorkerXhrCompletion, WorkerXhrEvent,
     WorkerXhrResponse,
 };
@@ -223,6 +222,8 @@ use network_state::{
     WorkerFetchResponseParts, merge_worker_request_headers, next_fetch_id, next_websocket_id,
     next_xhr_id, worker_url_blocked,
 };
+mod event_source;
+pub(crate) use event_source::{abort_worker_event_source, start_worker_event_source_request};
 pub(crate) use origin::worker_global_origin;
 use origin::{WorkerGlobalOriginDeclaration, WorkerGlobalOriginPrototypeDeclaration};
 use performance::monotonic_unix_epoch_millis;
@@ -258,3 +259,4 @@ pub(crate) use state::{
     worker_termination_requested,
 };
 pub(super) use timers::{TimerInfo, WorkerIsolateTimerQueues, worker_isolate_timer_queues};
+pub(crate) use timers::{cancel_worker_browser_timeout, queue_worker_browser_timeout};
