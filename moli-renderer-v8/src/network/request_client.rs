@@ -622,9 +622,17 @@ impl ResourceRequestClient {
         ))
     }
 
-    pub(crate) async fn fetch_cacheable_script_text_stream(
+    pub(crate) fn fetch_cacheable_script_text_stream(
+        &self,
+        request: Request,
+    ) -> impl std::future::Future<Output = Result<Response>> + '_ {
+        self.fetch_cacheable_script_text_stream_with_cancel(request, FetchCancelHandle::new())
+    }
+
+    pub(crate) async fn fetch_cacheable_script_text_stream_with_cancel(
         &self,
         mut request: Request,
+        cancel: FetchCancelHandle,
     ) -> Result<Response> {
         request
             .browser_request_metadata
@@ -654,11 +662,7 @@ impl ResourceRequestClient {
                 );
             }
             let result = self
-                .fetch_script_text_stream_with_cancel_after_policy(
-                    request,
-                    FetchCancelHandle::new(),
-                    None,
-                )
+                .fetch_script_text_stream_with_cancel_after_policy(request, cancel, None)
                 .await;
             if let (Some(started), Some(url)) = (started, timing_url.as_deref()) {
                 let status = result.as_ref().ok().map(|response| response.status);
@@ -766,7 +770,7 @@ impl ResourceRequestClient {
         let result = self
             .fetch_script_text_stream_with_cancel_after_policy(
                 request,
-                FetchCancelHandle::new(),
+                cancel,
                 Some(Box::new({
                     let load = Arc::clone(&load);
                     move || load.notify_response_started()
