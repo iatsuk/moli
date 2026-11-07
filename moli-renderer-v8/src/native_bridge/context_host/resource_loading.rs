@@ -1511,6 +1511,7 @@ impl PageScriptHost {
         network_partition_key: Option<String>,
         policy_context: crate::types::SubresourcePolicyContext,
         target: crate::css_resource_urls::StylesheetSubresourceTarget,
+        timing: Option<Box<crate::context_bootstrap::FetchResourceTiming>>,
         mut info: PendingSubresourceFetchInfo,
     ) -> Option<u64> {
         if !self.stylesheet_subresource_load_delay_is_current(binding) {
@@ -1550,6 +1551,7 @@ impl PageScriptHost {
                 continuation: PendingSubresourceContinuation::StylesheetSubresource {
                     binding,
                     target,
+                    timing,
                 },
                 deferred_request_started: false,
                 blob_url_entry: None,

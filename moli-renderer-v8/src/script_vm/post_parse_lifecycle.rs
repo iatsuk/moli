@@ -2724,6 +2724,8 @@ impl ScriptVm {
                             );
                             continue;
                         };
+                        let resource = resource
+                            .with_resource_timing_initiator(Some(stylesheet_base_url.to_string()));
                         css_subresources.push((binding, resource));
                     }
                 }
@@ -2789,6 +2791,9 @@ impl ScriptVm {
                         else {
                             continue;
                         };
+                        let resource = resource.with_resource_timing_initiator(Some(
+                            response.response_url.to_string(),
+                        ));
                         css_subresources.push((binding, resource));
                     }
                 }
