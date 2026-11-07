@@ -375,7 +375,7 @@ impl DocumentRuntime {
             .extend(completed);
     }
 
-    pub(super) fn parser_blocking_stylesheet_release_is_ready(&self) -> bool {
+    pub(crate) fn parser_blocking_stylesheet_release_is_ready(&self) -> bool {
         !self.stylesheet_lifecycle.fetches.has_any_pending_entries()
             && !self.has_pending_parser_blocking_link()
     }
@@ -448,6 +448,7 @@ impl DocumentRuntime {
                 let physical_result = result.terminal.physical().as_result();
                 ConnectedLoadNetworkResult {
                     network_observed: result.terminal.network_was_observed(),
+                    resource_timing: None,
                     import_options: None,
                     consumed_preload_error: result.terminal.is_consumed_preload_error(),
                     document_owner,

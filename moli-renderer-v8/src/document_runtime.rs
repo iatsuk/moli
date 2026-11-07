@@ -449,6 +449,7 @@ impl ConnectedStyleImportRoot {
 
 #[derive(Debug, Clone)]
 pub(crate) struct ConnectedLoadNetworkResult {
+    pub(crate) resource_timing: Option<ConnectedResourceTiming>,
     pub(crate) import_options: Option<crate::stylesheet_blocking::StylesheetFetchOptions>,
     pub(crate) consumed_preload_error: bool,
     /// Exact request Document, independent of an element's current location.
@@ -465,6 +466,14 @@ pub(crate) struct ConnectedLoadNetworkResult {
     pub(crate) origin_clean: bool,
     pub(crate) network_observed: bool,
     pub(crate) result: std::result::Result<crate::protocol_types::NavigationResponse, String>,
+}
+
+/// Attribution and terminal observation of the physical connected-link request.
+/// Neither depends on a link's later location or on callback execution.
+#[derive(Debug, Clone)]
+pub(crate) struct ConnectedResourceTiming {
+    pub(crate) initiator: crate::context_bootstrap::ResourceTimingInitiator,
+    pub(crate) end_unix_millis: f64,
 }
 
 #[derive(Debug)]
@@ -2726,6 +2735,7 @@ mod tests {
             .ready_connected_load_network_results
             .push_back(ConnectedLoadNetworkResult {
                 network_observed: false,
+                resource_timing: None,
                 import_options: None,
                 consumed_preload_error: false,
                 document_owner: None,
@@ -2777,6 +2787,7 @@ mod tests {
             .ready_connected_load_network_results
             .push_back(ConnectedLoadNetworkResult {
                 network_observed: false,
+                resource_timing: None,
                 import_options: None,
                 consumed_preload_error: false,
                 document_owner: None,
@@ -2833,6 +2844,7 @@ mod tests {
             .ready_connected_load_network_results
             .push_back(ConnectedLoadNetworkResult {
                 network_observed: false,
+                resource_timing: None,
                 import_options: None,
                 consumed_preload_error: false,
                 document_owner: None,
@@ -2889,6 +2901,7 @@ mod tests {
             .ready_connected_load_network_results
             .push_back(ConnectedLoadNetworkResult {
                 network_observed: false,
+                resource_timing: None,
                 import_options: None,
                 consumed_preload_error: false,
                 document_owner: None,
@@ -3499,6 +3512,7 @@ mod tests {
             successful: false,
             network_results: vec![ConnectedLoadNetworkResult {
                 network_observed: false,
+                resource_timing: None,
                 import_options: None,
                 consumed_preload_error: false,
                 document_owner: None,
@@ -3597,6 +3611,7 @@ mod tests {
                 successful: true,
                 network_results: vec![ConnectedLoadNetworkResult {
                     network_observed: false,
+                    resource_timing: None,
                     import_options: None,
                     consumed_preload_error: false,
                     document_owner: None,
@@ -3673,6 +3688,7 @@ mod tests {
             successful: true,
             network_results: vec![ConnectedLoadNetworkResult {
                 network_observed: false,
+                resource_timing: None,
                 import_options: None,
                 consumed_preload_error: false,
                 document_owner: None,
@@ -3737,6 +3753,7 @@ mod tests {
             successful: true,
             network_results: vec![ConnectedLoadNetworkResult {
                 network_observed: false,
+                resource_timing: None,
                 import_options: None,
                 consumed_preload_error: false,
                 document_owner: None,
@@ -3880,6 +3897,7 @@ mod tests {
             .ready_connected_load_network_results
             .push_back(ConnectedLoadNetworkResult {
                 network_observed: false,
+                resource_timing: None,
                 import_options: None,
                 consumed_preload_error: false,
                 document_owner: None,
