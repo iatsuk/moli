@@ -106,3 +106,8 @@ pub(crate) use thread::{
     WorkerGlobalKind, WorkerScriptKind, WorkerScriptSource, WorkerSpawnOptions,
     dispatch_current_worker_callback_exception, spawn_worker_with_options,
 };
+
+pub(crate) use global_scope::{
+    try_worker_service_worker_get_registration, try_worker_service_worker_get_registrations,
+    try_worker_service_worker_register,
+};
