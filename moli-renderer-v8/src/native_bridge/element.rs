@@ -310,7 +310,7 @@ use focus::is_focusable;
 pub(crate) use focus::{
     apply_document_focus_fixup, contenteditable_editing_host, contenteditable_editing_host_in_dom,
     focus_element, focus_element_preserving_selection, focus_live_element_for_inspector,
-    perform_access_key_default_action_for_dispatched_event,
+    focus_window_client_document, perform_access_key_default_action_for_dispatched_event,
     perform_hover_interest_default_action_for_dispatched_event, perform_mouse_focus_default_action,
     perform_tab_focus_default_action_for_dispatched_event, post_parse_autofocus_is_pending,
     process_post_parse_autofocus, reset_document_navigation_focus, update_focus,
