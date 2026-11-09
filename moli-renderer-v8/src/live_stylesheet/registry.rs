@@ -361,55 +361,57 @@ impl LiveStylesheetRegistry {
                     continue;
                 }
 
-                let response =
-                    if let Some(response) = responses_by_request_identity.get(&request_identity) {
-                        // An explicitly refused data: import must not be decoded
-                        // again after the fetch graph has applied Document policy.
-                        (**response).clone()
-                    } else if request.url.scheme() == "data" {
-                        *data_expansions = data_expansions.saturating_add(1);
-                        let decoded = (*data_expansions <= MAX_DATA_STYLESHEET_IMPORT_EXPANSIONS)
-                            .then(|| decode_data_stylesheet(&request.url))
+                let response = if let Some(response) =
+                    responses_by_request_identity.get(&request_identity)
+                {
+                    // An explicitly refused data: import must not be decoded
+                    // again after the fetch graph has applied Document policy.
+                    (**response).clone()
+                } else if request.url.scheme() == "data" {
+                    *data_expansions = data_expansions.saturating_add(1);
+                    let decoded = (*data_expansions <= MAX_DATA_STYLESHEET_IMPORT_EXPANSIONS)
+                            .then(|| decode_data_stylesheet(&request.url, request.import_options.as_ref().and_then(crate::stylesheet_blocking::StylesheetFetchOptions::environment_encoding)))
                             .flatten();
-                        match decoded {
-                            Some(css_text) => LiveStylesheetImportResponse {
-                                request_url: request.url.clone(),
-                                response_url: request.url.clone(),
-                                css_text,
-                                successful: true,
-                                origin_clean: true,
+                    match decoded {
+                        Some((css_text, encoding)) => LiveStylesheetImportResponse {
+                            request_url: request.url.clone(),
+                            response_url: request.url.clone(),
+                            css_text,
+                            successful: true,
+                            origin_clean: true,
 
-                                import_options: Some(
-                                    crate::stylesheet_blocking::StylesheetFetchOptions::for_import(
-                                        request.url.clone(),
-                                        document_referrer_policy.map(str::to_owned),
-                                    )
-                                    .with_document_referrer_policy(
-                                        document_referrer_policy.map(str::to_owned),
-                                    ),
-                                ),
-                            },
-                            None => LiveStylesheetImportResponse {
-                                request_url: request.url.clone(),
-                                response_url: request.url.clone(),
-                                css_text: String::new(),
-                                successful: false,
-                                origin_clean: true,
-
-                                import_options: None,
-                            },
-                        }
-                    } else {
-                        LiveStylesheetImportResponse {
+                            import_options: Some(
+                                crate::stylesheet_blocking::StylesheetFetchOptions::for_import(
+                                    request.url.clone(),
+                                    document_referrer_policy.map(str::to_owned),
+                                )
+                                .with_document_referrer_policy(
+                                    document_referrer_policy.map(str::to_owned),
+                                )
+                                .with_environment_encoding(Some(encoding.to_owned())),
+                            ),
+                        },
+                        None => LiveStylesheetImportResponse {
                             request_url: request.url.clone(),
                             response_url: request.url.clone(),
                             css_text: String::new(),
                             successful: false,
-                            origin_clean: false,
+                            origin_clean: true,
 
                             import_options: None,
-                        }
-                    };
+                        },
+                    }
+                } else {
+                    LiveStylesheetImportResponse {
+                        request_url: request.url.clone(),
+                        response_url: request.url.clone(),
+                        css_text: String::new(),
+                        successful: false,
+                        origin_clean: false,
+
+                        import_options: None,
+                    }
+                };
                 all_successful &= response.successful;
                 if let Some(child) = self.install_import_response(
                     parent.id(),
