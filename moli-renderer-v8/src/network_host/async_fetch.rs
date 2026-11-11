@@ -284,20 +284,20 @@ fn browser_request_needs_redirect_checks(request: &Request) -> bool {
         && request.request_origin().is_some()
 }
 
-struct ManualCorsRedirectState {
+pub(crate) struct ManualCorsRedirectState {
     request: Request,
     preflight_request_headers: Vec<(String, String)>,
 }
 
 impl ManualCorsRedirectState {
-    fn new(request: Request, preflight_request_headers: Vec<(String, String)>) -> Self {
+    pub(crate) fn new(request: Request, preflight_request_headers: Vec<(String, String)>) -> Self {
         Self {
             request,
             preflight_request_headers,
         }
     }
 
-    fn request(&self) -> &Request {
+    pub(crate) fn request(&self) -> &Request {
         &self.request
     }
 
@@ -307,8 +307,17 @@ impl ManualCorsRedirectState {
 
     // Construct this copy at transport dispatch, after configuring Fetch
     // policy: a later with_redirect_mode(Follow) would enable runtime following.
-    fn single_hop_transport_request(&self) -> Request {
+    pub(crate) fn single_hop_transport_request(&self) -> Request {
         self.request.clone().with_single_hop()
+    }
+
+    pub(crate) async fn run_current_hop_preflight_unobserved(
+        &self,
+        loader: &ResourceRequestClient,
+        cancel_handle: FetchCancelHandle,
+    ) -> Result<(), String> {
+        self.run_current_hop_preflight(loader, Some(cancel_handle), None)
+            .await
     }
 
     async fn run_current_hop_preflight(
@@ -332,21 +341,44 @@ impl ManualCorsRedirectState {
         .await
     }
 
-    fn advance(
+    pub(crate) fn advance(
         &mut self,
         head: ResponseHead,
         network_extra_info_available: bool,
         request_extra_info: Option<&moli_fetch::NetworkRequestExtraInfo>,
+    ) -> Result<SubresourceResponseTransition, String> {
+        self.advance_response(
+            head,
+            network_extra_info_available,
+            request_extra_info,
+            moli_fetch::RedirectSource::Network,
+        )
+    }
+
+    pub(crate) fn advance_service_worker_response(
+        &mut self,
+        head: ResponseHead,
+    ) -> Result<SubresourceResponseTransition, String> {
+        self.advance_response(head, false, None, moli_fetch::RedirectSource::ServiceWorker)
+    }
+
+    fn advance_response(
+        &mut self,
+        head: ResponseHead,
+        network_extra_info_available: bool,
+        request_extra_info: Option<&moli_fetch::NetworkRequestExtraInfo>,
+        source: moli_fetch::RedirectSource,
     ) -> Result<SubresourceResponseTransition, String> {
         let transition = advance_subresource_response(
             &mut self.request,
             head,
             network_extra_info_available,
             request_extra_info,
-            moli_fetch::RedirectSource::Network,
+            source,
         )?;
         if transition == SubresourceResponseTransition::FollowedRedirect {
-            // Retain only the original author's headers on each redirected hop.
+            // Only author headers participate in preflight. In particular, a
+            // redirected script must not acquire embedder/browser-added headers here.
             self.preflight_request_headers.retain(|(name, _)| {
                 self.request
                     .request_headers
@@ -357,7 +389,7 @@ impl ManualCorsRedirectState {
         Ok(transition)
     }
 
-    fn into_redirect_chain(self) -> Vec<RedirectInfo> {
+    pub(crate) fn into_redirect_chain(self) -> Vec<RedirectInfo> {
         self.request.redirect_chain().to_vec()
     }
 }
@@ -1160,7 +1192,12 @@ fn validate_redirect_mode_response(
     response: Response,
     redirect_mode: RequestRedirectMode,
 ) -> Result<Response, String> {
-    validate_redirect_mode_parts(&response.final_url, response.status, redirect_mode)?;
+    validate_redirect_mode_parts(
+        &response.final_url,
+        response.status,
+        &response.headers,
+        redirect_mode,
+    )?;
     Ok(response)
 }
 
@@ -1168,20 +1205,24 @@ fn validate_redirect_mode_response_head(
     head: &ResponseHead,
     redirect_mode: RequestRedirectMode,
 ) -> Result<(), String> {
-    validate_redirect_mode_parts(&head.final_url, head.status, redirect_mode)
+    validate_redirect_mode_parts(&head.final_url, head.status, &head.headers, redirect_mode)
 }
 
 fn validate_redirect_mode_parts(
     final_url: &url::Url,
     status: u16,
+    headers: &[(String, Vec<u8>)],
     redirect_mode: RequestRedirectMode,
 ) -> Result<(), String> {
     if redirect_mode == RequestRedirectMode::Manual {
         return Ok(());
     }
-    if is_redirect_status(status) {
+    if redirect_mode == RequestRedirectMode::Error && is_redirect_status(status) {
         return Err(redirect_mode_error_message(final_url));
     }
+    // Auto-following transports can return a redirect head when its Location
+    // cannot be parsed. Manual mode never resolves that private URL.
+    let _ = next_redirect_url(final_url, status, headers, 0)?;
     Ok(())
 }
 
@@ -1310,7 +1351,6 @@ mod tests {
             .advance(
                 ResponseHead {
                     request_include_credentials: false,
-
                     final_url: current_url.clone(),
                     status: 302,
                     status_text: None,

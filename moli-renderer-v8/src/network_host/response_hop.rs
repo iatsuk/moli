@@ -1,4 +1,6 @@
-//! Shared response-header transition for native Fetch and XHR owners.
+//! Response-header rules shared by manual Fetch and intercepted XHR.
+//! Transport pauses, body consumption and owner delivery remain with callers.
+
 use super::next_redirect_url;
 use moli_fetch::{RedirectInfo, Request, RequestMode, RequestRedirectMode, ResponseHead};
 
@@ -25,20 +27,22 @@ pub(crate) fn advance_subresource_response(
         previous.request_cookie_report = head.request_cookie_report.clone();
         previous.request_extra_info = request_extra_info.cloned();
     }
-    // The single-hop transport refines request snapshots, including cache
-    // hits and internal redirects. Keep them when carrying the chain on.
+    // Preserve native physical request snapshots only for transport hops.
     if source == moli_fetch::RedirectSource::Network {
         request.observe_redirect_requests(&head.redirect_chain);
     }
-    // Keep redirect-mode error precedence aligned with Fetch: an error-mode
-    // redirect is rejected before the redirect response is CORS-checked.
-    if request.redirect_mode() == RequestRedirectMode::Error && is_redirect_status(head.status) {
-        return Err(redirect_mode_error_message(&head.final_url));
+    // Error-mode redirect rejection precedes transport CORS validation.
+    if request.redirect_mode() == RequestRedirectMode::Error {
+        if is_redirect_status(head.status) {
+            return Err(redirect_mode_error_message(&head.final_url));
+        }
+        if source == moli_fetch::RedirectSource::Network {
+            request.validate_cors_response_for_url(&head.final_url, &head.headers)?;
+        }
+        return Ok(SubresourceResponseTransition::FinalResponse);
     }
     if source == moli_fetch::RedirectSource::Network {
         request.validate_cors_response_for_url(&head.final_url, &head.headers)?;
-    }
-    if source == moli_fetch::RedirectSource::Network {
         request
             .validate_authentication_response(&head)
             .map_err(super::async_fetch::format_network_error)?;
@@ -124,7 +128,6 @@ pub(crate) fn advance_subresource_response(
             negotiated_http_version: head.negotiated_http_version,
         })
         .map_err(|error| error.to_string())?;
-
     Ok(SubresourceResponseTransition::FollowedRedirect)
 }
 

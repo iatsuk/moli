@@ -32,6 +32,7 @@ mod request_scope;
 mod request_upload;
 mod response;
 mod response_hop;
+pub(crate) use response_hop::SubresourceResponseTransition;
 mod stylesheet_subresource;
 mod subresource;
 pub(crate) use subresource::SubresourceRequestDispatch;
@@ -57,8 +58,8 @@ pub(crate) use self::blob_url_entry::{
 };
 
 pub(crate) use self::async_fetch::{
-    collect_image_response_into_parkable, fetch_browser_subresource_for_owner,
-    fetch_browser_subresource_raw_stream_for_owner,
+    ManualCorsRedirectState, collect_image_response_into_parkable,
+    fetch_browser_subresource_for_owner, fetch_browser_subresource_raw_stream_for_owner,
     fetch_browser_subresource_raw_stream_with_preflight_headers_and_network_metadata,
     fetch_browser_subresource_with_preflight_headers, fetch_cors_script_text,
     fetch_intercepted_window_hop, observe_async_xhr_upload, spawn_async_subresource_fetch,
