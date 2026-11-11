@@ -139,6 +139,7 @@ mod service_worker_results;
 mod state;
 mod timers;
 mod xhr;
+mod xhr_service_worker;
 
 pub(crate) use redirect_owner::WorkerRedirectOwner;
 

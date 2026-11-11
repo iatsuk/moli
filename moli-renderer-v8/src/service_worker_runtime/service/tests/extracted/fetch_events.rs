@@ -1097,7 +1097,11 @@ fn resource_store_restores_no_fetch_handler_metadata_for_controlled_fetch() {
             request_client: test_request_client(&second_service),
             resource_task_runner: test_resource_task_runner(),
             cancel_handle: moli_fetch::FetchCancelHandle::new(),
-            direct_completion_tx: Some(direct_completion_tx),
+            direct_completion_tx: Some(
+                crate::service_worker_runtime::ServiceWorkerDirectFetchCompletion::buffered(
+                    direct_completion_tx
+                )
+            ),
         })
     );
 
@@ -1471,7 +1475,11 @@ fn navigation_preload_fallback_completion_cancels_unstarted_preload_only() {
         .pending_fetch_jobs
         .get_mut(&event_id)
         .expect("pending navigation preload fetch job")
-        .direct_completion_tx = Some(direct_completion_tx);
+        .direct_completion_tx = Some(
+        crate::service_worker_runtime::ServiceWorkerDirectFetchCompletion::buffered(
+            direct_completion_tx,
+        ),
+    );
 
     service.finish_fetch_event_completed(ServiceWorkerFetchCompletion {
         event_id,
@@ -1834,7 +1842,11 @@ fn abort_controlled_fetch_drops_direct_worker_completion_and_ignores_late_comple
             completion_queue.sender(),
             cancel_handle.clone(),
         );
-        job.direct_completion_tx = Some(direct_completion_tx);
+        job.direct_completion_tx = Some(
+            crate::service_worker_runtime::ServiceWorkerDirectFetchCompletion::buffered(
+                direct_completion_tx,
+            ),
+        );
         state.pending_fetch_jobs.insert(event_id, job);
     }
 
@@ -2063,7 +2075,11 @@ fn no_fetch_handler_controlled_fetch_falls_back_without_dispatching_event() {
             request_client: test_request_client(&service),
             resource_task_runner: test_resource_task_runner(),
             cancel_handle: moli_fetch::FetchCancelHandle::new(),
-            direct_completion_tx: Some(direct_completion_tx),
+            direct_completion_tx: Some(
+                crate::service_worker_runtime::ServiceWorkerDirectFetchCompletion::buffered(
+                    direct_completion_tx
+                )
+            ),
         })
     );
 
@@ -2157,7 +2173,11 @@ fn controlled_fetch_waits_for_activating_active_version() {
             request_client: test_request_client(&service),
             resource_task_runner: test_resource_task_runner(),
             cancel_handle: moli_fetch::FetchCancelHandle::new(),
-            direct_completion_tx: Some(direct_completion_tx),
+            direct_completion_tx: Some(
+                crate::service_worker_runtime::ServiceWorkerDirectFetchCompletion::buffered(
+                    direct_completion_tx
+                )
+            ),
         })
     );
 
@@ -2269,7 +2289,11 @@ fn empty_fetch_handler_controlled_fetch_falls_back_without_dispatching_event() {
             request_client: test_request_client(&service),
             resource_task_runner: test_resource_task_runner(),
             cancel_handle: moli_fetch::FetchCancelHandle::new(),
-            direct_completion_tx: Some(direct_completion_tx),
+            direct_completion_tx: Some(
+                crate::service_worker_runtime::ServiceWorkerDirectFetchCompletion::buffered(
+                    direct_completion_tx
+                )
+            ),
         })
     );
 
@@ -2376,7 +2400,11 @@ fn empty_fetch_handler_pending_start_fetch_falls_back_after_worker_start() {
                 cancel_handle: moli_fetch::FetchCancelHandle::new(),
                 navigation_preload_cancel_handle: None,
                 streaming_body_source_id: None,
-                direct_completion_tx: Some(direct_completion_tx),
+                direct_completion_tx: Some(
+                    crate::service_worker_runtime::ServiceWorkerDirectFetchCompletion::buffered(
+                        direct_completion_tx,
+                    ),
+                ),
             },
         );
         let version = state.versions.get_mut(&version_id).unwrap();
