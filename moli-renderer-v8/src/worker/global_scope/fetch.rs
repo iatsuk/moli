@@ -3080,6 +3080,9 @@ pub(in crate::worker) fn reject_worker_fetches_for_signal<'s>(
         rejected
     };
     for (fetch_id, pending) in rejected {
+        let cancel_handle = pending.load.fetch_cancel_handle();
+        let reason_payload =
+            crate::context_bootstrap::structured_serialize_fetch_abort_reason(scope, reason);
         pending.timing.abort(scope);
         let resolver = pending.client.resolver().clone();
         let PendingWorkerFetch {
@@ -3091,10 +3094,12 @@ pub(in crate::worker) fn reject_worker_fetches_for_signal<'s>(
             upload,
             ..
         } = pending;
-        load.cancel();
-        if let Some(runtime) = state.borrow().service_worker_runtime.clone() {
-            runtime.abort_controlled_fetch(u64::from(fetch_id));
+        if let Some(runtime) = state.borrow().service_worker_runtime.clone()
+            && let Some(handle) = cancel_handle.as_ref()
+        {
+            runtime.abort_controlled_fetch_with_handle_and_reason(handle, reason_payload);
         }
+        load.cancel();
         if let Some(record) = network_record {
             let state = state.borrow();
             record_worker_subresource_failure_with_handle(
