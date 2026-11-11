@@ -1974,7 +1974,7 @@ impl PageScriptHost {
     ) -> ServiceWorkerFetchRequest {
         ServiceWorkerFetchRequest {
             body_stream: None,
-            client_id,
+            client_id: Some(client_id),
             resulting_client_id: None,
             url,
             method,
