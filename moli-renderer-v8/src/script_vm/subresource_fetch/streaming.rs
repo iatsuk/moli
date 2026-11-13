@@ -19,7 +19,7 @@ pub(super) fn window_streaming_response_timing(
     let request_url = pending
         .continuation
         .window_fetch()
-        .map(|fetch| fetch.initial_request_url(&pending.info.url))
+        .map(|fetch| fetch.initial_request_url())
         .unwrap_or(&pending.info.url)
         .clone();
     let timing = pending.continuation.window_resource_timing_mut()?;
@@ -98,18 +98,19 @@ impl ScriptVm {
             state.pending.blob_url_entry.as_ref(),
         )
         .map(|result| result.map_err(|error| error.into_message()));
-        let (source_policy_error, redirect_owner) = {
+        let source_policy_error = {
             let mut host = self._context_host.borrow_mut();
             host.begin_active_subresource_request();
             host.record_running_subresource_fetch(state);
             if let Some(check) = host.window_fetch_redirect_check(internal_id) {
                 request = request.with_redirect_check(check);
             }
-            (
-                host.window_subresource_replacement_url_error(internal_id, &request.url),
-                host.window_redirect_owner(internal_id),
-            )
+            host.window_subresource_replacement_url_error(internal_id, &request.url)
         };
+        let redirect_owner = self
+            ._context_host
+            .borrow()
+            .window_redirect_owner(internal_id);
         let preflight_headers = request.request_headers.to_byte_strings();
         let request =
             crate::network_host::observe_async_xhr_upload(request, &completion_tx, internal_id);
@@ -145,6 +146,7 @@ impl ScriptVm {
                 })
             };
             let _ = completion_tx.send_async_subresource(AsyncSubresourceFetchCompletion {
+                body_is_null: None,
                 internal_id,
                 request_url,
                 request_method,
@@ -181,6 +183,8 @@ impl ScriptVm {
         task_runner.spawn(async move {
             let result = response.await;
             let _ = completion_tx.send_async_subresource(AsyncSubresourceFetchCompletion {
+                body_is_null: None,
+
                 internal_id,
                 request_url,
                 request_method,
@@ -202,14 +206,11 @@ impl ScriptVm {
         skip_fetch_security_validation: bool,
         response_filter: Option<AsyncSubresourceFetchResponseFilter>,
         network_error_text: Option<String>,
+        body_is_null: Option<bool>,
         completion_result: AsyncSubresourceFetchResult,
     ) -> Result<AsyncSubresourceFetchBodyActivity> {
         let completion_result =
             completion_result.bind_child_body(&mut running.pending.continuation);
-        let consumed_preload = matches!(
-            &completion_result,
-            AsyncSubresourceFetchResult::PreloadFailure(_)
-        );
         let (encoded, result) = match completion_result {
             AsyncSubresourceFetchResult::Response(response) => (None, Ok(response)),
             AsyncSubresourceFetchResult::Image { response, encoded } => {
@@ -310,6 +311,7 @@ impl ScriptVm {
                     self._context_host
                         .borrow_mut()
                         .record_pending_subresource_auth(PendingSubresourceAuthState {
+                            body_is_null,
                             pending,
                             request_url,
                             request_method,
@@ -368,6 +370,7 @@ impl ScriptVm {
                     self._context_host
                         .borrow_mut()
                         .record_pending_subresource_response(PendingSubresourceResponseState {
+                            body_is_null,
                             pending,
                             request_url,
                             request_method,
@@ -397,6 +400,7 @@ impl ScriptVm {
                     skip_fetch_security_validation,
                     response_filter,
                     network_error_text.clone(),
+                    body_is_null,
                     AsyncSubresourceFetchResult::from_image_parts(Ok(response), encoded),
                 );
                 trace_async_subresource_stage(
@@ -417,11 +421,8 @@ impl ScriptVm {
                     skip_fetch_security_validation,
                     response_filter,
                     network_error_text,
-                    if consumed_preload {
-                        AsyncSubresourceFetchResult::PreloadFailure(error)
-                    } else {
-                        AsyncSubresourceFetchResult::Failure(error)
-                    },
+                    body_is_null,
+                    Err(error).into(),
                 );
                 trace_async_subresource_stage(
                     "async_subresource_complete_running_done",
@@ -493,6 +494,7 @@ impl ScriptVm {
                 completion.skip_fetch_security_validation,
                 completion.response_filter,
                 completion.network_error_text,
+                completion.body_is_null,
                 completion.result,
             );
             trace_async_subresource_stage(
@@ -535,6 +537,7 @@ impl ScriptVm {
             completion.skip_fetch_security_validation,
             completion.response_filter,
             completion.network_error_text,
+            completion.body_is_null,
             completion.result,
         )?;
         trace_async_subresource_stage(
@@ -610,9 +613,10 @@ impl ScriptVm {
                     completed.info.request_headers,
                     completed.info.request_body,
                     None,
-                    false,
+                    completed.skip_fetch_security_validation,
+                    completed.response_filter,
                     None,
-                    None,
+                    completed.body_is_null,
                     completed
                         .result
                         .map(crate::protocol_types::NavigationResponse::from)
@@ -956,6 +960,7 @@ impl ScriptVm {
                 &pending,
                 &started.head,
                 started.skip_fetch_security_validation,
+                started.response_filter.as_ref(),
             )
             .or_else(|| {
                 if started.skip_fetch_security_validation {
@@ -1183,7 +1188,7 @@ impl ScriptVm {
                     &self._context_host,
                     &pending,
                     &started.head,
-                    started.skip_fetch_security_validation,
+                    started.skip_fetch_security_validation, started.response_filter.as_ref(),
                 )
             .or_else(|| {
                 if started.skip_fetch_security_validation {

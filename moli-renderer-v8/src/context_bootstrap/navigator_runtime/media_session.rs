@@ -155,6 +155,8 @@ fn session_state<'s>(
     scope: &mut v8::PinScope<'s, '_>,
     session: v8::Local<'s, v8::Object>,
 ) -> v8::Local<'s, v8::Object> {
+    let session = moli_webapi_declare::web_api_object_target(scope, session)
+        .expect("MediaSession receiver has passed its native brand check");
     get_private_value(scope, session, STATE)
         .and_then(|value| v8::Local::<v8::Object>::try_from(value).ok())
         .expect("MediaSession has Window-owned state")

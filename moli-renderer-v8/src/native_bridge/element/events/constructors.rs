@@ -986,7 +986,7 @@ pub(crate) fn construct_text_input_event_for_target<'s>(
     text: &str,
 ) -> Option<v8::Local<'s, v8::Object>> {
     let context =
-        crate::native_bridge::node_owner_document_relevant_context(scope, runtime_ptr, target)?;
+        crate::native_bridge::node::node_target_relevant_context(scope, runtime_ptr, target)?;
     let scope = &mut v8::ContextScope::new(scope, context);
     crate::context_bootstrap::construct_original_text_input_event(scope, text)
 }
@@ -1027,7 +1027,7 @@ pub(crate) fn construct_submit_event<'s>(
     cancelable: bool,
 ) -> Option<v8::Local<'s, v8::Object>> {
     let context =
-        crate::native_bridge::node_owner_document_relevant_context(scope, runtime_ptr, target)?;
+        crate::native_bridge::node::node_target_relevant_context(scope, runtime_ptr, target)?;
     let scope = &mut v8::ContextScope::new(scope, context);
     let init = SubmitEventInitDeclaration::new(
         bubbles,
@@ -1049,7 +1049,7 @@ pub(crate) fn construct_simple_event_for_target<'s>(
     composed: bool,
 ) -> Option<v8::Local<'s, v8::Object>> {
     let context =
-        crate::native_bridge::node_owner_document_relevant_context(scope, runtime_ptr, target)?;
+        crate::native_bridge::node::node_target_relevant_context(scope, runtime_ptr, target)?;
     let scope = &mut v8::ContextScope::new(scope, context);
     construct_simple_event(scope, event_type, bubbles, cancelable, composed)
 }
@@ -1157,7 +1157,7 @@ pub(crate) fn construct_activation_pointer_event<'s>(
         )
     });
     let context =
-        crate::native_bridge::node_owner_document_relevant_context(scope, runtime_ptr, target)?;
+        crate::native_bridge::node::node_target_relevant_context(scope, runtime_ptr, target)?;
     let scope = &mut v8::ContextScope::new(scope, context);
     let source = pointer.map_or(
         ClickEventSource::UserAgent,
@@ -1233,7 +1233,7 @@ pub(crate) fn construct_mouse_event_for_target<'s>(
     modifiers: u8,
 ) -> Option<v8::Local<'s, v8::Object>> {
     let context =
-        crate::native_bridge::node_owner_document_relevant_context(scope, runtime_ptr, target)?;
+        crate::native_bridge::node::node_target_relevant_context(scope, runtime_ptr, target)?;
     let scope = &mut v8::ContextScope::new(scope, context);
     construct_mouse_event_with_modifiers(scope, event_type, coordinates, button, buttons, modifiers)
 }
@@ -1250,7 +1250,7 @@ pub(crate) fn construct_mouse_event_with_related_target_for_target<'s>(
     modifiers: u8,
 ) -> Option<v8::Local<'s, v8::Object>> {
     let context =
-        crate::native_bridge::node_owner_document_relevant_context(scope, runtime_ptr, target)?;
+        crate::native_bridge::node::node_target_relevant_context(scope, runtime_ptr, target)?;
     let scope = &mut v8::ContextScope::new(scope, context);
     construct_mouse_event_with_related_target_and_modifiers(
         scope,
@@ -1275,7 +1275,7 @@ pub(crate) fn construct_mouse_event_with_detail_for_target<'s>(
     modifiers: u8,
 ) -> Option<v8::Local<'s, v8::Object>> {
     let context =
-        crate::native_bridge::node_owner_document_relevant_context(scope, runtime_ptr, target)?;
+        crate::native_bridge::node::node_target_relevant_context(scope, runtime_ptr, target)?;
     let scope = &mut v8::ContextScope::new(scope, context);
     construct_mouse_event_with_detail_and_modifiers(
         scope,
@@ -1300,7 +1300,7 @@ pub(crate) fn construct_wheel_event_for_target<'s>(
     modifiers: u8,
 ) -> Option<v8::Local<'s, v8::Object>> {
     let context =
-        crate::native_bridge::node_owner_document_relevant_context(scope, runtime_ptr, target)?;
+        crate::native_bridge::node::node_target_relevant_context(scope, runtime_ptr, target)?;
     let scope = &mut v8::ContextScope::new(scope, context);
     // Wheel input does not change a mouse button.
     construct_wheel_event(

@@ -3297,8 +3297,6 @@ fn document_frame_ancestors_policy_violations(
     }).collect()
 }
 
-impl DocumentRuntime {}
-
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -675,17 +675,22 @@ async fn child_parser_stylesheet_media(media: &'static str, imports: bool, block
                 );
 
                 if !blocks_scripts {
-                    for kind in [ChildFrameSemanticTurnKind::DocumentScriptReady,
-                                 ChildFrameSemanticTurnKind::DocumentLifecycle,
-                                 ChildFrameSemanticTurnKind::DocumentLifecycle] {
-                        run_expected_child_frame_task_source_after_realm_prerequisite_for_wait(
-                            &mut page_vm, kind, "nonmatching stylesheet must allow script and DCL",
-                        ).await;
-                    }
+                    run_expected_child_frame_task_source_after_realm_prerequisite_for_wait(
+                        &mut page_vm, ChildFrameSemanticTurnKind::DocumentScriptReady,
+                        "nonmatching stylesheet must allow parser script",
+                    ).await;
+                    assert_eq!(
+                        page_vm.vm_mut().eval("document.querySelector('iframe').contentDocument.readyState")?,
+                        "interactive", "parser EOF applies interactive synchronously",
+                    );
+                    run_expected_child_frame_task_source_after_realm_prerequisite_for_wait(
+                        &mut page_vm, ChildFrameSemanticTurnKind::DocumentLifecycle,
+                        "nonmatching stylesheet must allow DCL before CSS completes",
+                    ).await;
                 }
                 assert_eq!(
                     page_vm.vm_mut().eval("__childParserStylesheetEvents.join('|')")?,
-                    if blocks_scripts { "" } else { "script::complete" },
+                    if blocks_scripts { "" } else { "script::loading" },
                     "only matching stylesheets may block the parser-created classic script: {media}"
                 );
                 assert!(
@@ -809,7 +814,7 @@ async fn child_parser_stylesheet_media(media: &'static str, imports: bool, block
             PageResourceCompletionOutputEffect::CaptureRequired
         );
         assert_eq!(
-            events_after_completion, if blocks_scripts { "" } else { "script::complete" },
+            events_after_completion, if blocks_scripts { "" } else { "script::loading" },
             "stylesheet resource completion must not inline-run child script"
         );
         assert_eq!(

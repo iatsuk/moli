@@ -28,6 +28,25 @@ fn is_current_window_receiver<'s>(
             .is_none_or(|context| context == current_context)
 }
 
+/// EventTarget methods also accept native Windows whose retained facade no
+/// longer exposes the ordinary EventTarget prototype chain.
+pub(crate) fn is_event_target_receiver<'s>(
+    scope: &mut v8::PinScope<'s, '_>,
+    receiver: v8::Local<'s, v8::Object>,
+) -> bool {
+    is_window_receiver(scope, receiver)
+        || crate::web_api_interfaces::EventTarget::is_instance(scope, receiver)
+}
+
+/// Generic EventTargets retain their own native receiver checks; the Window
+/// subtype uses the same canonical Window access policy as other members.
+pub(crate) fn require_same_origin_event_target_receiver<'s>(
+    scope: &mut v8::PinScope<'s, '_>,
+    receiver: v8::Local<'s, v8::Object>,
+) -> bool {
+    !is_window_receiver(scope, receiver) || require_same_origin_window_receiver(scope, receiver)
+}
+
 pub(crate) fn require_same_origin_window_receiver<'s>(
     scope: &mut v8::PinScope<'s, '_>,
     receiver: v8::Local<'s, v8::Object>,

@@ -347,16 +347,18 @@ fn controlled_fetch_prepares_page_headers_while_offline_or_blocked() {
             event_id,
             owner,
             result: ServiceWorkerFetchResult::Response(ServiceWorkerFetchResponse {
-                body_is_null: false,
-
                 head: moli_fetch_types::FetchResponseHead {
+                    body_is_null: false,
+
                     metadata: moli_fetch_types::FetchResponseMetadata {
+                        cors_exposed_header_names: None,
+
                         request_include_credentials: false,
+
                         response_type: moli_fetch_types::FetchResponseType::Default,
                         timing_allow_passed: true,
                         url_list: (None).into_iter().collect(),
                         redirected: false,
-                        cors_exposed_header_names: None,
                     },
                     status: 200,
                     status_text: "OK".to_owned(),
@@ -897,6 +899,7 @@ fn pending_unregistration_waits_for_active_fetch_to_complete_before_delete() {
                 resource_task_runner: test_resource_task_runner(),
                 cancel_handle: moli_fetch::FetchCancelHandle::new(),
                 navigation_preload_cancel_handle: None,
+                router_race_request_cancel_handle: None,
                 streaming_body_source_id: None,
                 direct_completion_tx: None,
             },
@@ -904,6 +907,7 @@ fn pending_unregistration_waits_for_active_fetch_to_complete_before_delete() {
         state.versions.insert(
             version_id,
             ServiceWorkerVersion {
+                router_rules: Vec::new(),
                 id: version_id,
                 registration_id,
                 script_url: script_url.clone(),
@@ -1382,6 +1386,7 @@ fn restart_start_failure_rejects_pending_fetch_job() {
                 resource_task_runner: test_resource_task_runner(),
                 cancel_handle: moli_fetch::FetchCancelHandle::new(),
                 navigation_preload_cancel_handle: None,
+                router_race_request_cancel_handle: None,
                 streaming_body_source_id: None,
                 direct_completion_tx: None,
             },
@@ -1389,6 +1394,7 @@ fn restart_start_failure_rejects_pending_fetch_job() {
         state.versions.insert(
             version_id,
             ServiceWorkerVersion {
+                router_rules: Vec::new(),
                 id: version_id,
                 registration_id,
                 script_url: script_url.clone(),
@@ -1739,16 +1745,18 @@ fn navigation_preload_completion_keeps_response_started_preload_alive() {
         event_id,
         owner: test_run_owner(version_id, &run),
         result: ServiceWorkerFetchResult::Response(ServiceWorkerFetchResponse {
-            body_is_null: false,
-
             head: moli_fetch_types::FetchResponseHead {
+                body_is_null: false,
+
                 metadata: moli_fetch_types::FetchResponseMetadata {
+                    cors_exposed_header_names: None,
+
                     request_include_credentials: false,
+
                     response_type: moli_fetch_types::FetchResponseType::Basic,
                     timing_allow_passed: true,
                     url_list: (None).into_iter().collect(),
                     redirected: false,
-                    cors_exposed_header_names: None,
                 },
                 status: 200,
                 status_text: "OK".to_owned(),
@@ -2055,9 +2063,9 @@ fn abort_main_worker_fetch_uses_event_id_and_ignores_late_completion() {
         event_id,
         owner: test_run_owner(version_id, &run),
         result: ServiceWorkerFetchResult::Response(ServiceWorkerFetchResponse {
-            body_is_null: false,
-
             head: moli_fetch_types::FetchResponseHead {
+                body_is_null: false,
+
                 metadata: moli_fetch_types::FetchResponseMetadata {
                     cors_exposed_header_names: None,
 
@@ -2202,6 +2210,7 @@ fn no_fetch_handler_controlled_fetch_falls_back_without_dispatching_event() {
         state.versions.insert(
             version_id,
             ServiceWorkerVersion {
+                router_rules: Vec::new(),
                 id: version_id,
                 registration_id,
                 script_url: script_url.clone(),
@@ -2586,6 +2595,7 @@ fn empty_fetch_handler_pending_start_fetch_falls_back_after_worker_start() {
                 resource_task_runner: test_resource_task_runner(),
                 cancel_handle: moli_fetch::FetchCancelHandle::new(),
                 navigation_preload_cancel_handle: None,
+                router_race_request_cancel_handle: None,
                 streaming_body_source_id: None,
                 direct_completion_tx: Some(
                     crate::service_worker_runtime::ServiceWorkerDirectFetchCompletion::buffered(
@@ -2724,6 +2734,7 @@ fn fetch_completion_schedules_idle_timeout_for_running_active_worker() {
                 resource_task_runner: test_resource_task_runner(),
                 cancel_handle: moli_fetch::FetchCancelHandle::new(),
                 navigation_preload_cancel_handle: None,
+                router_race_request_cancel_handle: None,
                 streaming_body_source_id: None,
                 direct_completion_tx: None,
             },
@@ -2731,6 +2742,7 @@ fn fetch_completion_schedules_idle_timeout_for_running_active_worker() {
         state.versions.insert(
             version_id,
             ServiceWorkerVersion {
+                router_rules: Vec::new(),
                 id: version_id,
                 registration_id,
                 script_url: script_url.clone(),
@@ -2964,6 +2976,7 @@ fn active_fetch_completion_queues_waiting_activation_after_controllees_are_gone(
                 resource_task_runner: test_resource_task_runner(),
                 cancel_handle: moli_fetch::FetchCancelHandle::new(),
                 navigation_preload_cancel_handle: None,
+                router_race_request_cancel_handle: None,
                 streaming_body_source_id: None,
                 direct_completion_tx: None,
             },
@@ -2971,6 +2984,7 @@ fn active_fetch_completion_queues_waiting_activation_after_controllees_are_gone(
         state.versions.insert(
             active_version_id,
             ServiceWorkerVersion {
+                router_rules: Vec::new(),
                 id: active_version_id,
                 registration_id,
                 script_url: active_script_url.clone(),
@@ -2997,6 +3011,7 @@ fn active_fetch_completion_queues_waiting_activation_after_controllees_are_gone(
         state.versions.insert(
             waiting_version_id,
             ServiceWorkerVersion {
+                router_rules: Vec::new(),
                 id: waiting_version_id,
                 registration_id,
                 script_url: waiting_script_url.clone(),
@@ -3160,6 +3175,7 @@ fn activating_new_worker_fails_replaced_active_fetch_and_pending_start_events() 
                     resource_task_runner: test_resource_task_runner(),
                     cancel_handle: moli_fetch::FetchCancelHandle::new(),
                     navigation_preload_cancel_handle: None,
+                    router_race_request_cancel_handle: None,
                     streaming_body_source_id: None,
                     direct_completion_tx: None,
                 },
@@ -3168,6 +3184,7 @@ fn activating_new_worker_fails_replaced_active_fetch_and_pending_start_events() 
         state.versions.insert(
             active_version_id,
             ServiceWorkerVersion {
+                router_rules: Vec::new(),
                 id: active_version_id,
                 registration_id,
                 script_url: active_script_url.clone(),
@@ -3238,6 +3255,7 @@ fn activating_new_worker_fails_replaced_active_fetch_and_pending_start_events() 
         state.versions.insert(
             waiting_version_id,
             ServiceWorkerVersion {
+                router_rules: Vec::new(),
                 id: waiting_version_id,
                 registration_id,
                 script_url: waiting_script_url.clone(),
@@ -3340,4 +3358,123 @@ fn activating_new_worker_fails_replaced_active_fetch_and_pending_start_events() 
         ]
     );
     assert!(!completion_queue.has_ready_completion());
+}
+
+#[test]
+fn static_cache_route_uses_the_version_storage_authority_without_starting_the_worker() {
+    use crate::service_worker_runtime::static_router::{RouterCondition, RouterRule, RouterSource};
+    let service = new_service_worker_runtime_service();
+    let registration_id = ServiceWorkerRegistrationId(1);
+    let version_id = ServiceWorkerVersionId(1);
+    let document = url("https://example.test/app/page.html");
+    let resource = url("https://example.test/app/cached.txt");
+    insert_registered_version(
+        &service,
+        registration_id,
+        version_id,
+        url("https://example.test/app/worker.js"),
+        url("https://example.test/app/"),
+        [document.clone()],
+    );
+    let client = client_id_for_document(&service, &document);
+    let default_store = crate::context_bootstrap::new_shared_storage_bucket_store();
+    let version_store = crate::context_bootstrap::new_shared_storage_bucket_store();
+    service.bind_storage_bucket_store(default_store.clone());
+    let storage_key = service
+        .inner
+        .state
+        .lock()
+        .registrations
+        .get(&registration_id)
+        .unwrap()
+        .storage_key
+        .clone();
+    for (store, body) in [
+        (&default_store, b"wrong-default".as_slice()),
+        (&version_store, b"version-cache".as_slice()),
+    ] {
+        let mut store = store.lock();
+        let identity = store
+            .open_bucket(
+                &storage_key,
+                moli_storage_service::IMPLICIT_DEFAULT_BUCKET_INTERNAL_NAME,
+            )
+            .unwrap();
+        store.open_cache_for_identity(&identity, "route").unwrap();
+        store
+            .put_cache_entry_with_request_for_identity(
+                &identity,
+                "route",
+                resource.as_str(),
+                moli_storage_service::StorageBucketCachedRequest {
+                    method: "GET".to_owned(),
+                    headers: Vec::new(),
+                    metadata: Default::default(),
+                },
+                moli_storage_service::StorageBucketCachedResponse {
+                    head: moli_fetch_types::FetchResponseHead {
+                        body_is_null: false,
+                        metadata: moli_fetch_types::FetchResponseMetadata {
+                            url_list: vec![resource.clone()],
+                            ..Default::default()
+                        },
+                        status: 200,
+                        status_text: "OK".to_owned(),
+                        headers: Vec::new(),
+                    },
+                    body: body.to_vec(),
+                },
+                body.len() as u64,
+                0,
+            )
+            .unwrap();
+    }
+    {
+        let mut state = service.inner.state.lock();
+        let version = state.versions.get_mut(&version_id).unwrap();
+        version.launch_config.storage_bucket_store = Some(version_store);
+        version.router_rules = vec![RouterRule {
+            condition: RouterCondition {
+                request_method: Some("GET".to_owned()),
+                ..Default::default()
+            },
+            source: RouterSource::Cache {
+                name: Some("route".encode_utf16().collect()),
+            },
+        }];
+    }
+    let run = exact_version_run(&service, version_id);
+    let mut completion = async_subresource_completion_queue();
+    let job = test_fetch_job(
+        &service,
+        42,
+        version_id,
+        &run,
+        client,
+        document,
+        resource.clone(),
+        completion.sender(),
+        moli_fetch::FetchCancelHandle::new(),
+    );
+    assert!(
+        service
+            .dispatch_controlled_fetch_job(job, test_fetch_request(client, resource))
+            .is_ok()
+    );
+    let response = pop_async_subresource_completion(&mut completion);
+    assert_eq!(
+        response.result.into_result().unwrap().body_bytes(),
+        b"version-cache"
+    );
+    assert!(matches!(
+        service
+            .inner
+            .state
+            .lock()
+            .versions
+            .get(&version_id)
+            .unwrap()
+            .running_state,
+        ServiceWorkerVersionRunningState::Stopped
+    ));
 }

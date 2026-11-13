@@ -1,4 +1,5 @@
-use std::sync::Arc;
+use futures_util::{Stream, StreamExt};
+use std::{pin::Pin, sync::Arc};
 
 use anyhow::{Result, anyhow, ensure};
 use moli_fetch::{FetchCancelHandle, StreamingRawResponse};
@@ -24,9 +25,17 @@ impl PartialEq for ResourceInterceptionBody {
 
 impl Eq for ResourceInterceptionBody {}
 
+struct InterceptedByteStream(Pin<Box<dyn Stream<Item = Result<Vec<u8>, String>> + Send>>);
+impl std::fmt::Debug for InterceptedByteStream {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("InterceptedByteStream")
+    }
+}
+
 #[derive(Debug)]
 enum BodyState {
     Receiving(Box<StreamingRawResponse>),
+    Stream(InterceptedByteStream),
     Complete,
     Failed(String),
 }
@@ -79,6 +88,22 @@ impl ResourceInterceptionBody {
         }
     }
 
+    pub(crate) fn from_stream(
+        stream: impl Stream<Item = Result<Vec<u8>, String>> + Send + 'static,
+        cancel: FetchCancelHandle,
+        disk_pool: Option<moli_disk_pool::DiskPool>,
+    ) -> Self {
+        Self {
+            cancel,
+            state: Arc::new(Mutex::new(BodyState::Stream(InterceptedByteStream(
+                Box::pin(stream),
+            )))),
+            captured: Arc::new(parking_lot::Mutex::new(BodyCapture::Receiving(
+                SubresourceResponseBodyWriter::with_disk_pool(disk_pool),
+            ))),
+        }
+    }
+
     pub(crate) fn from_complete(body: SubresourceResponseBody) -> Self {
         Self {
             cancel: FetchCancelHandle::new(),
@@ -112,7 +137,7 @@ impl ResourceInterceptionBody {
     pub fn cancel(&self) {
         self.cancel.cancel();
         if let Ok(mut state) = self.state.try_lock()
-            && matches!(*state, BodyState::Receiving(_))
+            && matches!(*state, BodyState::Receiving(_) | BodyState::Stream(_))
         {
             // Retained protocol handles must not keep a retired transport or
             // its runtime lease alive. An active reader takes this same path
@@ -146,7 +171,7 @@ impl ResourceInterceptionBody {
                     return Ok(body);
                 }
                 BodyState::Failed(error) => return Err(anyhow!(error.clone())),
-                BodyState::Receiving(_) => {
+                BodyState::Receiving(_) | BodyState::Stream(_) => {
                     ensure!(
                         self.captured.lock().len() <= limit,
                         "response body exceeds materialization limit"
@@ -174,7 +199,7 @@ impl ResourceInterceptionBody {
                     return Ok((bytes, eof));
                 }
                 BodyState::Failed(error) => return Err(anyhow!(error.clone())),
-                BodyState::Receiving(_) => {
+                BodyState::Receiving(_) | BodyState::Stream(_) => {
                     let available = {
                         let captured = self.captured.lock();
                         (offset < captured.len() || size == 0)
@@ -198,18 +223,19 @@ impl ResourceInterceptionBody {
     }
 
     async fn receive(&self, state: &mut BodyState) -> Result<Option<Vec<u8>>> {
-        let BodyState::Receiving(response) = state else {
-            return Ok(None);
-        };
         let next = tokio::select! {
             biased;
             () = self.cancel.cancelled() => Err(anyhow!("net::ERR_ABORTED")),
             next = async {
-                if let Some(bytes) = response.next_chunk().await {
-                    return Ok(Some(bytes));
+                match state {
+                    BodyState::Receiving(response) => {
+                        if let Some(bytes) = response.next_chunk().await { return Ok(Some(bytes)); }
+                        response.finish().await?;
+                        Ok(None)
+                    }
+                    BodyState::Stream(stream) => stream.0.next().await.transpose().map_err(|error| anyhow!(error)),
+                    BodyState::Complete | BodyState::Failed(_) => Ok(None),
                 }
-                response.finish().await?;
-                Ok(None)
             } => next,
         };
         match next {
@@ -282,6 +308,57 @@ mod tests {
                 assert!(cancel.is_cancelled());
             }
         }
+    }
+
+    #[tokio::test]
+    async fn owned_stream_cancellation_releases_the_producer_and_retains_the_shared_prefix() {
+        let (producer, events) = tokio::sync::mpsc::unbounded_channel::<Result<Vec<u8>, String>>();
+        let stream = futures_util::stream::unfold(events, |mut events| async move {
+            events.recv().await.map(|chunk| (chunk, events))
+        });
+        let body = ResourceInterceptionBody::from_stream(stream, FetchCancelHandle::new(), None);
+        producer.send(Ok(vec![0, 0xff, 0x80, b'x'])).unwrap();
+        assert_eq!(
+            body.read_chunk(0, 4).await.unwrap(),
+            (vec![0, 0xff, 0x80, b'x'], false)
+        );
+        let reader = body.clone();
+        let waiting = tokio::spawn(async move { reader.capture(usize::MAX).await });
+        tokio::task::yield_now().await;
+        body.cancel();
+        let error = tokio::time::timeout(std::time::Duration::from_secs(1), waiting)
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap_err();
+        assert!(error.to_string().contains("net::ERR_ABORTED"));
+        tokio::time::timeout(std::time::Duration::from_secs(1), producer.closed())
+            .await
+            .unwrap();
+        assert_eq!(
+            body.finish_capture(4).materialize_bytes().unwrap(),
+            [0, 0xff, 0x80, b'x']
+        );
+    }
+
+    #[tokio::test]
+    async fn owned_stream_failure_preserves_the_native_raw_capture() {
+        let stream = futures_util::stream::iter([
+            Ok(vec![0, 0xff, 0x80, b'x']),
+            Err("worker response failed".to_owned()),
+        ]);
+        let body = ResourceInterceptionBody::from_stream(stream, FetchCancelHandle::new(), None);
+        assert!(
+            body.capture(usize::MAX)
+                .await
+                .unwrap_err()
+                .to_string()
+                .contains("worker response failed")
+        );
+        assert_eq!(
+            body.finish_capture(4).materialize_bytes().unwrap(),
+            [0, 0xff, 0x80, b'x']
+        );
     }
 
     #[tokio::test]

@@ -1554,12 +1554,7 @@ mod tests {
             &script,
             &response,
             ClassicScriptResponseProvenance::ServiceWorker {
-                filter: Some(AsyncSubresourceFetchResponseFilter::service_worker(
-                    moli_fetch_types::FetchResponseMetadata {
-                        response_type: moli_fetch_types::FetchResponseType::Opaque,
-                        ..Default::default()
-                    }
-                )),
+                filter: Some(crate::types::FetchResponseType::Opaque.into()),
             },
         ));
         assert!(!classic_script_errors_are_muted(
@@ -1783,12 +1778,7 @@ mod tests {
             Some(crate::types::FetchResponseType::Opaque.into()),
             None,
             ClassicScriptResponseProvenance::ServiceWorker {
-                filter: Some(AsyncSubresourceFetchResponseFilter::service_worker(
-                    moli_fetch_types::FetchResponseMetadata {
-                        response_type: moli_fetch_types::FetchResponseType::Opaque,
-                        ..Default::default()
-                    },
-                )),
+                filter: Some(crate::types::FetchResponseType::Opaque.into()),
             },
         );
 

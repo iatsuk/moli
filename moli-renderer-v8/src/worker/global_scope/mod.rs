@@ -71,7 +71,8 @@ use crate::network_host::{
     error_pending_network_body_stream_with_reason, extract_subresource_auth_challenge,
     filter_headers_for_guard, is_cors_policy_failure_message, parse_fetch_init,
     request_headers_guard_for_mode, request_object_credentials_mode, resolve_context_url,
-    set_xhr_state_number, throw_synchronous_xhr_failure, validate_fetch_response_security_policy,
+    set_xhr_state_number, throw_synchronous_xhr_failure, validate_fetch_response_headers,
+    validate_fetch_response_security_policy,
     validate_fetch_response_security_policy_with_body_classified, xhr_author_request_headers,
     xhr_ensure_send_allowed, xhr_state_bool_property, xhr_state_number_property,
     xhr_state_string_property,
@@ -114,6 +115,7 @@ mod console;
 mod content_security_policy;
 mod event_handlers;
 mod extendable_events;
+pub(in crate::worker) mod static_router;
 pub(in crate::worker) use extendable_events::initialize_native_install_event;
 mod fetch;
 mod font_loading;

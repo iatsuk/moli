@@ -105,7 +105,7 @@ pub(in crate::context_bootstrap) use readable_state::{
     readable_stream_access_snapshot, readable_stream_is_byte_stream, unlock_readable_stream,
 };
 pub(crate) use readable_state::{
-    begin_readable_stream_body_consumption, readable_stream_disturbed,
+    begin_readable_stream_body_consumption, readable_stream_disturbed, readable_stream_locked,
 };
 pub(crate) use readable_state::{close_stream, enqueue_chunk, error_stream, readable_stream_error};
 pub(super) use readable_state::{
@@ -265,5 +265,3 @@ pub(in crate::context_bootstrap) fn set_writable_stream_locked(
 ) {
     set_stream_slot_bool(scope, stream, WRITABLE_STREAM_LOCKED_SLOT, locked);
 }
-
-pub(crate) use readable_state::readable_stream_locked;

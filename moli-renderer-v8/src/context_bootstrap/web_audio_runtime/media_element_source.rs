@@ -64,12 +64,6 @@ pub(in crate::context_bootstrap) fn constructor<'s>(
         parsed.context,
         parsed.options.media_element,
     ) {
-        crate::util::apply_webidl_constructor_prototype_fallback(
-            scope,
-            args.this(),
-            args.new_target(),
-            "MediaElementAudioSourceNode",
-        );
         rv.set(args.this().into());
     }
 }

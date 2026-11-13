@@ -1,6 +1,4 @@
 pub(crate) use async_fetch::next_redirect_url;
-#[cfg(test)]
-pub(crate) use response::set_response_metadata;
 
 mod async_fetch;
 mod beacon;
@@ -32,7 +30,7 @@ mod request_scope;
 mod request_upload;
 mod response;
 mod response_hop;
-pub(crate) use response_hop::SubresourceResponseTransition;
+pub(crate) use response_hop::{SubresourceResponseTransition, advance_subresource_response};
 mod stylesheet_subresource;
 mod subresource;
 pub(crate) use subresource::SubresourceRequestDispatch;
@@ -103,6 +101,7 @@ pub(crate) use self::csp_redirect::{
 };
 pub(crate) use self::csp_reports::{
     WindowCspReportRequestContext, capture_window_csp_report_request_context,
+    capture_window_csp_report_request_context_for_owner,
     send_content_security_policy_reports_for_lightweight_popup,
     send_content_security_policy_reports_for_window,
     send_content_security_policy_violation_report_from_window_context,
@@ -166,7 +165,7 @@ pub(crate) use self::preload::{
 };
 pub(crate) use self::request::build_service_worker_request_object;
 pub(crate) use self::request::{
-    FetchArgs, RequestInfo, parse_fetch_init, parse_request_redirect_mode_label,
+    FetchArgs, RequestInfo, RequestInputUrl, parse_fetch_init, parse_request_redirect_mode_label,
     request_object_credentials_mode, validate_fetch_body,
 };
 pub(crate) use self::request::{FetchArgumentError, convert_fetch_arguments};
@@ -179,6 +178,7 @@ pub(crate) use self::request::{
     request_headers_guard_for_mode, try_resolve_request_constructor_url_for_base,
     try_resolve_request_constructor_url_for_child, validate_request_method_body,
 };
+pub(crate) use self::request::{request_static_router_race_id, set_request_static_router_race_id};
 pub(in crate::network_host) use self::request_scope::{
     XHR_CHILD_CONTEXT_HANDLE_SLOT, active_subresource_network_partition_key,
     effective_subresource_referrer_policy, effective_subresource_request_owner,
@@ -199,6 +199,7 @@ pub(crate) use self::response::{
     build_fetch_response_object_from_subresource_body_for_request_mode,
     build_filtered_cached_response_object,
     build_navigation_preload_response_object_from_stream_for_request_mode,
+    build_null_body_fetch_response_object_for_request_mode_with_metadata,
     check_opaque_response_policy, cors_preflight_request_headers,
     fetch_response_needs_orb_body_validation, filter_cors_exposed_response_headers,
     is_cors_policy_failure_message, materialize_cache_response_object_head,
@@ -206,8 +207,8 @@ pub(crate) use self::response::{
     materialize_response_object_body_with_chunk_callback,
     materialize_response_object_head_for_service_worker_respond_with,
     materialized_body_bytes_from_value, network_response_filter, response_constructor_callback,
-    response_has_null_body, validate_cors_preflight_response, validate_cors_response_chain,
-    validate_cross_origin_embedder_and_document_isolation_policy,
+    response_has_null_body, set_cached_response_head, validate_cors_preflight_response,
+    validate_cors_response_chain, validate_cross_origin_embedder_and_document_isolation_policy,
     validate_cross_origin_resource_policy, validate_fetch_response_headers,
     validate_fetch_response_security_policy, validate_fetch_response_security_policy_with_body,
     validate_fetch_response_security_policy_with_body_classified,
@@ -295,6 +296,8 @@ fn cross_origin_request_modes(
 }
 
 pub(crate) use response::fetch_response_metadata;
+#[cfg(test)]
+pub(crate) use response::set_response_metadata;
 
 #[cfg(test)]
 pub(crate) use response::build_fetch_response_object_from_stream_for_request_mode;
@@ -306,5 +309,3 @@ pub(crate) use response::build_fetch_response_object_for_request_mode;
 
 #[cfg(test)]
 pub(crate) use response::materialize_response_object_head;
-
-pub(crate) use response::set_cached_response_head;

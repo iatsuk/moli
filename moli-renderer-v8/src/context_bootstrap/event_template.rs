@@ -573,29 +573,32 @@ struct PointerEventTemplateMethodsDeclaration {
 }
 
 #[derive(WebApiFunctionTemplate)]
-#[webapi(interface = web_api_interfaces::EventTarget, enumerable, receiver)]
+#[webapi(interface = web_api_interfaces::EventTarget, enumerable, receiver = super::window_receiver::is_event_target_receiver)]
 struct EventTargetTemplateMethodsDeclaration {
-    #[webapi(method, length = 1, callback = crate::observable::event_target_when)]
+    #[webapi(method, length = 1, callback = crate::observable::event_target_when, access_policy = super::window_receiver::require_same_origin_event_target_receiver)]
     when: (),
 
     #[webapi(
         method = "addEventListener",
         length = 2,
-        callback = window_host::event_target_add_event_listener_callback
+        callback = window_host::event_target_add_event_listener_callback,
+        access_policy = super::window_receiver::require_same_origin_event_target_receiver
     )]
     add_event_listener: (),
 
     #[webapi(
         method = "removeEventListener",
         length = 2,
-        callback = window_host::event_target_remove_event_listener_callback
+        callback = window_host::event_target_remove_event_listener_callback,
+        access_policy = super::window_receiver::require_same_origin_event_target_receiver
     )]
     remove_event_listener: (),
 
     #[webapi(
         method = "dispatchEvent",
         length = 1,
-        callback = window_host::event_target_dispatch_event_callback
+        callback = window_host::event_target_dispatch_event_callback,
+        access_policy = super::window_receiver::require_same_origin_event_target_receiver
     )]
     dispatch_event: (),
 }

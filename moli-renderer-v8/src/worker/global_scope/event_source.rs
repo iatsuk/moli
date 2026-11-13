@@ -368,6 +368,7 @@ pub(crate) fn start_worker_event_source_request<'s>(
             Vec::new(),
             redirect,
             None,
+            None,
         );
     }
     true

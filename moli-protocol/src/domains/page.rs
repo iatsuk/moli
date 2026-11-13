@@ -77,10 +77,13 @@ mod main_document_commit;
 pub(crate) mod native;
 mod navigation;
 pub(crate) use navigation::{
-    AutomationNavigationResult, BeforeUnloadNavigationStep, CompletedBeforeUnloadNavigationCommand,
-    CompletedContinueNavigationWithoutRequestPauseCommand, CompletedNavigateLoadCommand,
-    PreparedBeforeUnloadNavigation, emit_navigation_started_for_session_owner,
+    AutomationNavigationResult, CompletedContinueNavigationWithoutRequestPauseCommand,
+    CompletedNavigateLoadCommand, emit_navigation_started_for_session_owner,
     prepare_automation_navigation, superseded_intercepted_navigation_events,
+};
+pub(crate) use navigation::{
+    BeforeUnloadNavigationStep, CompletedBeforeUnloadNavigationCommand,
+    PreparedBeforeUnloadNavigation,
 };
 mod output;
 use capture::*;
@@ -177,7 +180,6 @@ pub(crate) struct PendingPageCommandDispatch {
 }
 
 enum PendingPageCommandKind {
-    BeforeUnloadNavigation(Box<navigation::PendingBeforeUnloadNavigationCommand>),
     BringToFront {
         route: CdpSessionRoute,
     },
@@ -226,6 +228,7 @@ enum PendingPageCommandKind {
         transfer_mode: DevToolsPrintToPdfTransferMode,
     },
     Navigate(Box<navigation::PendingNavigateLoadCommand>),
+    BeforeUnloadNavigation(Box<navigation::PendingBeforeUnloadNavigationCommand>),
     TraverseSameDocumentHistory(Box<navigation::PendingSameDocumentHistoryTraversalCommand>),
     ChildFrameNavigate(Box<navigation::PendingChildFrameNavigateCommand>),
     ContinueNavigationWithoutRequestPause(
@@ -243,7 +246,6 @@ pub(crate) struct CompletedPageCommandDispatch {
 }
 
 enum CompletedPageCommandKind {
-    BeforeUnloadNavigation(Box<navigation::CompletedBeforeUnloadNavigationCommand>),
     BringToFront {
         route: CdpSessionRoute,
     },
@@ -292,6 +294,7 @@ enum CompletedPageCommandKind {
         transfer_mode: DevToolsPrintToPdfTransferMode,
     },
     Navigate(Box<navigation::CompletedNavigateLoadCommand>),
+    BeforeUnloadNavigation(Box<navigation::CompletedBeforeUnloadNavigationCommand>),
     TraverseSameDocumentHistory(Box<navigation::CompletedSameDocumentHistoryTraversalCommand>),
     ChildFrameNavigate(Box<navigation::CompletedChildFrameNavigateCommand>),
     ContinueNavigationWithoutRequestPause(
@@ -363,9 +366,6 @@ impl PendingPageCommandDispatch {
     }
     pub async fn wait(self) -> CompletedPageCommandDispatch {
         let kind = match *self.kind {
-            PendingPageCommandKind::BeforeUnloadNavigation(pending) => {
-                CompletedPageCommandKind::BeforeUnloadNavigation(Box::new(pending.wait().await))
-            }
             PendingPageCommandKind::BringToFront { route } => {
                 CompletedPageCommandKind::BringToFront { route }
             }
@@ -454,7 +454,9 @@ impl PendingPageCommandDispatch {
             PendingPageCommandKind::Navigate(pending) => {
                 CompletedPageCommandKind::Navigate(Box::new(Box::pin(pending.wait()).await))
             }
-
+            PendingPageCommandKind::BeforeUnloadNavigation(pending) => {
+                CompletedPageCommandKind::BeforeUnloadNavigation(Box::new(pending.wait().await))
+            }
             PendingPageCommandKind::TraverseSameDocumentHistory(pending) => {
                 CompletedPageCommandKind::TraverseSameDocumentHistory(Box::new(
                     pending.wait().await,

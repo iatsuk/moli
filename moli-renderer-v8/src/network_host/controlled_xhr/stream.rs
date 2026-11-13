@@ -37,11 +37,13 @@ impl ControlledXhrStream {
         head: ResponseHead,
         network_request_headers: Option<Vec<(String, String)>>,
         body: crate::network::ResourceInterceptionBody,
+        response_filter: Option<crate::types::AsyncSubresourceFetchResponseFilter>,
+        skip_fetch_security_validation: bool,
     ) -> Result<(), String> {
         let body_source_id = crate::network_host::new_network_body_source_id();
         let started = AsyncSubresourceStreamingStarted {
-            skip_fetch_security_validation: false,
-            response_filter: None,
+            skip_fetch_security_validation,
+            response_filter,
             internal_id: info.internal_id,
             request_url: info.url.clone(),
             request_method: info.method.clone(),

@@ -128,18 +128,6 @@ struct WorkerResourceTimingState {
 }
 
 impl WorkerResourceTiming {
-    pub(super) fn select_streaming_response(
-        &self,
-        head: &ResponseHead,
-        filter: AsyncSubresourceFetchResponseFilter,
-    ) {
-        let mut state = self.0.state.lock();
-        // IO may already have supplied chunks or EOF. The Worker accepts the
-        // exact exposed head here without replacing those body observations.
-        state.response_is_synthetic = filter.service_worker_metadata().is_some();
-        state.response = Some((head.clone(), filter));
-        state.awaiting_selection = false;
-    }
     pub(super) fn new(
         scope: &mut v8::PinScope<'_, '_>,
         name: Url,
@@ -209,7 +197,11 @@ impl WorkerResourceTiming {
 
     pub(super) fn discard_response(&self) {
         let mut state = self.0.state.lock();
-        state.transport = None;
+        if let Some(transport) = state.transport.take() {
+            state
+                .clock
+                .observe_service_worker_timing(transport.response_timing());
+        }
         state.response = None;
         state.body_size = 0;
         state.completed_at = Some(Instant::now());
@@ -235,7 +227,11 @@ impl WorkerResourceTiming {
         if synthetic && state.synthetic_response_start.is_none() {
             // A fulfilled/intercepted response is a new client handover. The
             // transport that previously supplied a challenge is not its clock.
-            state.transport = None;
+            if let Some(transport) = state.transport.take() {
+                state
+                    .clock
+                    .observe_service_worker_timing(transport.response_timing());
+            }
             let now = Instant::now();
             state.synthetic_response_start = Some(now);
             state.completed_at = Some(now);
@@ -243,6 +239,19 @@ impl WorkerResourceTiming {
         state.response = Some((head.clone(), filter));
         state.response_is_synthetic = synthetic;
         state.body_size = body_size;
+        state.awaiting_selection = false;
+    }
+
+    pub(super) fn select_streaming_response(
+        &self,
+        head: &ResponseHead,
+        filter: AsyncSubresourceFetchResponseFilter,
+    ) {
+        let mut state = self.0.state.lock();
+        // IO may already have supplied chunks or EOF. The Worker accepts the
+        // exact exposed head here without replacing those body observations.
+        state.response_is_synthetic = filter.service_worker_metadata().is_some();
+        state.response = Some((head.clone(), filter));
         state.awaiting_selection = false;
     }
 

@@ -201,6 +201,22 @@ pub(crate) fn initialize_realm_interface_registry(
     Ok(())
 }
 
+/// Restricted WindowProxy contexts also create native platform objects. Their
+/// intrinsic identities belong to that Context, independently of LocalWindow
+/// execution authority or the cross-origin surface exposed to script.
+pub(crate) fn initialize_window_proxy_intrinsics(scope: &mut v8::PinScope<'_, '_>) -> Result<()> {
+    initialize_realm_interface_registry(scope, RealmKind::Window)?;
+    let global = scope.get_current_context().global(scope);
+    crate::web_api_interfaces::Window::DESCRIPTOR.initialize(scope, global)?;
+    initialize_ecmascript_intrinsic_registry(scope, global);
+    capture_ecmascript_intrinsic(scope, global, "Error")?;
+    capture_ecmascript_intrinsic(scope, global, "Promise")?;
+    moli_webapi_declare::capture_web_api_reflect_set(scope)
+        .ok_or_else(|| anyhow!("native Reflect.set is unavailable during WindowProxy bootstrap"))?;
+    install_web_api_intrinsic_resolver(scope, resolve_web_api_intrinsic);
+    Ok(())
+}
+
 /// Captures trusted eager constructor/prototype identities after realm
 /// bootstrap and before author script can mutate the public global.
 pub(crate) fn capture_eager_intrinsic_interfaces<'s>(

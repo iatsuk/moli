@@ -473,6 +473,7 @@ async fn service_worker_fetch_respond_with_readable_stream_body_posts_stream_chu
             | WorkerToParentMessage::ServiceWorkerClientFocus(_)
             | WorkerToParentMessage::ServiceWorkerClientsOpenWindow(_)
             | WorkerToParentMessage::ServiceWorkerSkipWaiting { .. }
+            | WorkerToParentMessage::ServiceWorkerRegisterRouterRules { .. }
             | WorkerToParentMessage::ServiceWorkerClientsClaim { .. }
             | WorkerToParentMessage::ServiceWorkerImportedScriptLoaded { .. }
             | WorkerToParentMessage::RuntimeInspectorResponse(_)
@@ -1137,7 +1138,7 @@ async fn service_worker_fetch_respond_with_body_accessed_opaque_response_keeps_i
             "clone/cache mode {clone_mode}/{cache_mode}"
         );
         assert_eq!(
-            response.head.status, 0,
+            response.head.status, 200,
             "clone/cache mode {clone_mode}/{cache_mode}"
         );
         assert_eq!(
@@ -1146,8 +1147,15 @@ async fn service_worker_fetch_respond_with_body_accessed_opaque_response_keeps_i
             "clone/cache mode {clone_mode}/{cache_mode}"
         );
         assert!(
-            response.head.headers.is_empty(),
-            "clone/cache mode {clone_mode}/{cache_mode}"
+            response.head.headers.iter().any(|(name, value)| {
+                name.eq_ignore_ascii_case("content-type") && value == b"application/javascript"
+            }),
+            "internal response head for {clone_mode}/{cache_mode}: {:?}",
+            response.head.headers
+        );
+        assert!(
+            !response.head.body_is_null,
+            "internal body for {clone_mode}/{cache_mode}"
         );
         assert_eq!(
             response.body,

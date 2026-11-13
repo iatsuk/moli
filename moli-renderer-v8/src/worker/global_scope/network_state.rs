@@ -120,6 +120,7 @@ pub(in crate::worker) enum WorkerFetchEvent {
 }
 
 pub(in crate::worker) struct WorkerFetchCompletion {
+    pub(super) body_is_null: Option<bool>,
     pub(super) fetch_id: u32,
     pub(super) network_request_headers: Option<Vec<(String, String)>>,
     pub(super) result: Result<WorkerFetchResponse, String>,
@@ -154,6 +155,8 @@ pub(in crate::worker) enum WorkerFetchResponse {
         filter: crate::types::AsyncSubresourceFetchResponseFilter,
     },
     Streamed {
+        skip_fetch_security_validation: bool,
+        filter: Option<crate::types::AsyncSubresourceFetchResponseFilter>,
         head: Box<ResponseHead>,
         body: SubresourceResponseBody,
     },
@@ -163,15 +166,20 @@ impl WorkerFetchResponse {
     pub(super) fn skips_fetch_security_validation(&self) -> bool {
         match self {
             Self::Filtered { filter, .. } => filter.service_worker_metadata().is_some(),
-            Self::Streamed { .. } => false,
+            Self::Streamed {
+                skip_fetch_security_validation,
+                ..
+            } => *skip_fetch_security_validation,
             Self::Materialized(_) => false,
         }
     }
+
     pub(super) fn response_filter(
         &self,
     ) -> Option<crate::types::AsyncSubresourceFetchResponseFilter> {
         match self {
             Self::Filtered { filter, .. } => Some(filter.clone()),
+            Self::Streamed { filter, .. } => filter.clone(),
             _ => None,
         }
     }
@@ -201,7 +209,7 @@ impl WorkerFetchResponse {
                     body: Box::new(body),
                 }
             }
-            Self::Streamed { head, body } => {
+            Self::Streamed { head, body, .. } => {
                 WorkerFetchResponseParts::Subresource { head: *head, body }
             }
         }
@@ -288,11 +296,13 @@ pub(in crate::worker) struct PausedWorkerSubresourceResponse {
     pub(in crate::worker) response_filter:
         Option<crate::types::AsyncSubresourceFetchResponseFilter>,
     pub(in crate::worker) skip_fetch_security_validation: bool,
+    pub(in crate::worker) body_is_null: Option<bool>,
     pub(in crate::worker) head: ResponseHead,
     pub(in crate::worker) body: SubresourceResponseBody,
 }
 
 pub(in crate::worker) struct WorkerXhrCompletion {
+    pub(in crate::worker) body_is_null: Option<bool>,
     pub(in crate::worker) native_record: Option<SubresourceNetworkRecord>,
     pub(in crate::worker) response_filter:
         Option<crate::types::AsyncSubresourceFetchResponseFilter>,

@@ -1092,4 +1092,3 @@ fn media_boolean_attribute_setter<'s>(
     );
     rv.set_undefined();
 }
-

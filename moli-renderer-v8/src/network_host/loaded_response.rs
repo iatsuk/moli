@@ -5,6 +5,10 @@ use crate::{network::ResourceInterceptionBody, types::SubresourceResponseBody};
 /// A single transport hop is available at headers. Its consumer chooses
 /// whether to capture the body or retire it on redirect/replacement.
 pub(super) struct LoadedResponse {
+    pub(super) response_filter: Option<crate::types::AsyncSubresourceFetchResponseFilter>,
+    pub(super) body_is_null: Option<bool>,
+    pub(super) source: moli_fetch::RedirectSource,
+    pub(super) request_extra_info: Option<moli_fetch::NetworkRequestExtraInfo>,
     pub(super) head: ResponseHead,
     pub(super) body: ResourceInterceptionBody,
 }
@@ -12,6 +16,10 @@ pub(super) struct LoadedResponse {
 impl LoadedResponse {
     pub(super) fn from_response(response: Response) -> Self {
         Self {
+            response_filter: None,
+            body_is_null: None,
+            source: moli_fetch::RedirectSource::Network,
+            request_extra_info: response.network_request_extra_info().cloned(),
             head: response.head(),
             body: ResourceInterceptionBody::from_complete(
                 SubresourceResponseBody::from_fetch_response(&response),
@@ -24,6 +32,10 @@ impl LoadedResponse {
         disk_pool: Option<moli_disk_pool::DiskPool>,
     ) -> Self {
         Self {
+            response_filter: None,
+            body_is_null: None,
+            source: moli_fetch::RedirectSource::Network,
+            request_extra_info: response.network_request_extra_info().cloned(),
             head: response.head(),
             body: ResourceInterceptionBody::new(response, disk_pool),
         }

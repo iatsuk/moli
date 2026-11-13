@@ -146,6 +146,8 @@ mod lifecycle_requests;
 mod registration_jobs;
 mod registration_lookup;
 mod registration_store;
+mod router_race;
+mod router_rules;
 mod runtime_protocol;
 mod service_lane_completions;
 mod worker_completion;
@@ -957,6 +959,7 @@ mod tests {
         state.versions.insert(
             version_id,
             ServiceWorkerVersion {
+                router_rules: Vec::new(),
                 id: version_id,
                 registration_id,
                 script_url: script_url.clone(),
@@ -1058,6 +1061,7 @@ mod tests {
             resource_task_runner: test_resource_task_runner(),
             cancel_handle,
             navigation_preload_cancel_handle: None,
+            router_race_request_cancel_handle: None,
             streaming_body_source_id: None,
             direct_completion_tx: None,
         }
@@ -1126,6 +1130,7 @@ mod tests {
         state.versions.insert(
             version_id,
             ServiceWorkerVersion {
+                router_rules: Vec::new(),
                 id: version_id,
                 registration_id,
                 script_url: script_url.clone(),
@@ -1542,6 +1547,7 @@ mod tests {
         state.versions.insert(
             version_id,
             ServiceWorkerVersion {
+                router_rules: Vec::new(),
                 id: version_id,
                 registration_id,
                 script_url: script_url.clone(),
@@ -1600,6 +1606,7 @@ mod tests {
         state.versions.insert(
             version_id,
             ServiceWorkerVersion {
+                router_rules: Vec::new(),
                 id: version_id,
                 registration_id,
                 script_url: script_url.clone(),
@@ -1673,6 +1680,7 @@ mod tests {
         state.versions.insert(
             version_id,
             ServiceWorkerVersion {
+                router_rules: Vec::new(),
                 id: version_id,
                 registration_id,
                 script_url: script_url.clone(),

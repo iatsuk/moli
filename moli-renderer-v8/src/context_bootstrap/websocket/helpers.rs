@@ -1,10 +1,9 @@
 use super::*;
 use crate::webidl;
-use moli_websocket::normalize_websocket_close_info;
 use moli_websocket::{
     WebSocketCloseValidationError, WebSocketSubprotocolError, WebSocketUrlError,
-    close_info_code_from_number, normalize_websocket_url as normalize_socket_url,
-    validate_subprotocols,
+    close_info_code_from_number, normalize_websocket_close_info,
+    normalize_websocket_url as normalize_socket_url, validate_subprotocols,
 };
 
 pub(super) enum WebSocketProtocolParseError {

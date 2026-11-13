@@ -50,6 +50,8 @@ impl WindowOperationReceiver {
         receiver: v8::Local<'s, v8::Object>,
         host: &PageScriptHost,
     ) -> Result<Self, WindowOperationReceiverCaptureError> {
+        let receiver = moli_webapi_declare::web_api_object_target(scope, receiver)
+            .ok_or(WindowOperationReceiverCaptureError::IllegalInvocation)?;
         let current_context = scope.get_current_context();
         if receiver.strict_equals(current_context.global(scope).into())
             && is_window_receiver(scope, receiver)

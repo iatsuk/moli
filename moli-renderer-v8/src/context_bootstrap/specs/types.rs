@@ -64,6 +64,8 @@ pub(in crate::context_bootstrap) enum ConstructorKind {
     RtcErrorEvent,
     RtcDtmfToneChangeEvent,
     RtcTrackEvent,
+    RtcEncodedAudioFrame,
+    RtcEncodedVideoFrame,
     RtcRtpScriptTransform,
     KeyFrameRequestEvent,
     DomError,
@@ -270,8 +272,6 @@ pub(in crate::context_bootstrap) enum ConstructorKind {
     FormData,
     IndexedDb,
     IndexedDbVersionChangeEvent,
-    RtcEncodedAudioFrame,
-    RtcEncodedVideoFrame,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]

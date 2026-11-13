@@ -1590,6 +1590,17 @@ async fn worker_fetch_no_cors_opaque_response_blocking_returns_empty_opaque_resp
         (async () => {{
             try {{
                 const response = await fetch({fetch_url_literal}, {{ mode: "no-cors" }});
+                if (performance.getEntriesByName({fetch_url_literal}).length === 0) {{
+                    await new Promise(resolve => {{
+                        const observer = new PerformanceObserver(list => {{
+                            if (list.getEntries().some(entry => entry.name === {fetch_url_literal})) {{
+                                observer.disconnect();
+                                resolve();
+                            }}
+                        }});
+                        observer.observe({{ type: "resource", buffered: true }});
+                    }});
+                }}
                 postMessage({{
                     fulfilled: true,
                     type: response.type,

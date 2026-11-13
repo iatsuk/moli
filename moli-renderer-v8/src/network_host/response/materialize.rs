@@ -21,26 +21,6 @@ pub(crate) struct FetchResponseRequest<'a> {
 }
 
 impl FetchResponseRequest<'_> {
-    pub(crate) fn capture_cors_exposure(
-        self,
-        request_origin: &moli_url::WebOrigin,
-        head: &moli_fetch::ResponseHead,
-        credentials_mode: moli_fetch::RequestCredentialsMode,
-        metadata: &mut FetchResponseMetadata,
-    ) {
-        if metadata.response_type == FetchResponseFilter::Cors
-            && metadata.cors_exposed_header_names.is_none()
-        {
-            let headers =
-                filter_cors_exposed_response_headers(request_origin, head, credentials_mode);
-            let names = headers
-                .into_iter()
-                .map(|(name, _)| name.to_ascii_lowercase())
-                .collect::<std::collections::BTreeSet<_>>();
-            metadata.cors_exposed_header_names = Some(names.into_iter().collect());
-        }
-    }
-
     pub(crate) fn network_response_filter(
         self,
         request_origin: &moli_url::WebOrigin,
@@ -48,7 +28,7 @@ impl FetchResponseRequest<'_> {
         _credentials_mode: moli_fetch::RequestCredentialsMode,
     ) -> crate::types::AsyncSubresourceFetchResponseFilter {
         network_response_filter(request_origin, head, self.mode, self.redirect_mode)
-            .unwrap_or_else(|| FetchResponseFilter::Basic.into())
+            .unwrap_or_else(|| head.fetch_response_type(request_origin, self.mode).into())
     }
 
     fn response_metadata(
@@ -167,6 +147,19 @@ pub(crate) fn build_fetch_response_object_from_body_source_for_request_mode<'s>(
     build_fetch_response_object_from_body_source_for_request_mode_with_metadata(
         scope, request, head, body, metadata,
     )
+}
+
+/// A controller or CacheStorage supplied an actual null internal body. Keep
+/// the established immutable metadata and create no readable body source.
+pub(crate) fn build_null_body_fetch_response_object_for_request_mode_with_metadata<'s>(
+    scope: &mut v8::PinScope<'s, '_>,
+    request: FetchResponseRequest<'_>,
+    head: moli_fetch::ResponseHead,
+    metadata: FetchResponseMetadata,
+) -> v8::Local<'s, v8::Object> {
+    let metadata = request.response_metadata(metadata, &head);
+    let obj = build_fetch_response_object_head(scope, &head, &metadata, None);
+    finish_fetch_response_object_with_body_stream(scope, obj, &head, None, &metadata)
 }
 
 pub(crate) fn build_fetch_response_object_from_body_source_for_request_mode_with_metadata<'s>(
@@ -438,7 +431,9 @@ pub(crate) fn build_filtered_cached_response_object<'s>(
     mark_response_object(scope, obj);
     let headers_obj = build_headers_object_with_state(scope, &[], HeadersGuard::Response, true);
     set_response_slot_value(scope, obj, RESPONSE_HEADERS_SLOT, headers_obj.into());
-    set_filtered_response_internal_body_from_bytes(scope, obj, body);
+    if !head.body_is_null {
+        set_filtered_response_internal_body_from_bytes(scope, obj, body);
+    }
     FetchResponseBodyDeclaration::new(String::new(), v8::null(scope).into())
         .initialize(scope, obj)
         .ok()?;
@@ -577,6 +572,11 @@ fn materialize_response_head_for_purpose<'s>(
 
     Ok((
         MaterializedResponseHead {
+            body_is_null: if filtered_response_type {
+                crate::network_host::body_source::filtered_response_internal_body_source_from_object(scope, response).is_none()
+            } else {
+                body_stream_object(scope, response).is_none()
+            },
             metadata,
             status: status as u16,
             status_text,

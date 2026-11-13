@@ -505,6 +505,7 @@ pub(crate) fn try_worker_xhr_send_callback<'s>(
                 let _ = state
                     .xhr_completion_tx
                     .send(WorkerXhrEvent::Completion(Box::new(WorkerXhrCompletion {
+                        body_is_null: None,
                         native_record: None,
                         response_filter: None,
                         skip_fetch_security_validation: false,
@@ -528,7 +529,31 @@ pub(crate) fn try_worker_xhr_send_callback<'s>(
         XhrInterceptionRoute::Native(control) => {
             let completion_tx = state.borrow().xhr_completion_tx.clone();
             let info = native_worker_xhr_info(&prepared);
-            let request = worker_xhr_request(&state.borrow(), &prepared);
+            let (service_worker, redirect_check) =
+                {
+                    let state = state.borrow();
+                    let pending = state
+                        .pending_xhrs
+                        .get(&xhr_id)
+                        .expect("registered native Worker XHR");
+                    let worker = super::xhr_service_worker::native_context(
+                        &state,
+                        &pending.connect_policy,
+                        &pending.redirect_csp_state,
+                        &prepared.document_url,
+                        &prepared.resolved_url,
+                    );
+                    let redirect = super::fetch::worker_request_redirect_check(
+                    &state, &pending.connect_policy, &pending.redirect_csp_state,
+                    &prepared.document_url, &prepared.resolved_url,
+                    crate::content_security_policy::ContentSecurityPolicySourceLocation::default(),
+                );
+                    (worker, redirect)
+                };
+            let mut request = worker_xhr_request(&state.borrow(), &prepared);
+            if let Some(check) = redirect_check {
+                request = request.with_redirect_check(check);
+            }
             state
                 .borrow_mut()
                 .pending_xhrs
@@ -556,15 +581,17 @@ pub(crate) fn try_worker_xhr_send_callback<'s>(
                         cancel_handle,
                         prepared.request_headers.to_byte_strings(),
                     )
+                    .with_service_worker(service_worker)
                     .run()
                     .await;
                 let _ =
                     completion_tx.send(WorkerXhrEvent::Completion(Box::new(WorkerXhrCompletion {
+                        body_is_null: completed.body_is_null,
+                        response_filter: completed.response_filter,
+                        skip_fetch_security_validation: completed.skip_fetch_security_validation,
                         xhr_id,
                         network_request_headers: None,
                         native_record: Some(completed.network_record),
-                        response_filter: None,
-                        skip_fetch_security_validation: false,
                         result: completed
                             .result
                             .map(|response| WorkerXhrResponse::Materialized(Box::new(response))),
@@ -746,6 +773,13 @@ fn send_synchronous_worker_xhr(
         request = request.with_redirect_check(check);
     }
 
+    let service_worker = super::xhr_service_worker::native_context(
+        &state.borrow(),
+        &connect_policy,
+        &redirect_csp_state,
+        &prepared.document_url,
+        &prepared.resolved_url,
+    );
     let request_url = prepared.resolved_url.clone();
     let request_method = prepared.method.clone();
     let request_headers = prepared.request_headers.clone();
@@ -787,10 +821,20 @@ fn send_synchronous_worker_xhr(
         cancel_handle,
         preflight_headers,
         control,
+        service_worker,
         move |completed| {
             if let Ok(response) = &completed.result {
-                worker_timing.observe_head(&response.head());
-                worker_timing.observe_chunk(response.body_bytes().len());
+                if let Some(filter) = completed.response_filter.clone() {
+                    worker_timing.select_response(
+                        &response.head(),
+                        filter,
+                        response.body_bytes().len(),
+                        completed.skip_fetch_security_validation,
+                    );
+                } else {
+                    worker_timing.observe_head(&response.head());
+                    worker_timing.observe_chunk(response.body_bytes().len());
+                }
             } else {
                 worker_timing.discard_response();
             }
@@ -927,11 +971,19 @@ fn send_synchronous_worker_xhr(
                 throw_synchronous_xhr_failure(scope, xhr, &request_url_text, "NetworkError");
                 return;
             }
-            let observable_headers = filter_cors_exposed_response_headers(
-                timing.origin(),
-                &response_head,
-                prepared.credentials_mode,
-            );
+            let observable_headers = match completed.response_filter.as_ref() {
+                Some(filter) => crate::network_host::xhr_response_headers_for_filter(
+                    timing.origin(),
+                    &response_head,
+                    filter,
+                    prepared.credentials_mode,
+                ),
+                None => filter_cors_exposed_response_headers(
+                    timing.origin(),
+                    &response_head,
+                    prepared.credentials_mode,
+                ),
+            };
             let _ = state
                 .borrow()
                 .parent_tx
@@ -1306,6 +1358,7 @@ pub(in crate::worker) fn drain_worker_xhr_completion(
                     record.follow_redirects(&response_head);
                     let response_body = response.subresource_response_body();
                     pending.paused_response = Some(PausedWorkerSubresourceResponse {
+                        body_is_null: completion.body_is_null,
                         response_filter: completion.response_filter.clone(),
                         skip_fetch_security_validation: completion.skip_fetch_security_validation,
                         head: response_head.clone(),
@@ -1373,6 +1426,7 @@ pub(in crate::worker) fn drain_worker_xhr_completion(
                         preload_state: response_head.preload_state.clone(),
                     };
                     pending.paused_response = Some(PausedWorkerSubresourceResponse {
+                        body_is_null: completion.body_is_null,
                         response_filter: completion.response_filter.clone(),
                         skip_fetch_security_validation: completion.skip_fetch_security_validation,
                         head: response_head,
