@@ -2185,6 +2185,7 @@ async fn fetch_connected_link_readiness_with_service_worker(
         }
     }
     let request_mode = options.request_mode;
+    let web_security_disabled = loader.web_security_disabled();
     fetch_connected_link_readiness_with_request(loader, url, options, request)
         .await
         .map(|response| {
@@ -2193,6 +2194,7 @@ async fn fetch_connected_link_readiness_with_service_worker(
                 &request_origin,
                 &response.head(),
                 request_mode,
+                web_security_disabled,
             )
             .is_none_or(|filter| filter.is_readable());
             ConnectedLinkReadinessFetchResponse::new(response, origin_clean, load_event_successful)

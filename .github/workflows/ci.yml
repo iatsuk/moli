@@ -569,7 +569,7 @@ jobs:
           available_groups=$(uv run --project moli-cdp-smoke --no-sync python -c \
             'from moli_cdp_smoke.runner import group_listing; print(" ".join(group["name"] for group in group_listing()))')
           chromium_overrides=()
-          for group in dom-input fetch-headers; do
+          for group in dom-input fetch-headers web-security; do
             if [[ " $available_groups " == *" $group "* ]]; then
               chromium_overrides+=(--chromium-bin-for-group "$group=$CHROMIUM_CURRENT_ORACLE_BIN")
             fi
@@ -578,11 +578,6 @@ jobs:
             --browser chromium --strict-full-suite --repeat 2 --retries 3 --jobs 4 \
             "${chromium_overrides[@]}" \
             --output-dir target/smoke/cdp-chromium-ci
-      - name: Run pinned web-security oracle
-        run: |
-          uv run --project moli-cdp-smoke --no-sync moli-cdp-smoke \
-            --browser chromium --group web-security --chromium-bin "$CHROMIUM_CURRENT_ORACLE_BIN" \
-            --repeat 2 --jobs 4 --output-dir target/smoke/web-security-chromium-ci
       - name: Run upstream web-security contracts on Chromium
         shell: bash
         run: |
@@ -600,9 +595,7 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: cdp-smoke-chromium-diagnostics
-          path: |
-            target/smoke/cdp-chromium-ci
-            target/smoke/web-security-chromium-ci
+          path: target/smoke/cdp-chromium-ci
           if-no-files-found: error
           retention-days: 7
 
