@@ -576,6 +576,22 @@ impl StylesheetLinkClient {
         self.role == StylesheetLinkClientRole::Install
     }
 
+    pub(super) fn resource_completion_successful(
+        &self,
+        terminal: &StylesheetFetchTerminal,
+    ) -> bool {
+        match self.role {
+            StylesheetLinkClientRole::Install => terminal.is_ready(),
+            StylesheetLinkClientRole::Preload => {
+                crate::stylesheet_blocking::stylesheet_preload_fetch_response(
+                    terminal,
+                    self.fetch.options(),
+                )
+                .is_ok()
+            }
+        }
+    }
+
     pub(in crate::document_runtime) fn load_event_binding(
         &self,
     ) -> Option<MainDocumentStyleLoadEventBinding> {

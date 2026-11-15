@@ -2817,6 +2817,7 @@ async fn fetch_connected_link_readiness_with_service_worker(
                     )?;
                 }
                 let load_event_successful = connected_link_load_event_successful(
+                    &options,
                     &response.response,
                     response.response_filter.clone(),
                 );
@@ -2851,7 +2852,8 @@ async fn fetch_connected_link_readiness_with_service_worker(
                     "prefetch",
                 )?;
             }
-            let load_event_successful = connected_link_load_event_successful(&response, None);
+            let load_event_successful =
+                connected_link_load_event_successful(&options, &response, None);
             let response_filter = crate::network_host::network_response_filter(
                 &request_origin,
                 &response.head(),
@@ -2956,12 +2958,14 @@ fn link_crossorigin_credentials_mode(cross_origin: Option<&str>) -> RequestCrede
 }
 
 fn connected_link_load_event_successful(
+    options: &ConnectedLinkReadinessFetchOptions,
     response: &crate::protocol_types::NavigationResponse,
     response_filter: Option<AsyncSubresourceFetchResponseFilter>,
 ) -> bool {
-    response_filter
-        .as_ref()
-        .is_some_and(|filter| !filter.is_readable())
+    options.link_preload
+        || response_filter
+            .as_ref()
+            .is_some_and(|filter| !filter.is_readable())
         || (200..=299).contains(&response.status)
 }
 

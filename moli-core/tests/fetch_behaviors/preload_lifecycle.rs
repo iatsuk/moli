@@ -27,7 +27,7 @@ async fn child_preload_completions_cannot_target_a_replacement_document() -> Res
             let server = gated_preload_response_server(
                 "<!doctype html><head></head><body>parent".to_owned(),
                 "text/css",
-                true,
+                PreloadResponse::Ok,
                 true,
             )
             .await?;
@@ -129,9 +129,13 @@ async fn ordinary_preloads_do_not_delay_window_load_or_lose_late_events() -> Res
             ("font", "font/ttf"),
             ("track", "text/vtt"),
         ] {
-            for successful in [true, false] {
+            for response in [
+                PreloadResponse::Ok,
+                PreloadResponse::NotFound,
+                PreloadResponse::NetworkError,
+            ] {
                 let server =
-                    gated_preload_server(destination, content_type, dynamic, successful).await?;
+                    gated_preload_server(destination, content_type, dynamic, response).await?;
                 let mut config = AppConfig::default();
                 config.set_optional_resource_fetch_mask(
                     moli_page_types::OptionalResourceFetchMask::ALL,
@@ -154,7 +158,7 @@ async fn ordinary_preloads_do_not_delay_window_load_or_lose_late_events() -> Res
                 assert_eq!(
                     before,
                     serde_json::json!({"state":"complete","events":["window:complete"],"count":0}),
-                    "{destination}, dynamic={dynamic}, successful={successful}"
+                    "{destination}, dynamic={dynamic}, response={response:?}"
                 );
 
                 server.release.send(()).expect("release preload response");
@@ -171,14 +175,18 @@ async fn ordinary_preloads_do_not_delay_window_load_or_lose_late_events() -> Res
                     })()"#,
                 )
                 .await?;
-                let event = if successful { "load" } else { "error" };
+                let event = if matches!(response, PreloadResponse::NetworkError) {
+                    "error"
+                } else {
+                    "load"
+                };
                 assert_eq!(
                     after,
                     serde_json::json!({
                         "state":"complete", "events":["window:complete",format!("link:{event}:complete")],
                         "count":1
                     }),
-                    "{destination}, dynamic={dynamic}, successful={successful}"
+                    "{destination}, dynamic={dynamic}, response={response:?}"
                 );
                 server.task.await??;
             }
@@ -194,11 +202,18 @@ struct GatedPreloadServer {
     task: tokio::task::JoinHandle<Result<()>>,
 }
 
+#[derive(Clone, Copy, Debug)]
+enum PreloadResponse {
+    Ok,
+    NotFound,
+    NetworkError,
+}
+
 async fn gated_preload_server(
     destination: &str,
     content_type: &'static str,
     dynamic: bool,
-    successful: bool,
+    response: PreloadResponse,
 ) -> Result<GatedPreloadServer> {
     let link = if dynamic {
         format!(
@@ -220,13 +235,13 @@ async fn gated_preload_server(
            preloadEvents.push('link:' + event.type + ':' + document.readyState); }} \
          </script>{link}</head><body>preload lifecycle"
     );
-    gated_preload_response_server(markup, content_type, successful, false).await
+    gated_preload_response_server(markup, content_type, response, false).await
 }
 
 async fn gated_preload_response_server(
     markup: String,
     content_type: &'static str,
-    successful: bool,
+    response: PreloadResponse,
     followup_request: bool,
 ) -> Result<GatedPreloadServer> {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -260,11 +275,15 @@ async fn gated_preload_response_server(
                 assert!(request.starts_with(b"GET /resource "));
                 let _ = request_tx.take().expect("one preload request").send(());
                 let _ = release_rx.take().expect("one response gate").await;
+                if matches!(response, PreloadResponse::NetworkError) {
+                    stream.shutdown().await?;
+                    continue;
+                }
                 (
-                    if successful {
-                        "200 OK"
-                    } else {
-                        "404 Not Found"
+                    match response {
+                        PreloadResponse::Ok => "200 OK",
+                        PreloadResponse::NotFound => "404 Not Found",
+                        PreloadResponse::NetworkError => unreachable!("closed above"),
                     },
                     content_type,
                     "body {}",

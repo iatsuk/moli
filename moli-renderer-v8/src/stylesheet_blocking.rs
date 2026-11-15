@@ -739,10 +739,10 @@ fn classify_stylesheet_response(
     }
 }
 
-fn stylesheet_preload_response(
+pub(crate) fn stylesheet_preload_fetch_response(
     terminal: &StylesheetFetchTerminal,
     options: &StylesheetFetchOptions,
-) -> Result<crate::network::preloads::DocumentPreloadResponse, String> {
+) -> Result<crate::protocol_types::NavigationResponse, String> {
     if terminal.failed_integrity() {
         return Err("preload response failed its integrity check".to_owned());
     }
@@ -757,6 +757,14 @@ fn stylesheet_preload_response(
     }
     // MIME interpretation and HTTP success belong to the stylesheet consumer.
     // Preserve the fetch response even when it cannot be installed as CSS.
+    Ok(response)
+}
+
+fn stylesheet_preload_response(
+    terminal: &StylesheetFetchTerminal,
+    options: &StylesheetFetchOptions,
+) -> Result<crate::network::preloads::DocumentPreloadResponse, String> {
+    let response = stylesheet_preload_fetch_response(terminal, options)?;
     Ok(crate::network::preloads::DocumentPreloadResponse {
         service_worker_response_url: terminal.service_worker_response_url().cloned(),
         response,
