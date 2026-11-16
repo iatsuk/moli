@@ -51,7 +51,7 @@ pub use html_serialization::{
 };
 pub use node::{
     CDataSection, Comment, LiveDomNodeMetadata, NativeNodeId, Node, NodeData, NodeFlags, NodeType,
-    ProcessingInstruction, Text,
+    ProcessingInstruction, ProcessingInstructionAttributes, Text,
 };
 pub use node_storage::NativeDomNodes;
 use node_storage::NativeNodeStorage;
@@ -1128,7 +1128,7 @@ mod tests {
         assert_eq!(size_of::<Text>(), 32);
         assert_eq!(size_of::<CDataSection>(), 32);
         assert_eq!(size_of::<Comment>(), 32);
-        assert_eq!(size_of::<ProcessingInstruction>(), 48);
+        assert_eq!(size_of::<ProcessingInstruction>(), 40);
         assert!(
             size_of::<Attribute>() <= 40,
             "Attribute common record grew to {} bytes",
