@@ -503,6 +503,7 @@ impl PageScriptHost {
             child_document_script_ready_tasks:
                 super::document_script_ready_inputs::ChildDocumentScriptReadyTaskLedger::default(),
             pending_child_external_classic_document_scripts: HashMap::new(),
+            pending_child_classic_script_network_loads: HashMap::new(),
             pending_child_modulepreload_work_awaiting_realm: VecDeque::new(),
             active_child_browsing_context_host_loads: Vec::new(),
             character_data_utf16_overrides: HashMap::new(),

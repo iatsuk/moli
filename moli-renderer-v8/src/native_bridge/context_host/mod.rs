@@ -40,7 +40,7 @@ use crate::{
             PendingSubresourceAuthState, PendingSubresourceFetchState,
             PendingSubresourceResponseState, PendingWebSocketResponseState,
             RunningSubresourceFetchState, ScriptErrorConstructorKind, ScriptNetworkOutputItem,
-            StreamingSubresourceFetchState,
+            StreamingSubresourceFetchState, SubresourceNetworkRequestHandle,
         },
         util::{
             string_from_utf16_units_lossy, utf16_units, utf16_units_contain_unpaired_surrogate,
@@ -990,6 +990,8 @@ pub(crate) struct PageScriptHost {
         document_script_ready_inputs::ChildDocumentScriptReadyTaskLedger,
     pending_child_external_classic_document_scripts:
         HashMap<u64, child_frames::PendingChildExternalClassicDocumentScriptLoad>,
+    pending_child_classic_script_network_loads:
+        HashMap<SubresourceNetworkRequestHandle, crate::network::loads::ResourceLoadLease>,
     pending_child_modulepreload_work_awaiting_realm:
         VecDeque<crate::frame_owner_model::FrameDocumentModulepreloadWorkAwaitingRealm>,
     active_child_browsing_context_host_loads: Vec<DomHandle>,
