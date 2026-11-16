@@ -82,7 +82,7 @@ fn contenteditable_state_from_attr(value: &str) -> Option<bool> {
     }
 }
 
-fn initial_caret_can_descend(element: &Element) -> bool {
+pub(super) fn can_descend_into_editable_content(element: &Element) -> bool {
     !element.has_attribute("inert")
         && element
             .attribute("contenteditable")
@@ -154,7 +154,7 @@ pub(crate) fn initial_contenteditable_caret(
                 return (handle, offset);
             }
         } else if let Some(element) = node.as_element() {
-            let can_descend = initial_caret_can_descend(element);
+            let can_descend = can_descend_into_editable_content(element);
             let style = ElementRenderedStyle::read_in_scope(&mut styles, handle);
             if style.display != ComputedDisplayKind::None && !style.hides_contents {
                 let visible = style.visibility_visible;
