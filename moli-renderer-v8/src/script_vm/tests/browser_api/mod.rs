@@ -99,6 +99,7 @@ mod node_tree_mutation_bindings;
 mod notification_init;
 mod opaque_document_cookie;
 mod opaque_wasm_origins;
+mod page_reveal;
 mod parent_node_bindings;
 mod payload_event_init;
 mod performance;

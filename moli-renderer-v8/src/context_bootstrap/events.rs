@@ -64,6 +64,7 @@ const CLIPBOARD_CHANGE_EVENT_TYPES_SLOT: &str = "__moliClipboardChangeEventTypes
 const CLIPBOARD_CHANGE_EVENT_CHANGE_ID_SLOT: &str = "__moliClipboardChangeEventChangeId";
 const COMMAND_EVENT_SOURCE_SLOT: &str = "__moliCommandEventSource";
 const TOGGLE_EVENT_SOURCE_SLOT: &str = "__moliToggleEventSource";
+const PAGE_REVEAL_EVENT_VIEW_TRANSITION_SLOT: &str = "__moliPageRevealEventViewTransition";
 const EVENT_SUBCLASS_KIND_SLOT: &str = "__moliEventSubclassKind";
 #[derive(WebApiObject)]
 #[webapi(plain)]
@@ -205,6 +206,16 @@ pub(super) fn before_unload_event_return_value_setter<'s>(
         BEFORE_UNLOAD_EVENT_RETURN_VALUE_SLOT,
         value.into(),
     );
+}
+
+pub(in crate::context_bootstrap) fn page_reveal_event_view_transition_getter<'s>(
+    scope: &mut v8::PinScope<'s, '_>,
+    args: v8::FunctionCallbackArguments<'s>,
+    mut rv: v8::ReturnValue<'s, v8::Value>,
+) {
+    let value = event_private_value(scope, args.this(), PAGE_REVEAL_EVENT_VIEW_TRANSITION_SLOT)
+        .unwrap_or_else(|| v8::null(scope).into());
+    rv.set(value);
 }
 
 pub(crate) fn construct_original_page_transition_event<'s>(

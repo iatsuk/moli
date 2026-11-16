@@ -66,7 +66,8 @@ impl<'s> SubclassInit<'s> {
             | EventSubclassKind::InterestEvent
             | EventSubclassKind::PopStateEvent
             | EventSubclassKind::HashChangeEvent
-            | EventSubclassKind::PageTransitionEvent => {
+            | EventSubclassKind::PageTransitionEvent
+            | EventSubclassKind::PageRevealEvent => {
                 Self::Values(values::ValueEventInit::parse(scope, args, kind)?)
             }
             EventSubclassKind::ClipboardChangeEvent => {
