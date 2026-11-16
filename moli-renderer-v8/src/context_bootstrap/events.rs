@@ -530,6 +530,7 @@ pub(crate) use wrappers::{
 };
 
 pub(in crate::context_bootstrap) use message::message_event_init_callback;
+pub(crate) use subclasses::construct_native_touch_event;
 pub(in crate::context_bootstrap) use wrappers::{
     event_platform_attribute_getter, event_value_attribute_getter,
 };
