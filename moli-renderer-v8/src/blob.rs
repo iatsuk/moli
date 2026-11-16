@@ -396,6 +396,7 @@ pub(super) fn blob_bytes_from_object<'s>(
     blob_id_from_object(scope, object).and_then(blob_bytes)
 }
 
+#[cfg(feature = "devtools")]
 pub(super) fn blob_uuid_from_object<'s>(
     scope: &mut v8::PinScope<'s, '_>,
     object: v8::Local<'s, v8::Object>,
@@ -505,6 +506,7 @@ fn blob_bytes(blob_id: BlobId) -> Option<Vec<u8>> {
     blob_store().blob_bytes(blob_id)
 }
 
+#[cfg(feature = "devtools")]
 fn blob_uuid(blob_id: BlobId) -> Option<String> {
     blob_store().blob_uuid(blob_id)
 }

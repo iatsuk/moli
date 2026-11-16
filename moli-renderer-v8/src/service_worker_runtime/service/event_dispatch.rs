@@ -156,6 +156,7 @@ async fn stream_navigation_preload_response(
 }
 
 impl ServiceWorkerRuntimeService {
+    #[cfg(feature = "devtools")]
     pub(super) fn start_queued_launch(&self, launch: ServiceWorkerQueuedLaunch) {
         let Some(launch) = self.defer_install_launch_until_debugger_if_needed(launch) else {
             return;
@@ -163,6 +164,7 @@ impl ServiceWorkerRuntimeService {
         self.start_queued_launch_with_devtools_pause_policy(launch, false);
     }
 
+    #[cfg(feature = "devtools")]
     pub(super) fn start_queued_launch_without_devtools_pause(
         &self,
         launch: ServiceWorkerQueuedLaunch,
@@ -170,6 +172,7 @@ impl ServiceWorkerRuntimeService {
         self.start_queued_launch_with_devtools_pause_policy(launch, true);
     }
 
+    #[cfg(feature = "devtools")]
     fn start_queued_launch_with_devtools_pause_policy(
         &self,
         mut launch: ServiceWorkerQueuedLaunch,
@@ -187,6 +190,7 @@ impl ServiceWorkerRuntimeService {
             .start_loading(self.clone(), launch.params, launch.preloaded_script);
     }
 
+    #[cfg(feature = "devtools")]
     pub(super) fn apply_devtools_evaluation_pause_to_launch_if_needed(
         &self,
         launch: &mut ServiceWorkerQueuedLaunch,
@@ -203,6 +207,7 @@ impl ServiceWorkerRuntimeService {
         }
     }
 
+    #[cfg(feature = "devtools")]
     fn launch_should_pause_on_start_for_devtools(
         &self,
         version_id: ServiceWorkerVersionId,
@@ -216,6 +221,7 @@ impl ServiceWorkerRuntimeService {
                 || state.devtools_attached_versions.contains(&version_id))
     }
 
+    #[cfg(feature = "devtools")]
     fn defer_install_launch_until_debugger_if_needed(
         &self,
         launch: ServiceWorkerQueuedLaunch,
@@ -1605,4 +1611,16 @@ fn service_worker_fetch_request_is_navigation_destination(
         destination,
         ServiceWorkerRequestDestination::Document | ServiceWorkerRequestDestination::Iframe
     )
+}
+
+#[cfg(not(feature = "devtools"))]
+impl ServiceWorkerRuntimeService {
+    pub(super) fn start_queued_launch(&self, launch: ServiceWorkerQueuedLaunch) {
+        for notification in launch.lifecycle_notifications {
+            notification.send();
+        }
+        launch
+            .host
+            .start_loading(self.clone(), launch.params, launch.preloaded_script);
+    }
 }

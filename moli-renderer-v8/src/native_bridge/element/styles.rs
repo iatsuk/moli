@@ -544,6 +544,7 @@ pub(crate) fn style_viewport_for_document(
         .unwrap_or_default()
 }
 
+#[cfg(feature = "devtools")]
 pub(crate) fn computed_style_property_values_for_document_snapshot(
     host: &PageScriptHost,
     handles: impl IntoIterator<Item = DomHandle>,
@@ -604,6 +605,7 @@ pub(crate) fn computed_style_export_values_for_document_snapshot(
     values
 }
 
+#[cfg(feature = "devtools")]
 pub(crate) fn computed_style_properties_for_inspector_handle(
     host: &PageScriptHost,
     handle: DomHandle,

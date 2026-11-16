@@ -1449,6 +1449,7 @@ impl DocumentRuntime {
         self.dom_host.set_input_value_from_user_edit(handle, value)
     }
 
+    #[cfg(feature = "devtools")]
     pub(crate) fn set_autofilled(&mut self, handle: DomHandle, autofilled: bool) -> bool {
         self.dom_host.set_autofilled_state(handle, autofilled)
     }

@@ -20,6 +20,7 @@ use super::{
     label_receives_programmatic_focus,
 };
 use crate::document_runtime::{DomHandle, EventTargetHandle};
+#[cfg(feature = "devtools")]
 use crate::runtime::RendererDomFocusOutcome;
 use crate::style_engine::{ComputedDisplayKind, ComputedWhiteSpaceCollapseKind};
 use crate::util::{node_wrapper_from_handle, v8_string, v8str};
@@ -1459,6 +1460,7 @@ fn focus_element_with_options(
     Ok(())
 }
 
+#[cfg(feature = "devtools")]
 pub(crate) fn focus_live_element_for_inspector(
     scope: &mut v8::PinScope<'_, '_>,
     runtime_ptr: *mut PageScriptHost,

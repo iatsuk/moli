@@ -580,6 +580,7 @@ pub(super) fn replace_contenteditable_selection_after_beforeinput(
     true
 }
 
+#[cfg(feature = "devtools")]
 pub(crate) fn select_contenteditable_contents(
     scope: &mut v8::PinScope<'_, '_>,
     runtime_ptr: *mut PageScriptHost,
@@ -1251,6 +1252,7 @@ pub(crate) fn activate_handle_via_click_with_detail_and_modifiers(
     )
 }
 
+#[cfg(feature = "devtools")]
 pub(crate) fn activate_handle_via_keyboard(
     scope: &mut v8::PinScope<'_, '_>,
     runtime_ptr: *mut PageScriptHost,
@@ -1300,6 +1302,7 @@ pub(crate) fn activate_handle_after_pointer_release(
     )
 }
 
+#[cfg(feature = "devtools")]
 pub(crate) fn activate_handle_after_touch_release(
     scope: &mut v8::PinScope<'_, '_>,
     runtime_ptr: *mut PageScriptHost,

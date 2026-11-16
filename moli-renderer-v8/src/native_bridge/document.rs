@@ -42,6 +42,7 @@ mod state;
 mod structure;
 
 pub(crate) use attributes::install_named_node_map_template_bindings;
+#[cfg(feature = "devtools")]
 pub(crate) use queries::evaluate_live_xpath_search_node_handles;
 
 pub(crate) const DETACHED_STATE_SLOT: &str = "__moliDetachedState";

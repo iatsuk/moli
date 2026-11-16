@@ -1,8 +1,12 @@
 use crate::runtime::RendererPointerEventProperties;
-use crate::util::{serialize_v8_iter_array, v8_string, v8str};
+#[cfg(feature = "devtools")]
+use crate::util::serialize_v8_iter_array;
+use crate::util::{v8_string, v8str};
 use crate::{document_runtime::DomHandle, native_bridge::PageScriptHost};
 
-use super::{construct_event, event_constructor};
+use super::construct_event;
+#[cfg(feature = "devtools")]
+use super::event_constructor;
 use moli_webapi_declare::WebApiObject;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -199,6 +203,7 @@ impl TextEditInputType {
     }
 }
 
+#[cfg(feature = "devtools")]
 fn keyboard_event_legacy_codes(event_type: &str, key: &str, code: &str) -> (u32, u32, u32) {
     let char_code = keyboard_event_char_code(event_type, key);
     let mut key_code = keyboard_event_key_code(key, code);
@@ -213,6 +218,7 @@ fn keyboard_event_legacy_codes(event_type: &str, key: &str, code: &str) -> (u32,
     (char_code, key_code, which)
 }
 
+#[cfg(feature = "devtools")]
 fn keyboard_event_char_code(event_type: &str, key: &str) -> u32 {
     if event_type != "keypress" {
         return 0;
@@ -230,6 +236,7 @@ fn keyboard_event_char_code(event_type: &str, key: &str) -> u32 {
     ch as u32
 }
 
+#[cfg(feature = "devtools")]
 fn keyboard_event_key_code(key: &str, code: &str) -> u32 {
     match key {
         "Backspace" => 8,
@@ -264,6 +271,7 @@ fn keyboard_event_key_code(key: &str, code: &str) -> u32 {
     }
 }
 
+#[cfg(feature = "devtools")]
 fn keyboard_event_key_code_for_code(code: &str) -> Option<u32> {
     if let Some(suffix) = code.strip_prefix("Key")
         && suffix.len() == 1
@@ -336,6 +344,7 @@ fn keyboard_event_key_code_for_code(code: &str) -> Option<u32> {
     })
 }
 
+#[cfg(feature = "devtools")]
 fn single_ascii_digit(value: &str) -> Option<u8> {
     if value.len() != 1 {
         return None;
@@ -344,6 +353,7 @@ fn single_ascii_digit(value: &str) -> Option<u8> {
     digit.is_ascii_digit().then_some(digit - b'0')
 }
 
+#[cfg(feature = "devtools")]
 fn keyboard_event_key_code_for_printable_key(key: &str) -> Option<u32> {
     let mut chars = key.chars();
     let ch = chars.next()?;
@@ -607,6 +617,7 @@ fn mouse_event_init<'s>(
     Some(init)
 }
 
+#[cfg(feature = "devtools")]
 pub(crate) fn construct_pointer_event<'s>(
     scope: &mut v8::PinScope<'s, '_>,
     event_type: &str,
@@ -647,6 +658,7 @@ pub(crate) fn construct_pointer_event_with_modifiers<'s>(
     )
 }
 
+#[cfg(feature = "devtools")]
 pub(crate) fn construct_pointer_event_with_related_target<'s>(
     scope: &mut v8::PinScope<'s, '_>,
     event_type: &str,
@@ -792,6 +804,7 @@ pub(crate) struct TouchEventPoint<'s> {
     pub is_target_touch: bool,
 }
 
+#[cfg(feature = "devtools")]
 pub(crate) fn construct_touch_event_with_points<'s>(
     scope: &mut v8::PinScope<'s, '_>,
     event_type: &str,
@@ -815,6 +828,7 @@ pub(crate) fn construct_touch_event_with_points<'s>(
     construct_event(scope, "TouchEvent", event_type, init)
 }
 
+#[cfg(feature = "devtools")]
 fn construct_touch_array<'s>(
     scope: &mut v8::PinScope<'s, '_>,
     touch_ctor: v8::Local<'s, v8::Function>,
@@ -827,6 +841,7 @@ fn construct_touch_array<'s>(
     serialize_v8_iter_array(scope, touches)
 }
 
+#[cfg(feature = "devtools")]
 fn construct_touch<'s>(
     scope: &mut v8::PinScope<'s, '_>,
     touch_ctor: v8::Local<'s, v8::Function>,
@@ -848,6 +863,7 @@ fn construct_touch<'s>(
     touch_ctor.new_instance(scope, &[touch_init.into()])
 }
 
+#[cfg(feature = "devtools")]
 pub(crate) fn construct_keyboard_event<'s>(
     scope: &mut v8::PinScope<'s, '_>,
     event_type: &str,
@@ -914,6 +930,7 @@ pub(crate) fn construct_input_event<'s>(
     construct_input_event_with_transfer(scope, event_type, input_type, data, None)
 }
 
+#[cfg(feature = "devtools")]
 pub(crate) fn construct_text_input_event_for_target<'s>(
     scope: &mut v8::PinScope<'s, '_>,
     runtime_ptr: *mut PageScriptHost,

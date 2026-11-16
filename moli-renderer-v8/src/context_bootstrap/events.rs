@@ -113,6 +113,7 @@ pub(in crate::context_bootstrap) fn new_uninitialized_text_event<'s>(
     Some(wrapper)
 }
 
+#[cfg(feature = "devtools")]
 pub(crate) fn construct_original_text_input_event<'s>(
     scope: &mut v8::PinScope<'s, '_>,
     text: &str,
