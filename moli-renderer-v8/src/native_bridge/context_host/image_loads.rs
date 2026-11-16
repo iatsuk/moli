@@ -68,6 +68,7 @@ impl PageScriptHost {
             .filter(|node| {
                 node.as_element()
                     .is_some_and(|element| element.is_image_resource_element())
+                    || self.embedded_image_resource(image_handle).is_some()
             })
             .and_then(Node::owner_document)?;
         let is_main_document = owner_document_handle == self.document_handle();

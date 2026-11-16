@@ -412,12 +412,13 @@ impl ImageSubresourceTerminal<'_> {
     fn resource_performance_entry(
         &self,
         request_url: &url::Url,
+        initiator_type: &'static str,
     ) -> crate::context_bootstrap::ResourcePerformanceEntry {
         match self {
             Self::Response { response, encoded, .. } => {
                 crate::context_bootstrap::ResourcePerformanceEntry::from_network_response_with_body_size(
                     request_url.as_str(),
-                    "img",
+                    initiator_type,
                     None,
                     response,
                     encoded.len(),
@@ -426,7 +427,7 @@ impl ImageSubresourceTerminal<'_> {
             Self::Failure | Self::PreloadFailure => {
                 crate::context_bootstrap::ResourcePerformanceEntry::from_network_failure(
                     request_url.as_str(),
-                    "img",
+                    initiator_type,
                     None,
                 )
             }
@@ -443,23 +444,40 @@ fn apply_image_subresource_terminal(
     request_url: &url::Url,
     terminal: ImageSubresourceTerminal<'_>,
 ) {
-    let initiator = context_host
+    let pending = context_host
         .borrow()
         .pending_image_load_event(image_handle)
-        .filter(|pending| pending.id() == sequence)
+        .filter(|pending| pending.id() == sequence);
+    let initiator = pending
+        .as_ref()
         .map(|pending| pending.resource_timing_initiator().clone())
         .unwrap_or_default();
+    let navigation_destination = pending
+        .as_ref()
+        .and_then(|pending| pending.request_key())
+        .and_then(|key| key.navigation_destination());
+    let initiator_type = pending
+        .as_ref()
+        .and_then(|pending| pending.request_key())
+        .map_or("img", |key| key.resource_timing_initiator_type());
     let (accepted, followup) = match &terminal {
         ImageSubresourceTerminal::Response {
             response,
             encoded,
             origin_clean,
         } => {
-            let descriptor = crate::network_host::image_response_descriptor_from_parkable(
-                response,
-                encoded,
-                *origin_clean,
-            );
+            let descriptor = if navigation_destination
+                == Some(moli_fetch::NavigationRequestDestination::Object)
+                && response.status >= 400
+            {
+                None
+            } else {
+                crate::network_host::image_response_descriptor_from_parkable(
+                    response,
+                    encoded,
+                    *origin_clean,
+                )
+            };
             let completion = context_host
                 .borrow_mut()
                 .complete_pending_image_load_network_response_if_matches(
@@ -484,7 +502,7 @@ fn apply_image_subresource_terminal(
         }
     };
     if accepted && !matches!(terminal, ImageSubresourceTerminal::PreloadFailure) {
-        let mut entry = terminal.resource_performance_entry(request_url);
+        let mut entry = terminal.resource_performance_entry(request_url, initiator_type);
         if let ImageSubresourceTerminal::Response {
             response,
             origin_clean,

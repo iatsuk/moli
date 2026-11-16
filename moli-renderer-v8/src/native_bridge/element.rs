@@ -90,6 +90,7 @@ mod popover;
 mod query;
 mod reflection;
 mod rendered_state;
+pub(crate) use rendered_state::element_is_being_rendered;
 mod script_execution;
 mod shadow_dom;
 mod shared;

@@ -130,6 +130,7 @@ pub(super) enum PendingSubresourceContinuation {
         sequence: crate::native_bridge::ImageLoadEventId,
         request_initiator_type: SubresourceRequestInitiatorType,
         request_metadata: moli_fetch::SubresourceRequestMetadata,
+        embedded: Option<EmbeddedImageRequest>,
     },
     Media {
         media_handle: crate::document_runtime::DomHandle,
@@ -547,6 +548,7 @@ pub(super) struct ImageRequestKey {
     url: String,
     cors_mode: ImageRequestCorsMode,
     density_bits: u64,
+    navigation_destination: Option<moli_fetch::NavigationRequestDestination>,
 }
 
 impl ImageRequestKey {
@@ -560,7 +562,27 @@ impl ImageRequestKey {
             url,
             cors_mode,
             density_bits: density.to_bits(),
+            navigation_destination: None,
         }
+    }
+
+    pub(super) fn with_navigation_destination(
+        mut self,
+        destination: moli_fetch::NavigationRequestDestination,
+    ) -> Self {
+        self.navigation_destination = Some(destination);
+        self
+    }
+
+    pub(super) fn navigation_destination(
+        &self,
+    ) -> Option<moli_fetch::NavigationRequestDestination> {
+        self.navigation_destination
+    }
+
+    pub(super) fn resource_timing_initiator_type(&self) -> &'static str {
+        self.navigation_destination
+            .map_or("img", |kind| kind.as_str())
     }
 
     pub(super) fn url(&self) -> &str {
@@ -569,6 +591,25 @@ impl ImageRequestKey {
 
     pub(super) fn density(&self) -> f64 {
         f64::from_bits(self.density_bits)
+    }
+}
+
+/// Native policy captured for the bitmap representation of an object/embed.
+#[derive(Clone, Debug)]
+pub(super) struct EmbeddedImageRequest {
+    pub(super) destination: moli_fetch::NavigationRequestDestination,
+    pub(super) redirect_check: Option<moli_fetch::RequestRedirectCheck>,
+}
+
+impl EmbeddedImageRequest {
+    pub(super) fn apply(&self, request: moli_fetch::Request) -> moli_fetch::Request {
+        let request = request
+            .with_subframe_navigation_cookie_context()
+            .with_navigation_destination(self.destination);
+        match &self.redirect_check {
+            Some(check) => request.with_redirect_check(check.clone()),
+            None => request,
+        }
     }
 }
 pub(super) struct PendingWebSocketConnection {
@@ -2497,6 +2538,7 @@ mod tests {
             sequence: crate::native_bridge::ImageLoadEventId::new(1),
             request_initiator_type: crate::types::SubresourceRequestInitiatorType::Parser,
             request_metadata: moli_fetch::SubresourceRequestMetadata::default(),
+            embedded: None,
         };
         let media = PendingSubresourceContinuation::Media {
             media_handle: crate::document_runtime::DomHandle::new(2),
