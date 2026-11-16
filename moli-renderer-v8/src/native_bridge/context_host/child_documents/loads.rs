@@ -203,6 +203,7 @@ impl PageScriptHost {
                 handle,
                 &target_url,
                 storage_key.clone(),
+                target_snapshot.navigation_destination(),
             );
         } else {
             self.clear_pending_service_worker_child_client(handle);

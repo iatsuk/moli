@@ -30,10 +30,7 @@ struct ServiceWorkerNavigationPreloadDispatch {
 fn service_worker_fetch_event_can_use_navigation_preload(job: &ServiceWorkerFetchJob) -> bool {
     job.router_race_request_cancel_handle.is_none()
         && job.request.request_mode == moli_fetch::RequestMode::Navigate
-        && matches!(
-            job.destination,
-            ServiceWorkerRequestDestination::Document | ServiceWorkerRequestDestination::Iframe
-        )
+        && job.destination.is_navigation()
 }
 
 fn navigation_preload_request_for_job(
@@ -305,6 +302,9 @@ impl ServiceWorkerRuntimeService {
         native_request: moli_fetch::Request,
     ) -> Option<ServiceWorkerFetchDispatchReceipt> {
         let request = dispatch.request.clone();
+        if request.destination.bypasses_service_worker() {
+            return None;
+        }
         // Synthetic redirects advance this retained request before a network
         // fallback can bind the owner's cookie scope on its transport copy.
         let native_request = dispatch
@@ -413,12 +413,11 @@ impl ServiceWorkerRuntimeService {
                 Some(client) => (client.document_url.clone(), client.storage_key.clone()),
                 None => return Err(Box::new(fetch_job)),
             };
-            let registration_match_url =
-                if service_worker_fetch_request_is_navigation_destination(request.destination) {
-                    &request.url
-                } else {
-                    &document_url
-                };
+            let registration_match_url = if request.destination.is_navigation() {
+                &request.url
+            } else {
+                &document_url
+            };
             let Some(registration_id) = state
                 .registrations
                 .values()
@@ -469,10 +468,7 @@ impl ServiceWorkerRuntimeService {
                 soft_update_registration = Some((
                     registration_id,
                     document_url.clone(),
-                    request.resulting_client_id.is_some()
-                        || service_worker_fetch_request_is_navigation_destination(
-                            request.destination,
-                        ),
+                    request.resulting_client_id.is_some() || request.destination.is_navigation(),
                 ));
                 let source = match source {
                     super::super::static_router::RouterSource::Network => {
@@ -1778,13 +1774,4 @@ impl ServiceWorkerRuntimeService {
             result: Err("service worker message dispatch failed: worker is not running".to_owned()),
         });
     }
-}
-
-fn service_worker_fetch_request_is_navigation_destination(
-    destination: ServiceWorkerRequestDestination,
-) -> bool {
-    matches!(
-        destination,
-        ServiceWorkerRequestDestination::Document | ServiceWorkerRequestDestination::Iframe
-    )
 }
