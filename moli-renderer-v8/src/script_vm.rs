@@ -824,6 +824,7 @@ mod inspector;
 mod main_world;
 use main_world::MainWorld;
 mod native_drag_data;
+mod object_resource_selection;
 mod promise_rejection_task;
 mod script_preparation_error;
 mod service_worker_query;
