@@ -683,6 +683,48 @@ fn realtime_shared_shadow_stylesheet_mutations_are_visible_on_first_read() {
 }
 
 #[test]
+fn realtime_relative_subject_rematches_without_restyling_unrelated_descendants() {
+    let distant = "<div></div>".repeat(128);
+    let mut vm = realtime_vm(&format!(
+        r#"<!doctype html><style>
+          html:has(#items > .paint) {{ background-color: red; }}
+          html:has(#items > .wide) {{ --probe-width: 65px; }}
+          #probe {{ width: var(--probe-width, 40px); }}
+        </style><div id=items><span>A</span><span>B</span></div>
+        <div id=probe></div><div>{distant}</div>"#,
+    ));
+    assert_eq!(vm.eval("String(probe.offsetWidth)").unwrap(), "40");
+    let host = vm.context_host_weak_for_test().upgrade().unwrap();
+    let before = host.borrow().element_style_resolutions_for_test();
+
+    assert_eq!(
+        vm.eval(r#"
+            const inserted = document.createElement('span');
+            inserted.className = 'paint';
+            items.prepend(inserted);
+            items.lastElementChild.remove();
+            [getComputedStyle(document.documentElement).backgroundColor, probe.offsetWidth].join('|')
+        "#).unwrap(),
+        "rgb(255, 0, 0)|40",
+    );
+    let restyled = host.borrow().element_style_resolutions_for_test() - before;
+    assert!(
+        restyled < 64,
+        "resolved {restyled} element styles after one local splice"
+    );
+
+    assert_eq!(
+        vm.eval("inserted.className='wide'; String(probe.offsetWidth)")
+            .unwrap(),
+        "65",
+    );
+    assert_eq!(
+        vm.eval("inserted.remove(); items.prepend(document.createElement('span')); String(probe.offsetWidth)").unwrap(),
+        "40",
+    );
+}
+
+#[test]
 fn realtime_retains_stable_grid_and_table_box_branches() {
     let mut vm = realtime_vm(concat!(
         "<!doctype html><style>body{overflow:hidden}",

@@ -768,10 +768,16 @@ fn invalidate_relative_boundaries(
         if let Some(element) = adapter.element(host, handle) {
             let reaches_other_subjects =
                 element.has_selector_flags(Flags::ANCHORS_RELATIVE_SELECTOR_NON_SUBJECT);
-            if reaches_other_subjects
-                || element.has_selector_flags(Flags::ANCHORS_RELATIVE_SELECTOR)
-            {
+            if reaches_other_subjects {
                 subtrees.insert(handle);
+            } else if element.has_selector_flags(Flags::ANCHORS_RELATIVE_SELECTOR) {
+                // The relative selector changes this subject's match. Its
+                // new computed style drives any inheritance to descendants.
+                let hint = RestyleHint::RESTYLE_SELF;
+                if let Some(mut data) = element.mutate_data() {
+                    data.hint.insert(hint);
+                }
+                element.note_style_invalidation(hint);
             }
             if reaches_other_subjects
                 && host.parent_node(handle).is_some_and(|parent| {
