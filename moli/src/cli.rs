@@ -162,13 +162,6 @@ pub struct FetchArgs {
     #[arg(long)]
     pub disable_css: bool,
 
-    /// Allow the fetched URL to be a `file:` URL. A document loaded from a
-    /// file may load its stylesheets, scripts, images and fonts from files;
-    /// web pages still cannot read files, and Fetch and XMLHttpRequest keep
-    /// their usual schemes.
-    #[arg(long)]
-    pub allow_file_urls: bool,
-
     #[arg(long)]
     pub with_base: bool,
 
@@ -694,6 +687,16 @@ pub struct CommonArgs {
         value_parser = clap::builder::BoolishValueParser::new()
     )]
     pub block_private_networks: bool,
+
+    /// Block file URL loading, including browser-initiated navigation.
+    /// Also enabled by MOLI_BLOCK_FILE_URLS=1.
+    #[arg(long)]
+    pub block_file_urls: bool,
+
+    /// Block file URLs and automation-selected host paths.
+    /// Also enabled by MOLI_BLOCK_HOST_FILE_ACCESS=1.
+    #[arg(long)]
+    pub block_host_file_access: bool,
 
     /// Block CIDRs for directly connected request targets. Proxy-resolved
     /// targets must be filtered by the configured proxy.
