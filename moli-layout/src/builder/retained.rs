@@ -93,6 +93,7 @@ struct RestyledChildren {
 
 struct RetainedBoxes<N> {
     sources: HashMap<N, LayoutBoxId>,
+    display_contents: HashMap<N, Vec<LayoutBoxId>>,
     css_image_sources: HashSet<N>,
     split_inline_sources: HashSet<N>,
     rebuilt_in_place: HashSet<LayoutBoxId>,
@@ -117,7 +118,14 @@ impl<N: Copy + std::fmt::Debug + Eq + std::hash::Hash> DirtyBoxPaths<N> {
         };
         for &change in changes {
             let node = match change {
-                LayoutSourceChange::Node(node) => node,
+                LayoutSourceChange::Node(node) => {
+                    // A transparent wrapper supplies inherited styles to
+                    // children without having its own retained style owner.
+                    if world.display_contents_mapping.contains_key(&node) {
+                        dirty.subtrees.insert(node);
+                    }
+                    node
+                }
                 LayoutSourceChange::Subtree(node) => {
                     dirty.subtrees.insert(node);
                     node
@@ -225,6 +233,7 @@ where
         .and_then(|changes| DirtyBoxPaths::collect(source, world, &split_inline_sources, changes));
     let mut retained = RetainedBoxes {
         sources: std::mem::take(&mut world.source_mapping),
+        display_contents: std::mem::take(&mut world.display_contents_mapping),
         css_image_sources: world
             .css_image_references
             .drain(..)
@@ -238,7 +247,6 @@ where
         retained.rebuilt_in_place.insert(root);
     }
     world.source_mapping.reserve(retained.sources.len());
-    world.display_contents_mapping.clear();
     builder.refresh_box(
         world,
         root,
@@ -368,9 +376,61 @@ where
             children.extend(self.build_list_marker(world, node, Some(id))?);
         }
         children.extend(self.build_pseudo(world, node, LayoutPseudo::Before, before)?);
-        let mut changed = false;
-        let mut reattach = restyled;
         let dirty = dirty.filter(|dirty| !restyled && !dirty.subtrees.contains(&node));
+        let (mut changed, reattach) = self.refresh_child_stream(
+            world,
+            id,
+            node,
+            None,
+            restyled,
+            restore_item_styles,
+            refreshed_text_style.as_ref(),
+            dirty,
+            retained,
+            &mut children,
+        )?;
+        children.extend(self.build_pseudo(world, node, LayoutPseudo::After, after)?);
+        if restyled || reattach || children != world.boxes[id].children {
+            let old_children = std::mem::take(&mut world.boxes[id].children);
+            let style = world.boxes[id].style.clone();
+            let was_ifc = world.boxes[id].inline_formatting_context;
+            let roots =
+                self.attach_children(world, id, node, &style, children, id != world.root)?;
+            let structure_changed =
+                roots.as_slice() != [id] || world.boxes[id].children != old_children;
+            if structure_changed || world.boxes[id].inline_formatting_context != was_ifc {
+                world.numeric_tree = None;
+            }
+            changed |= structure_changed;
+            parent_children.extend(roots);
+        } else {
+            parent_children.push(id);
+        }
+        if changed {
+            world.invalidate_retained_inline(id);
+            world.clear_layout_caches(id);
+        }
+        Ok(changed)
+    }
+
+    /// Both principal boxes and transparent wrappers contribute children to
+    /// a formatting parent. Direct text in a wrapper inherits that wrapper's
+    /// style while other children keep the same reusable box ownership.
+    fn refresh_child_stream(
+        &mut self,
+        world: &mut LayoutWorld<S::NodeId>,
+        id: LayoutBoxId,
+        node: S::NodeId,
+        contents_style: Option<&ResolvedLayoutStyle>,
+        restyled: bool,
+        restore_item_styles: bool,
+        refreshed_text_style: Option<&ResolvedLayoutStyle>,
+        dirty: Option<&DirtyBoxPaths<S::NodeId>>,
+        retained: &mut RetainedBoxes<S::NodeId>,
+        children: &mut Vec<LayoutBoxId>,
+    ) -> Result<(bool, bool), LayoutError> {
+        let mut changed = false;
+        let mut reattach = false;
         for child in self.checked_flat_children(node)? {
             // Normalization may wrap a source child in an anonymous box. Its
             // structural owner still identifies the original child stream.
@@ -379,6 +439,22 @@ where
                 .get(&child)
                 .copied()
                 .filter(|previous| world.boxes[previous].structural_parent == Some(id));
+            if previous.is_none()
+                && retained.display_contents.contains_key(&child)
+                && let Some((child_changed, child_reattach)) = self.refresh_display_contents(
+                    world,
+                    id,
+                    child,
+                    restore_item_styles,
+                    dirty,
+                    retained,
+                    children,
+                )?
+            {
+                changed |= child_changed;
+                reattach |= child_reattach;
+                continue;
+            }
             if let Some(previous) = previous {
                 let old = &world.boxes[previous];
                 // A previously split inline's boxes can extend beyond its
@@ -405,7 +481,8 @@ where
                                     && self.styles.can_reuse_element_style(child, &old.style)
                             }
                             LayoutSourceKind::Text => {
-                                (!restyled || refreshed_text_style.is_some())
+                                contents_style.is_none()
+                                    && (!restyled || refreshed_text_style.is_some())
                                     && old.kind == LayoutBoxKind::Text
                                     && self.source.text(child) == old.text.as_deref()
                             }
@@ -413,19 +490,12 @@ where
                         };
                     if current {
                         if source_kind == LayoutSourceKind::Text
-                            && let Some(style) = &refreshed_text_style
+                            && let Some(style) = refreshed_text_style
                         {
                             world.boxes[previous].style = style.clone();
                         }
-                        changed |= self.refresh_box(
-                            world,
-                            previous,
-                            child,
-                            None,
-                            dirty,
-                            retained,
-                            &mut children,
-                        )?;
+                        changed |= self
+                            .refresh_box(world, previous, child, None, dirty, retained, children)?;
                         continue;
                     }
                     if !semantics_changed
@@ -441,7 +511,7 @@ where
                             Some(styles),
                             dirty,
                             retained,
-                            &mut children,
+                            children,
                         )?;
                         changed = true;
                         continue;
@@ -453,7 +523,8 @@ where
                     && previous_box.children.is_empty()
                     && self.source.node_kind(child) == LayoutSourceKind::Text
                 {
-                    if let Some(replacement) = self.text_box(child, &world.boxes[id].style)? {
+                    let inherited = contents_style.unwrap_or(&world.boxes[id].style);
+                    if let Some(replacement) = self.text_box(child, inherited)? {
                         world.replace_retained_box(previous, replacement);
                         world.map_source(child, previous);
                         retained.rebuilt_in_place.insert(previous);
@@ -464,10 +535,14 @@ where
                 }
             }
 
-            let inherited = world.boxes[id].style.clone();
             let first_new = world.boxes.len();
             let may_replace_leaf = previous.is_some_and(|old| world.boxes[old].children.is_empty());
-            let mut built = self.build_source_node(world, child, &inherited, may_replace_leaf)?;
+            let mut built = if let Some(style) = contents_style {
+                self.build_source_node(world, child, style, may_replace_leaf)?
+            } else {
+                let inherited = world.boxes[id].style.clone();
+                self.build_source_node(world, child, &inherited, may_replace_leaf)?
+            };
             if let Some(previous) = previous
                 && let [new] = built.as_mut_slice()
                 && world.boxes.index_of(*new) == first_new
@@ -483,28 +558,61 @@ where
             }
             children.append(&mut built);
         }
-        children.extend(self.build_pseudo(world, node, LayoutPseudo::After, after)?);
-        if reattach || children != world.boxes[id].children {
-            let old_children = std::mem::take(&mut world.boxes[id].children);
-            let style = world.boxes[id].style.clone();
-            let was_ifc = world.boxes[id].inline_formatting_context;
-            let roots =
-                self.attach_children(world, id, node, &style, children, id != world.root)?;
-            let structure_changed =
-                roots.as_slice() != [id] || world.boxes[id].children != old_children;
-            if structure_changed || world.boxes[id].inline_formatting_context != was_ifc {
-                world.numeric_tree = None;
-            }
-            changed |= structure_changed;
-            parent_children.extend(roots);
-        } else {
-            parent_children.push(id);
+        Ok((changed, reattach))
+    }
+
+    fn refresh_display_contents(
+        &mut self,
+        world: &mut LayoutWorld<S::NodeId>,
+        parent: LayoutBoxId,
+        node: S::NodeId,
+        restore_item_styles: bool,
+        dirty: Option<&DirtyBoxPaths<S::NodeId>>,
+        retained: &mut RetainedBoxes<S::NodeId>,
+        children: &mut Vec<LayoutBoxId>,
+    ) -> Result<Option<(bool, bool)>, LayoutError> {
+        let kind = self.source.node_kind(node);
+        if kind != LayoutSourceKind::Element {
+            return Ok(None);
         }
-        if changed {
-            world.invalidate_retained_inline(id);
-            world.clear_layout_caches(id);
+        let semantics = self.validated_element_semantics(node, kind)?;
+        let Some(styles) = self.styles.element_styles(node)? else {
+            return Ok(None);
+        };
+        let (mut style, before, after) = styles.into_parts();
+        if semantics.is_hidden_input() || semantics.display_contents_is_none() {
+            return Ok(None);
         }
-        Ok(changed)
+        self.record_viewport_body_candidate(node, &semantics, &style);
+        style.apply_principal_box_semantics(&semantics);
+        if style.display() != LayoutDisplay::Contents {
+            return Ok(None);
+        }
+        self.enter_source(node)?;
+        // A direct change on the wrapper can alter descendants' cascaded
+        // values. Revalidate their styles when only the wrapper is known dirty.
+        let dirty = dirty.filter(|dirty| !dirty.subtrees.contains(&node));
+        let result = (|| {
+            let first = children.len();
+            children.extend(self.build_pseudo(world, node, LayoutPseudo::Before, before)?);
+            let status = self.refresh_child_stream(
+                world,
+                parent,
+                node,
+                Some(&style),
+                false,
+                restore_item_styles,
+                None,
+                dirty,
+                retained,
+                children,
+            )?;
+            children.extend(self.build_pseudo(world, node, LayoutPseudo::After, after)?);
+            world.map_display_contents_source(node, &children[first..]);
+            Ok(Some(status))
+        })();
+        self.active_sources.remove(&node);
+        result
     }
 
     /// A new style on the same principal container invalidates its measured

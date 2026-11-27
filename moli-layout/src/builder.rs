@@ -129,16 +129,7 @@ where
             // used display and never construct source descendants.
             root_style.force_display_none();
         }
-        if root_semantics.is_replaced() {
-            root_style.mark_replaced(
-                root_semantics.replaced == Some(crate::LayoutReplacedKind::FormControl),
-            );
-        } else if matches!(
-            root_semantics.category,
-            crate::LayoutElementCategory::FormControl(crate::LayoutFormControlKind::Button)
-        ) {
-            root_style.mark_intrinsic_form_control_container();
-        }
+        root_style.apply_principal_box_semantics(&root_semantics);
         let root_kind = principal_kind(&root_semantics, &root_style);
         let root_generates_principal_box = root_style.display() != LayoutDisplay::None;
         let mut root = self.principal_box(
@@ -308,16 +299,7 @@ where
             let (mut style, before, after) = styles.into_parts();
             self.record_viewport_body_candidate(source_node, &semantics, &style);
             let metrics = self.source.replaced_metrics(source_node);
-            if semantics.is_replaced() {
-                style.mark_replaced(
-                    semantics.replaced == Some(crate::LayoutReplacedKind::FormControl),
-                );
-            } else if matches!(
-                semantics.category,
-                crate::LayoutElementCategory::FormControl(crate::LayoutFormControlKind::Button)
-            ) {
-                style.mark_intrinsic_form_control_container();
-            }
+            style.apply_principal_box_semantics(&semantics);
 
             if semantics.is_hidden_input()
                 || (style.display() == LayoutDisplay::Contents

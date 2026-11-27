@@ -2200,6 +2200,19 @@ impl ResolvedLayoutStyle {
         }
     }
 
+    pub(crate) fn apply_principal_box_semantics(
+        &mut self,
+        semantics: &crate::LayoutElementSemantics,
+    ) {
+        if let Some(replaced) = semantics.replaced {
+            self.mark_replaced(replaced == crate::LayoutReplacedKind::FormControl);
+        } else if semantics.category
+            == crate::LayoutElementCategory::FormControl(crate::LayoutFormControlKind::Button)
+        {
+            self.mark_intrinsic_form_control_container();
+        }
+    }
+
     pub(crate) fn mark_replaced(&mut self, is_form_control: bool) {
         // Taffy distinguishes native controls from images for normal grid/OOF
         // stretch. Both remain compressible replaced leaves in block layout.
