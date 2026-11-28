@@ -501,9 +501,7 @@ fn start_get_storage_key_for_frame_command(
     };
 
     let owner_scope = CommandOwnerScope::capture(conn, cmd.session_id);
-    let Some((target_id, target_url, _, _)) =
-        conn.target_session_owner_frame_tree_identity_for_owner(&owner_scope)
-    else {
+    let Some((_, Some(target_id))) = conn.target_owner_identity_for_owner(&owner_scope) else {
         let plan = if conn.browser_context.is_none()
             && conn.target_owner_identity_for_owner(&owner_scope).is_none()
         {
@@ -529,12 +527,15 @@ fn start_get_storage_key_for_frame_command(
                 )),
             };
         }
-        let storage_key = match top_frame_storage_key_for_url(&target_url) {
-            Ok(storage_key) => storage_key,
-            Err(plan) => return StorageCommandTaskStep::Complete(plan),
+        let Some(storage_key) = conn.unmaterialized_document_storage_key_for_owner(&owner_scope)
+        else {
+            return StorageCommandTaskStep::Complete(CommandOutputPlan::error(
+                -32000,
+                "NoFrameForGivenId",
+            ));
         };
-        return StorageCommandTaskStep::Complete(CommandOutputPlan::result(
-            json!({ "storageKey": storage_key }),
+        return StorageCommandTaskStep::Complete(storage_key_result_plan(
+            &storage_key.serialized_storage_key(),
         ));
     }
 
@@ -898,18 +899,6 @@ fn complete_get_storage_key_for_frame_command(
         return CommandOutputPlan::error(-32000, "NoFrameForGivenId");
     };
     storage_key_result_plan(&frame.storage_key)
-}
-
-fn top_frame_storage_key_for_url(target_url: &str) -> Result<String, CommandOutputPlan> {
-    let url =
-        Url::parse(target_url).map_err(|_| CommandOutputPlan::error(-32602, "InvalidParams"))?;
-    let storage_key = moli_storage_key::MoliStorageKey::first_party_from_url(
-        &url,
-        moli_storage_key::url_needs_opaque_nonce(&url)
-            .then_some(moli_storage_key::OpaqueOriginNonce::new(0)),
-    )
-    .serialized_storage_key();
-    storage_key_for_cdp_result(&storage_key)
 }
 
 fn storage_key_for_cdp_result(storage_key: &str) -> Result<String, CommandOutputPlan> {

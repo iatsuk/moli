@@ -15,7 +15,6 @@ use crate::domains::log_output_state::{TargetLogOutputCursor, TargetNetworkLogEn
 
 #[cfg(test)]
 use super::TargetRuntimeObservableQueueSnapshot;
-use super::TargetRuntimeObservableSourceOutput;
 use super::emission::{
     ObservableOutputProjectionContext, ObservableOutputProjectionStep, SLOT_AUDITS, SLOT_CONSOLE,
     SLOT_LOG, SLOT_RUNTIME_OBSERVABLE, emit_pending_observable_activity_background_events,
@@ -23,6 +22,8 @@ use super::emission::{
 use super::items::{
     ObservableOutputItem, ObservableRuntimePreparedItems, console_domain_items, log_domain_items,
 };
+use super::runtime_queue::ObservableSourceRecord;
+use super::{ObservableSourceIdentity, TargetRuntimeObservableSourceOutput};
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub(crate) struct ObservablePreparedOutputs {
@@ -40,8 +41,7 @@ pub(crate) struct ObservablePreparedOutputSlot {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(in crate::domains::observable_output) struct ObservableConsoleLogPreparedRange {
     domain: ObservableConsoleLogDomain,
-    url: String,
-    page_attachment_id: TargetPageAttachmentId,
+    source: ObservableSourceIdentity,
     items: Vec<ObservableOutputItem>,
     console_end: usize,
     lifecycle_end: usize,
@@ -83,7 +83,7 @@ pub(in crate::domains::observable_output) struct ObservableConsoleLogEmissionCur
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub(in crate::domains::observable_output) struct TargetObservableOutputQueue {
-    observable_output_items: Vec<ScriptObservableOutputItem>,
+    observable_output_items: Vec<ObservableSourceRecord>,
     network_log_entries: Vec<TargetNetworkLogEntry>,
     #[cfg(test)]
     runtime_source_output: Option<TargetRuntimeObservableSourceOutput>,
@@ -371,11 +371,11 @@ impl ObservableSessionRuntimePreparedItems {
             return None;
         }
         let session_id = self.attachment.session_id().map(str::to_owned);
-        let url = conn.runtime_session_owner_target_url(session_id.as_deref())?;
-        let runtime_slot = conn.runtime_session_owner_slot(session_id.as_deref())?;
-        runtime_slot
-            .page_attachment_id()
-            .is_some_and(|attachment_id| self.items.matches_source_identity(&url, attachment_id))
+        let source = conn
+            .runtime_session_owner_slot(session_id.as_deref())?
+            .observable_source_identity()?;
+        self.items
+            .matches_source_identity(source)
             .then_some((session_id, self.items))
     }
 }
@@ -420,8 +420,7 @@ impl ObservablePreparedOutputSlot {
 impl ObservableConsoleLogPreparedRange {
     pub(in crate::domains::observable_output) fn new(
         domain: ObservableConsoleLogDomain,
-        url: String,
-        page_attachment_id: TargetPageAttachmentId,
+        source: ObservableSourceIdentity,
         items: Vec<ObservableOutputItem>,
         console_end: usize,
         lifecycle_end: usize,
@@ -430,8 +429,7 @@ impl ObservableConsoleLogPreparedRange {
     ) -> Self {
         Self {
             domain,
-            url,
-            page_attachment_id,
+            source,
             items,
             console_end,
             lifecycle_end,
@@ -442,16 +440,15 @@ impl ObservableConsoleLogPreparedRange {
 
     fn for_domain(
         domain: ObservableConsoleLogDomain,
-        url: String,
-        page_attachment_id: TargetPageAttachmentId,
+        url: &str,
+        source: ObservableSourceIdentity,
         input: ConsoleLogPreparedRangeInput<'_>,
         log_cursor: Option<TargetLogOutputCursor>,
     ) -> Option<Self> {
-        let items = build_console_log_items(domain, &url, &input)?;
+        let items = build_console_log_items(domain, url, &input)?;
         Some(Self::new(
             domain,
-            url,
-            page_attachment_id,
+            source,
             items,
             input.console_end,
             input.lifecycle_end,
@@ -462,16 +459,6 @@ impl ObservableConsoleLogPreparedRange {
 
     pub(in crate::domains::observable_output) fn domain(&self) -> ObservableConsoleLogDomain {
         self.domain
-    }
-
-    pub(in crate::domains::observable_output) fn url(&self) -> &str {
-        &self.url
-    }
-
-    pub(in crate::domains::observable_output) fn page_attachment_id(
-        &self,
-    ) -> TargetPageAttachmentId {
-        self.page_attachment_id
     }
 
     pub(in crate::domains::observable_output) fn items(&self) -> &[ObservableOutputItem] {
@@ -510,10 +497,8 @@ impl ObservableConsoleLogPreparedRange {
         session_id: Option<&str>,
     ) -> Option<Self> {
         let runtime_slot = conn.runtime_session_owner_slot(session_id)?;
-        let url = conn.runtime_session_owner_target_url(session_id)?;
         if !self.domain.enabled_for_session(conn, session_id)?
-            || url != self.url()
-            || runtime_slot.page_attachment_id() != Some(self.page_attachment_id())
+            || runtime_slot.observable_source_identity() != Some(self.source)
         {
             return None;
         }
@@ -612,7 +597,10 @@ impl TargetObservableOutputQueue {
         observable_output_items: Vec<ScriptObservableOutputItem>,
     ) -> Self {
         Self {
-            observable_output_items,
+            observable_output_items: observable_output_items
+                .into_iter()
+                .map(Into::into)
+                .collect(),
             network_log_entries: Vec::new(),
             runtime_source_output: None,
         }
@@ -629,7 +617,7 @@ impl TargetObservableOutputQueue {
         runtime_source_output: Option<&TargetRuntimeObservableSourceOutput>,
     ) -> Self {
         let observable_output_items = runtime_source_output
-            .map(TargetRuntimeObservableSourceOutput::observable_output_items)
+            .map(|source| source.observable_records().collect())
             .unwrap_or_default();
         Self {
             observable_output_items,
@@ -642,7 +630,7 @@ impl TargetObservableOutputQueue {
     pub(super) fn from_log_storage(runtime_slot: &TargetRuntimeSlot) -> Option<Self> {
         let observable_output_items = runtime_slot
             .observable_output_latest_source_tail()
-            .map(|source| source.observable_output_items())
+            .map(|source| source.observable_records().collect())
             .unwrap_or_default();
         Some(Self {
             observable_output_items,
@@ -658,7 +646,11 @@ impl TargetObservableOutputQueue {
         network_log_entries: Vec<TargetNetworkLogEntry>,
     ) -> Self {
         Self {
-            observable_output_items: snapshot.observable_output_items,
+            observable_output_items: snapshot
+                .observable_output_items
+                .into_iter()
+                .map(Into::into)
+                .collect(),
             network_log_entries,
             runtime_source_output: None,
         }
@@ -724,7 +716,7 @@ impl TargetObservableOutputQueue {
     pub(super) fn console_log_backlog_ranges(
         &self,
         url: &str,
-        page_attachment_id: TargetPageAttachmentId,
+        source: ObservableSourceIdentity,
         console_enabled: bool,
         log_enabled: bool,
         include_console_api_messages: bool,
@@ -741,7 +733,7 @@ impl TargetObservableOutputQueue {
                 &mut prepared,
                 ObservableConsoleLogDomain::Console,
                 url,
-                page_attachment_id,
+                source,
                 console_end,
                 lifecycle_end,
                 network_end,
@@ -756,7 +748,7 @@ impl TargetObservableOutputQueue {
                 &mut prepared,
                 ObservableConsoleLogDomain::Log,
                 url,
-                page_attachment_id,
+                source,
                 console_end,
                 lifecycle_end,
                 network_end,
@@ -774,7 +766,7 @@ impl TargetObservableOutputQueue {
         prepared: &mut ObservablePreparedOutputs,
         domain: ObservableConsoleLogDomain,
         url: &str,
-        page_attachment_id: TargetPageAttachmentId,
+        source: ObservableSourceIdentity,
         console_end: usize,
         lifecycle_end: usize,
         network_end: usize,
@@ -817,8 +809,8 @@ impl TargetObservableOutputQueue {
         };
         let range = ObservableConsoleLogPreparedRange::for_domain(
             domain,
-            url.to_owned(),
-            page_attachment_id,
+            url,
+            source,
             ConsoleLogPreparedRangeInput {
                 console_start,
                 console_end,
@@ -862,7 +854,7 @@ struct ConsoleLogPreparedRangeInput<'a> {
     network_start: usize,
     network_end: usize,
     include_console_api_messages: bool,
-    observable_output_items: &'a [ScriptObservableOutputItem],
+    observable_output_items: &'a [ObservableSourceRecord],
     network_log_entries: &'a [TargetNetworkLogEntry],
 }
 
@@ -886,27 +878,20 @@ fn build_console_items(
     if !input.is_valid() {
         return None;
     }
-    let console_messages = console_observable_output_texts(
-        input.observable_output_items,
-        input.console_start,
-        input.console_end,
-    )
-    .collect::<Vec<_>>();
-    let lifecycle_errors = lifecycle_error_observable_output_texts(
-        input.observable_output_items,
-        input.lifecycle_start,
-        input.lifecycle_end,
-    )
-    .collect::<Vec<_>>();
-    let console_messages = if input.include_console_api_messages {
-        console_messages.as_slice()
-    } else {
-        &[]
-    };
     let items = console_domain_items(
-        url,
-        console_messages.iter().copied(),
-        lifecycle_errors.iter().copied(),
+        console_observable_output_texts(
+            input.observable_output_items,
+            url,
+            input.console_start,
+            input.console_end,
+        )
+        .filter(|_| input.include_console_api_messages),
+        lifecycle_error_observable_output_texts(
+            input.observable_output_items,
+            url,
+            input.lifecycle_start,
+            input.lifecycle_end,
+        ),
     );
     (!items.is_empty()).then_some(items)
 }
@@ -930,14 +915,9 @@ fn build_log_items(
         return None;
     }
     let items = log_domain_items(
-        url,
-        console_observable_output_texts(
-            input.observable_output_items,
-            input.console_start,
-            input.console_end,
-        ),
         lifecycle_error_observable_output_texts(
             input.observable_output_items,
+            url,
             input.lifecycle_start,
             input.lifecycle_end,
         ),
@@ -950,15 +930,19 @@ fn build_log_items(
     (!items.is_empty()).then_some(items)
 }
 
-fn console_observable_output_texts(
-    observable_output_items: &[ScriptObservableOutputItem],
+fn console_observable_output_texts<'a>(
+    observable_output_items: &'a [ObservableSourceRecord],
+    fallback_url: &'a str,
     start: usize,
     end: usize,
-) -> impl Iterator<Item = &str> {
+) -> impl Iterator<Item = (&'a str, &'a str)> {
     observable_output_items
         .iter()
-        .filter_map(|item| match item {
-            ScriptObservableOutputItem::ConsoleMessage(message) => Some(message.as_str()),
+        .filter_map(|record| match &record.item {
+            ScriptObservableOutputItem::ConsoleMessage(message) => Some((
+                message.as_str(),
+                record.url.as_deref().unwrap_or(fallback_url),
+            )),
             ScriptObservableOutputItem::LifecycleError(_)
             | ScriptObservableOutputItem::InspectorIssue(_) => None,
         })
@@ -966,37 +950,41 @@ fn console_observable_output_texts(
         .take(end.saturating_sub(start))
 }
 
-fn lifecycle_error_observable_output_texts(
-    observable_output_items: &[ScriptObservableOutputItem],
+fn lifecycle_error_observable_output_texts<'a>(
+    observable_output_items: &'a [ObservableSourceRecord],
+    fallback_url: &'a str,
     start: usize,
     end: usize,
-) -> impl Iterator<Item = &str> {
+) -> impl Iterator<Item = (&'a str, &'a str)> {
     observable_output_items
         .iter()
-        .filter_map(|item| match item {
+        .filter_map(|record| match &record.item {
             ScriptObservableOutputItem::ConsoleMessage(_)
             | ScriptObservableOutputItem::InspectorIssue(_) => None,
-            ScriptObservableOutputItem::LifecycleError(error) => Some(error.as_str()),
+            ScriptObservableOutputItem::LifecycleError(error) => Some((
+                error.as_str(),
+                record.url.as_deref().unwrap_or(fallback_url),
+            )),
         })
         .skip(start)
         .take(end.saturating_sub(start))
 }
 
 fn count_console_observable_output_items(
-    observable_output_items: &[ScriptObservableOutputItem],
+    observable_output_items: &[ObservableSourceRecord],
 ) -> usize {
     observable_output_items
         .iter()
-        .filter(|item| matches!(item, ScriptObservableOutputItem::ConsoleMessage(_)))
+        .filter(|item| matches!(item.item, ScriptObservableOutputItem::ConsoleMessage(_)))
         .count()
 }
 
 fn count_lifecycle_error_observable_output_items(
-    observable_output_items: &[ScriptObservableOutputItem],
+    observable_output_items: &[ObservableSourceRecord],
 ) -> usize {
     observable_output_items
         .iter()
-        .filter(|item| matches!(item, ScriptObservableOutputItem::LifecycleError(_)))
+        .filter(|item| matches!(item.item, ScriptObservableOutputItem::LifecycleError(_)))
         .count()
 }
 
@@ -1071,7 +1059,11 @@ mod tests {
             .runtime_source_output()
             .expect("source queue should expose a runtime observable source output");
         assert_eq!(
-            queue.observable_output_items,
+            queue
+                .observable_output_items
+                .iter()
+                .map(|record| record.item.clone())
+                .collect::<Vec<_>>(),
             vec![
                 ScriptObservableOutputItem::ConsoleMessage("log: source output".to_owned()),
                 ScriptObservableOutputItem::LifecycleError("source lifecycle".to_owned()),
@@ -1094,7 +1086,7 @@ mod tests {
             "runtime observable source URL should come from the owner snapshot boundary, not be patched from the current BrowserContext later"
         );
         assert_eq!(
-            source.page_attachment_id().get(),
+            source.identity().attachment.get(),
             42,
             "runtime observable Page attachment should come from the owner snapshot boundary, not be recomputed by the observable domain"
         );
@@ -1408,8 +1400,7 @@ mod tests {
     fn observable_prepared_outputs_keep_first_console_range() {
         let first = ObservableConsoleLogPreparedRange::new(
             ObservableConsoleLogDomain::Console,
-            "http://example.test/first".to_owned(),
-            page_attachment_id(1),
+            page_attachment_id(1).into(),
             vec![ObservableOutputItem::ConsoleMessageAdded {
                 source: "console-api".to_owned(),
                 level: "warning".to_owned(),
@@ -1423,8 +1414,7 @@ mod tests {
         );
         let second = ObservableConsoleLogPreparedRange::new(
             ObservableConsoleLogDomain::Console,
-            "http://example.test/second".to_owned(),
-            page_attachment_id(2),
+            page_attachment_id(2).into(),
             vec![ObservableOutputItem::ConsoleMessageAdded {
                 source: "console-api".to_owned(),
                 level: "warning".to_owned(),
@@ -1456,8 +1446,7 @@ mod tests {
         let log_range = |text: &str, lifecycle_end: usize| {
             ObservableConsoleLogPreparedRange::new(
                 ObservableConsoleLogDomain::Log,
-                "http://example.test/log".to_owned(),
-                page_attachment_id(1),
+                page_attachment_id(1).into(),
                 vec![ObservableOutputItem::LogEntryAdded {
                     source: "javascript".to_owned(),
                     level: "error".to_owned(),
@@ -1503,8 +1492,7 @@ mod tests {
 
         let console_range = ObservableConsoleLogPreparedRange::new(
             ObservableConsoleLogDomain::Console,
-            "http://example.test/console".to_owned(),
-            page_attachment_id(1),
+            page_attachment_id(1).into(),
             vec![ObservableOutputItem::ConsoleMessageAdded {
                 source: "console-api".to_owned(),
                 level: "warning".to_owned(),
@@ -1518,8 +1506,7 @@ mod tests {
         );
         let log_range = ObservableConsoleLogPreparedRange::new(
             ObservableConsoleLogDomain::Log,
-            "http://example.test/log".to_owned(),
-            page_attachment_id(1),
+            page_attachment_id(1).into(),
             vec![ObservableOutputItem::LogEntryAdded {
                 source: "javascript".to_owned(),
                 level: "warning".to_owned(),
@@ -1601,7 +1588,7 @@ mod tests {
     #[test]
     fn observable_backlog_queue_reports_console_and_log_ranges_from_owner_cursors() {
         let mut bc = BrowserContext::new_with_page_for_test("BID-1", "TID-1");
-        bc.set_target_url("http://example.test/observable".to_owned());
+        bc.set_committed_url_for_test("http://example.test/observable".to_owned());
         bc.active_page_target_mut().devtools_sessions
             [moli_page_types::DevToolsSessionKey::Primary]
             .console_output_session_state
@@ -1614,14 +1601,17 @@ mod tests {
             observable_output_items: vec![
                 ScriptObservableOutputItem::ConsoleMessage("warn: observable".to_owned()),
                 ScriptObservableOutputItem::LifecycleError("observable failure".to_owned()),
-            ],
+            ]
+            .into_iter()
+            .map(Into::into)
+            .collect(),
             network_log_entries: Vec::new(),
             runtime_source_output: None,
         };
 
         let mut prepared = queue.console_log_backlog_ranges(
-            bc.target_url(),
-            page_attachment_id(1),
+            bc.visible_url(),
+            page_attachment_id(1).into(),
             bc.active_page_target().devtools_sessions[moli_page_types::DevToolsSessionKey::Primary]
                 .console_output_session_state
                 .console_enabled,
@@ -1675,7 +1665,7 @@ mod tests {
     #[test]
     fn observable_backlog_queue_filters_single_raw_queue_by_kind_cursor() {
         let mut bc = BrowserContext::new_with_page_for_test("BID-1", "TID-1");
-        bc.set_target_url("http://example.test/observable".to_owned());
+        bc.set_committed_url_for_test("http://example.test/observable".to_owned());
         bc.active_page_target_mut().devtools_sessions
             [moli_page_types::DevToolsSessionKey::Primary]
             .console_output_session_state
@@ -1689,14 +1679,17 @@ mod tests {
                 ScriptObservableOutputItem::ConsoleMessage("log: old".to_owned()),
                 ScriptObservableOutputItem::LifecycleError("boom".to_owned()),
                 ScriptObservableOutputItem::ConsoleMessage("warn: new".to_owned()),
-            ],
+            ]
+            .into_iter()
+            .map(Into::into)
+            .collect(),
             network_log_entries: Vec::new(),
             runtime_source_output: None,
         };
 
         let mut prepared = queue.console_log_backlog_ranges(
-            bc.target_url(),
-            page_attachment_id(1),
+            bc.visible_url(),
+            page_attachment_id(1).into(),
             bc.active_page_target().devtools_sessions[moli_page_types::DevToolsSessionKey::Primary]
                 .console_output_session_state
                 .console_enabled,

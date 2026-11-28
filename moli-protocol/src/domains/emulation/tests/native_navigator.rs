@@ -213,7 +213,8 @@ async fn focus_override_updates_loaded_background_page_and_preserves_real_focus(
     bc.insert_page_target_host(PageTargetHost::new(
         "TID-1".into(),
         Some("SID-1".into()),
-        TargetIdentityState::about_blank(),
+        "about:blank".into(),
+        TargetIdentityState::new_tab(),
         TargetPageSlot::empty_for_test_fixture(),
     ));
     install_geolocation_page_for_test(&mut ctx, bc).await;
@@ -271,7 +272,8 @@ async fn focus_override_dispatches_native_visibility_and_focus_events() {
     bc.insert_page_target_host(PageTargetHost::new(
         "TID-1".into(),
         Some("SID-1".into()),
-        TargetIdentityState::about_blank(),
+        "about:blank".into(),
+        TargetIdentityState::new_tab(),
         TargetPageSlot::empty_for_test_fixture(),
     ));
     install_geolocation_page_for_test(&mut ctx, bc).await;

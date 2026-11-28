@@ -6,7 +6,7 @@ async fn enable_with_background_event_sender_defers_initial_document_page_build(
     let mut bc = BrowserContext::new("BID-1".into());
     bc.set_active_target_id("TID-1");
     bc.attach_active_session("SID-1");
-    bc.set_target_url("about:blank".into());
+    bc.set_committed_url_for_test("about:blank".into());
     ctx.with_fixture(|conn| conn.install_browser_context_fixture_for_test(bc));
 
     let (background_tx, _) = tokio::sync::mpsc::unbounded_channel();
@@ -97,7 +97,7 @@ async fn enable_reports_no_document_without_legacy_materialization_adapter() {
     let mut bc = BrowserContext::new("BID-1".into());
     bc.set_active_target_id("TID-1");
     bc.attach_active_session("SID-1");
-    bc.set_target_url("about:blank".into());
+    bc.set_committed_url_for_test("about:blank".into());
     ctx.with_fixture(|conn| conn.install_browser_context_fixture_for_test(bc));
 
     ctx.process_async(json!({
@@ -143,7 +143,7 @@ async fn evaluate_hash_navigation_emits_navigated_within_document() {
         conn.browser_context
             .as_mut()
             .expect("browser context should exist")
-            .set_target_url(page_url.clone())
+            .set_committed_url_for_test(page_url.clone())
     });
 
     let _ = enable_runtime_and_take_execution_context_id_async(&mut ctx, 12).await;
@@ -185,7 +185,7 @@ async fn evaluate_hash_navigation_emits_navigated_within_document() {
             conn.browser_context
                 .as_ref()
                 .expect("browser context should exist")
-                .target_url(),
+                .visible_url(),
             format!("{page_url}#puppeteer-hash")
         )
     });
@@ -216,7 +216,7 @@ async fn call_function_on_hash_navigation_emits_navigated_within_document() {
         conn.browser_context
             .as_mut()
             .expect("browser context should exist")
-            .set_target_url(page_url.clone())
+            .set_committed_url_for_test(page_url.clone())
     });
 
     let _ = enable_runtime_and_take_execution_context_id_async(&mut ctx, 14).await;
@@ -290,7 +290,7 @@ async fn call_function_on_default_context_hash_navigation_emits_navigated_within
         conn.browser_context
             .as_mut()
             .expect("browser context should exist")
-            .set_target_url(page_url.clone())
+            .set_committed_url_for_test(page_url.clone())
     });
 
     let default_context_id = enable_runtime_and_take_execution_context_id_async(&mut ctx, 30).await;
@@ -349,7 +349,7 @@ async fn evaluate_history_api_navigation_emits_navigated_within_document() {
         conn.browser_context
             .as_mut()
             .expect("browser context should exist")
-            .set_target_url(page_url.clone())
+            .set_committed_url_for_test(page_url.clone())
     });
 
     let _ = enable_runtime_and_take_execution_context_id_async(&mut ctx, 32).await;
@@ -432,7 +432,7 @@ async fn evaluate_history_api_navigation_emits_navigated_within_document() {
             conn.browser_context
                 .as_ref()
                 .expect("browser context should exist")
-                .target_url(),
+                .visible_url(),
             replaced_url
         )
     });
@@ -559,7 +559,7 @@ async fn isolated_context_hash_navigation_emits_navigated_within_document() {
         conn.browser_context
             .as_mut()
             .expect("browser context should exist")
-            .set_target_url(page_url.clone())
+            .set_committed_url_for_test(page_url.clone())
     });
 
     let _ = enable_runtime_and_take_execution_context_id_async(&mut ctx, 17).await;
@@ -619,7 +619,7 @@ async fn isolated_object_call_hash_navigation_emits_navigated_within_document() 
         conn.browser_context
             .as_mut()
             .expect("browser context should exist")
-            .set_target_url(page_url.clone())
+            .set_committed_url_for_test(page_url.clone())
     });
 
     let _ = enable_runtime_and_take_execution_context_id_async(&mut ctx, 20).await;
@@ -744,7 +744,7 @@ async fn runtime_timer_publication_emits_history_api_navigation_without_followup
         conn.browser_context
             .as_mut()
             .expect("browser context should exist")
-            .set_target_url(page_url.clone())
+            .set_committed_url_for_test(page_url.clone())
     });
     let _ = enable_runtime_and_take_execution_context_id_async(&mut ctx, 20_687).await;
     ctx.sent.clear();

@@ -95,7 +95,7 @@ async fn assert_empty_http_error_navigation(ctx: &mut TestContext, error_url: &s
             conn.browser_context
                 .as_ref()
                 .expect("browser context should exist")
-                .target_url(),
+                .visible_url(),
             error_url
         )
     });

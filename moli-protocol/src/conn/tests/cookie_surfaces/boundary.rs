@@ -4,7 +4,7 @@ use super::*;
 fn browser_context_document_cookie_facade_snapshot_preview_does_not_bump_cookie_store_generation() {
     let mut conn = CdpConnection::new();
     let mut bc = BrowserContext::new_with_page_for_test("BID-cookie-facade", "TID-cookie-facade");
-    bc.set_target_url("https://example.com/app".into());
+    bc.set_committed_url_for_test("https://example.com/app".into());
     conn.install_browser_context_fixture_for_test(bc);
 
     crate::domains::storage::set_cookies_for_browser_context(
@@ -55,7 +55,7 @@ fn browser_context_cookie_boundary_snapshot_aligns_facade_and_storage_generation
     let mut conn = CdpConnection::new();
     let mut bc =
         BrowserContext::new_with_page_for_test("BID-cookie-boundary", "TID-cookie-boundary");
-    bc.set_target_url("https://example.com/app".into());
+    bc.set_committed_url_for_test("https://example.com/app".into());
     conn.install_browser_context_fixture_for_test(bc);
 
     crate::domains::storage::set_cookies_for_browser_context(
@@ -99,7 +99,7 @@ fn connection_cookie_boundary_snapshot_for_sites_keeps_facade_but_filters_storag
     let mut conn = CdpConnection::new();
     let mut bc =
         BrowserContext::new_with_page_for_test("BID-cookie-boundary", "TID-cookie-boundary");
-    bc.set_target_url("https://sub.example.com/app".into());
+    bc.set_committed_url_for_test("https://sub.example.com/app".into());
     conn.install_browser_context_fixture_for_test(bc);
 
     crate::domains::storage::set_cookies_for_browser_context(
@@ -169,7 +169,7 @@ fn browser_context_preview_cookie_boundary_operation_projects_hypothetical_stora
     let mut conn = CdpConnection::new();
     let mut bc =
         BrowserContext::new_with_page_for_test("BID-cookie-boundary", "TID-cookie-boundary");
-    bc.set_target_url("https://example.com/app".into());
+    bc.set_committed_url_for_test("https://example.com/app".into());
     conn.install_browser_context_fixture_for_test(bc);
 
     crate::domains::storage::set_cookies_for_browser_context(
@@ -279,7 +279,7 @@ fn connection_apply_cookie_boundary_operation_reports_replaced_and_resulting_bou
     let mut conn = CdpConnection::new();
     let mut bc =
         BrowserContext::new_with_page_for_test("BID-cookie-boundary", "TID-cookie-boundary");
-    bc.set_target_url("https://example.com/app".into());
+    bc.set_committed_url_for_test("https://example.com/app".into());
     conn.install_browser_context_fixture_for_test(bc);
 
     crate::domains::storage::set_cookies_for_browser_context(
@@ -324,7 +324,7 @@ fn browser_context_site_data_manager_surface_wraps_cookie_boundary_with_reserved
     let mut conn = CdpConnection::new();
     let mut bc =
         BrowserContext::new_with_page_for_test("BID-site-data-manager", "TID-site-data-manager");
-    bc.set_target_url("https://sub.example.com/app".into());
+    bc.set_committed_url_for_test("https://sub.example.com/app".into());
     conn.install_browser_context_fixture_for_test(bc);
 
     crate::domains::storage::set_cookies_for_browser_context(
@@ -398,7 +398,7 @@ fn browser_context_site_data_manager_operation_wraps_cookie_boundary_preview_and
     let mut conn = CdpConnection::new();
     let mut bc =
         BrowserContext::new_with_page_for_test("BID-site-data-manager", "TID-site-data-manager");
-    bc.set_target_url("https://example.com/app".into());
+    bc.set_committed_url_for_test("https://example.com/app".into());
     conn.install_browser_context_fixture_for_test(bc);
 
     crate::domains::storage::set_cookies_for_browser_context(

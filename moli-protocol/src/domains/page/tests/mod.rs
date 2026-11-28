@@ -164,7 +164,7 @@ fn take_main_document_response_pause_after_extra_info(
 fn load_bc_with_target(ctx: &mut TestContext, bc_id: &str, target_id: &str, url: &str) {
     let mut bc = BrowserContext::new(bc_id.into());
     bc.set_active_target_id(target_id);
-    bc.set_target_url(url.into());
+    bc.set_committed_url_for_test(url.into());
     ctx.with_fixture(|conn| conn.install_browser_context_fixture_for_test(bc));
 }
 fn load_bc_with_session(

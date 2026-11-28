@@ -393,7 +393,8 @@ async fn background_set_blocked_urls_updates_loaded_owner_page_without_activatio
     let background = PageTargetHost::new(
         "TID-background".to_owned(),
         Some("SID-background".to_owned()),
-        TargetIdentityState::about_blank(),
+        "about:blank".into(),
+        TargetIdentityState::new_tab(),
         TargetPageSlot::empty_for_test_fixture(),
     );
     let mut inactive = BrowserContext::new("BID-background".to_owned());

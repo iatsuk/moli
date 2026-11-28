@@ -38,7 +38,7 @@ async fn page_navigate_file_url_fails_before_navigation_events_or_document_repla
             conn.browser_context
                 .as_ref()
                 .expect("browser context")
-                .target_url(),
+                .visible_url(),
             "about:blank"
         )
     });
@@ -621,7 +621,7 @@ async fn protocol_navigate_removing_fragment_loads_a_new_document() {
         assert_runtime_navigation_context_reset(&ctx.sent, "SID-1", "TID-1");
         ctx.with_fixture(|conn| {
             assert_eq!(
-                conn.browser_context.as_ref().unwrap().target_url(),
+                conn.browser_context.as_ref().unwrap().visible_url(),
                 url,
                 "the committed URL must no longer contain {fragment}"
             )

@@ -2,7 +2,7 @@ use super::*;
 #[tokio::test]
 async fn browser_context_document_cookie_facade_snapshot_projects_default_cookie_write_url_owner() {
     let mut bc = BrowserContext::new_with_page_for_test("BID-cookie-facade", "TID-cookie-facade");
-    bc.set_target_url("https://example.com/app".into());
+    bc.set_committed_url_for_test("https://example.com/app".into());
 
     let before_load = bc.document_cookie_facade_snapshot();
     let before_load_manager = bc.cookie_manager_surface_snapshot();
@@ -116,7 +116,7 @@ async fn browser_context_document_cookie_facade_snapshot_projects_default_cookie
         after_load.structured_write
     );
 
-    bc.set_target_url("about:blank".into());
+    bc.set_committed_url_for_test("about:blank".into());
     bc.clear_loaded_page();
 
     let after_detach = bc.document_cookie_facade_snapshot();

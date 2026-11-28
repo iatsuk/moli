@@ -598,43 +598,53 @@ async fn rust_cdp_chromium_target_popup_target_keeps_opener_browser_context_id()
 // third_party/blink/web_tests/http/tests/inspector-protocol/target/target-info-changed.js
 #[tokio::test(flavor = "multi_thread")]
 async fn rust_cdp_chromium_target_named_popup_reuse_keeps_browser_context_id() {
-    let mut ctx = TestContext::new_with_target_discovery(false);
-    load_bc_with_titled_page_async(
-        &mut ctx,
-        "BID-named-context",
-        "TID-named-context-opener",
-        "<main>opener</main>",
-    )
-    .await;
+    tokio::task::LocalSet::new()
+        .run_until(async {
+            let mut ctx = TestContext::new_with_target_discovery(false);
+            load_bc_with_titled_page_async(
+                &mut ctx,
+                "BID-named-context",
+                "TID-named-context-opener",
+                "<main>opener</main>",
+            )
+            .await;
 
-    ctx.process_async(json!({
-        "id": 261_054,
-        "method": "Runtime.evaluate",
-        "params": {
-            "expression": "window.open('https://example.com/first', 'report') !== null",
-            "returnByValue": true
-        }
-    }))
-    .await;
-    ctx.sent.clear();
-    ctx.process_async(json!({
-        "id": 261_055,
-        "method": "Runtime.evaluate",
-        "params": {
-            "expression": "window.open('https://example.com/second', 'report') !== null",
-            "returnByValue": true
-        }
-    }))
-    .await;
-    let messages = ctx.take_all();
-
-    let changed = event(&messages, "Target.targetInfoChanged");
-    assert_eq!(
-        changed["params"]["targetInfo"]["browserContextId"],
-        "BID-named-context"
-    );
-    assert_eq!(
-        changed["params"]["targetInfo"]["url"],
-        "https://example.com/second"
-    );
+            ctx.enable_background_navigation_scheduler_for_test();
+            ctx.process_async(json!({
+                "id": 261_054,
+                "method": "Runtime.evaluate",
+                "params": {
+                    "expression": "window.open('data:text/html,first', 'report') !== null",
+                    "returnByValue": true
+                }
+            }))
+            .await;
+            let created = ctx.take_all();
+            let target_id =
+                event(&created, "Target.targetCreated")["params"]["targetInfo"]["targetId"]
+                    .as_str()
+                    .expect("named target id")
+                    .to_owned();
+            wait_for_committed_popup_url(&mut ctx, &target_id, "data:text/html,first").await;
+            ctx.process_async(json!({
+                "id": 261_055,
+                "method": "Runtime.evaluate",
+                "params": {
+                    "expression": "window.open('data:text/html,second', 'report') !== null",
+                    "returnByValue": true
+                }
+            }))
+            .await;
+            let changed =
+                wait_for_popup_url_change(&mut ctx, &target_id, "data:text/html,second").await;
+            assert_eq!(
+                changed["params"]["targetInfo"]["browserContextId"],
+                "BID-named-context"
+            );
+            assert_eq!(
+                changed["params"]["targetInfo"]["url"],
+                "data:text/html,second"
+            );
+        })
+        .await;
 }

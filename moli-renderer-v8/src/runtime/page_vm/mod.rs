@@ -4088,6 +4088,7 @@ impl PageVm {
                 self.creation_id,
                 self.state_capture_sequence,
             ),
+            root_document: self.document_lifecycle.current_snapshot().into(),
             final_url,
             document_title,
             document_content_type,

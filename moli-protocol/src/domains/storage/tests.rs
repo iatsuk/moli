@@ -428,7 +428,7 @@ async fn storage_get_storage_key_for_frame_returns_top_frame_origin() {
     let mut ctx = TestContext::new();
     let mut bc = BrowserContext::new("BID-SK-TOP".into());
     bc.set_active_target_id("TID-SK-TOP");
-    bc.set_target_url("https://top.example/app".into());
+    bc.set_committed_url_for_test("https://top.example/app".into());
     bc.set_target_security_origin("https://top.example".into());
     ctx.with_fixture(|conn| conn.install_browser_context_fixture_for_test(bc));
 
@@ -456,7 +456,7 @@ async fn storage_get_storage_key_for_top_frame_uses_loaded_page_storage_key() {
         .ascii_serialization();
     let mut bc = BrowserContext::new("BID-SK-TOP-LIVE".into());
     bc.set_active_target_id("TID-SK-TOP-LIVE");
-    bc.set_target_url("https://stale-target-url.example/app".into());
+    bc.set_committed_url_for_test("https://stale-target-url.example/app".into());
     bc.set_target_security_origin("https://stale-target-url.example".into());
     bc.set_target_secure_context_type("Secure".into());
     ctx.with_fixture(|conn| conn.install_browser_context_fixture_for_test(bc));
@@ -492,7 +492,7 @@ async fn storage_get_storage_key_for_frame_returns_child_frame_inherited_origin(
     let top_origin = top_origin.ascii_serialization();
     let mut bc = BrowserContext::new("BID-SK-CHILD".into());
     bc.set_active_target_id("TID-SK-CHILD");
-    bc.set_target_url(page_url.clone());
+    bc.set_committed_url_for_test(page_url.clone());
     bc.set_target_security_origin(top_origin.clone());
     bc.set_target_secure_context_type("Secure".into());
     ctx.with_fixture(|conn| conn.install_browser_context_fixture_for_test(bc));
@@ -540,7 +540,7 @@ async fn storage_get_storage_key_for_credentialless_child_uses_page_nonce() {
         .ascii_serialization();
     let mut bc = BrowserContext::new("BID-SK-CREDENTIALLESS".into());
     bc.set_active_target_id("TID-SK-CREDENTIALLESS");
-    bc.set_target_url(page_url.clone());
+    bc.set_committed_url_for_test(page_url.clone());
     bc.set_target_security_origin(top_origin.clone());
     bc.set_target_secure_context_type("Secure".into());
     ctx.with_fixture(|conn| conn.install_browser_context_fixture_for_test(bc));
@@ -686,7 +686,7 @@ async fn storage_get_storage_key_for_frame_returns_child_frame_partition_key() {
     let top_origin = top_origin.ascii_serialization();
     let mut bc = BrowserContext::new("BID-SK-PARTITIONED".into());
     bc.set_active_target_id("TID-SK-PARTITIONED");
-    bc.set_target_url(page_url.clone());
+    bc.set_committed_url_for_test(page_url.clone());
     bc.set_target_security_origin(top_origin);
     bc.set_target_secure_context_type("Secure".into());
     ctx.with_fixture(|conn| conn.install_browser_context_fixture_for_test(bc));
@@ -743,7 +743,7 @@ async fn storage_get_storage_key_for_frame_rejects_opaque_child_frame() {
     let top_origin = top_origin.ascii_serialization();
     let mut bc = BrowserContext::new("BID-SK-OPAQUE".into());
     bc.set_active_target_id("TID-SK-OPAQUE");
-    bc.set_target_url(page_url.clone());
+    bc.set_committed_url_for_test(page_url.clone());
     bc.set_target_security_origin(top_origin);
     bc.set_target_secure_context_type("Secure".into());
     ctx.with_fixture(|conn| conn.install_browser_context_fixture_for_test(bc));
@@ -904,7 +904,7 @@ async fn pending_storage_key_keeps_background_owner_route_across_completion() {
 
     let mut bc = BrowserContext::new("BID-storage-owner-route".to_owned());
     bc.set_active_target_id("TID-storage-active".to_owned());
-    bc.set_target_url(active_page.final_url().as_str().to_owned());
+    bc.set_committed_url_for_test(active_page.final_url().as_str().to_owned());
     bc.active_page_target_mut()
         .runtime_slot
         .set_loaded_page_for_test(active_page);
@@ -969,7 +969,7 @@ async fn storage_key_targets_inactive_owner_without_activation() {
 
     let mut inactive = BrowserContext::new("BID-inactive".to_owned());
     inactive.set_active_target_id("TID-inactive".to_owned());
-    inactive.set_target_url("https://inactive.example/app".to_owned());
+    inactive.set_committed_url_for_test("https://inactive.example/app".to_owned());
     inactive.set_target_security_origin("https://inactive.example".to_owned());
     inactive.attach_active_session("SID-inactive".to_owned());
     ctx.with_fixture(|conn| conn.push_inactive_browser_context_fixture_for_test(inactive));
@@ -1943,7 +1943,7 @@ async fn storage_set_cookies_reports_structured_name_value_facade_rejections() {
 async fn storage_set_cookies_uses_browser_context_default_cookie_url_when_missing() {
     let mut ctx = TestContext::new();
     let mut bc = BrowserContext::new_with_page_for_test("BID-DEF", "TID-DEF");
-    bc.set_target_url("https://example.com/app".into());
+    bc.set_committed_url_for_test("https://example.com/app".into());
     ctx.with_fixture(|conn| conn.install_browser_context_fixture_for_test(bc));
 
     ctx.process_async(json!({
@@ -2007,7 +2007,7 @@ async fn storage_cookie_methods_accept_inactive_browser_context_ids() {
         });
     }
     let mut inactive = BrowserContext::new_with_page_for_test("BID-INACTIVE", "TID-INACTIVE");
-    inactive.set_target_url("https://inactive.example/app".into());
+    inactive.set_committed_url_for_test("https://inactive.example/app".into());
     ctx.with_fixture(|conn| conn.push_inactive_browser_context_fixture_for_test(inactive));
 
     ctx.process_async(json!({

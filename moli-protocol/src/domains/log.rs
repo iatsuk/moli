@@ -8,8 +8,7 @@ use crate::domains::observable_output::log_lifecycle_error_level_and_text;
 use serde::Deserialize;
 
 pub(crate) struct TargetLogReplaySnapshot {
-    pub(crate) url: String,
-    pub(crate) lifecycle_errors: Vec<String>,
+    pub(crate) lifecycle_errors: Vec<(String, String)>,
     pub(crate) network_entries: Vec<TargetNetworkLogEntry>,
 }
 
@@ -140,7 +139,7 @@ fn append_log_replay_snapshot(
         .map(|duration| duration.as_secs_f64() * 1_000.0)
         .unwrap_or_default();
     let mut index = 0;
-    for error in snapshot.lifecycle_errors {
+    for (error, url) in snapshot.lifecycle_errors {
         index += 1;
         let (level, text) = log_lifecycle_error_level_and_text(&error);
         plan.push_background_event(crate::conn::BackgroundProtocolEvent::log_entry_added(
@@ -148,7 +147,7 @@ fn append_log_replay_snapshot(
             "javascript",
             level,
             text,
-            &snapshot.url,
+            &url,
             base_timestamp + (index as f64 * 0.001),
             None,
         ));
@@ -195,7 +194,7 @@ mod tests {
     async fn load_document(ctx: &mut TestContext, html: &str) {
         let mut bc = BrowserContext::new("BID-1".into());
         bc.set_active_target_id("TID-1".to_owned());
-        bc.set_target_url("data:text/html,log-test".to_owned());
+        bc.set_committed_url_for_test("data:text/html,log-test".to_owned());
         bc.attach_active_session("SID-1".to_owned());
         ctx.with_fixture(|conn| conn.insert_browser_context(bc));
         ctx.install_navigation_fixture_for_session_owner(
@@ -210,13 +209,10 @@ mod tests {
             conn.runtime_session_owner_slot(Some("SID-1"))
                 .and_then(|slot| slot.observable_output_latest_source_tail())
                 .is_some_and(|source| {
-                    source.observable_output_items().iter().any(|item| {
-                        matches!(
-                            item,
-                            moli_core::page::ScriptObservableOutputItem::LifecycleError(text)
-                                if text.contains(needle)
-                        )
-                    })
+                    source
+                        .lifecycle_error_records()
+                        .iter()
+                        .any(|(text, _)| text.contains(needle))
                 })
         })
     }

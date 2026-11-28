@@ -1690,7 +1690,7 @@ fn clearing_document_navigation_rejects_late_events() {
 fn active_target_initial_empty_document_record_tracks_navigation_lifecycle() {
     let mut context = BrowserContext::new("CTX-initial-active".to_owned());
     context.set_active_target_id("TID-initial-active");
-    context.set_target_url("about:blank#active".to_owned());
+    context.set_committed_url_for_test("about:blank#active".to_owned());
     context.begin_active_target_initial_empty_document("about:blank#active".to_owned());
 
     assert_eq!(
@@ -1707,13 +1707,16 @@ fn active_target_initial_empty_document_record_tracks_navigation_lifecycle() {
         "active initial document target without a Page should count as pending page build"
     );
 
-    let initial = context
-        .active_page_target()
+    let target = context.active_page_target();
+    let initial = target
         .owner_state
         .initial_empty_document_state()
         .expect("active target should record initial empty document");
     assert_eq!(initial.target_id(), "TID-initial-active");
-    assert_eq!(initial.initial_url(), "about:blank#active");
+    assert_eq!(
+        target.committed_url().map(url::Url::as_str),
+        Some("about:blank#active")
+    );
     assert!(initial.is_on_initial_empty_document());
     assert!(!initial.materialized());
     assert!(!context.has_pending_document_navigation_for_target(Some("TID-initial-active")));
@@ -1773,7 +1776,7 @@ fn active_target_initial_empty_document_record_tracks_navigation_lifecycle() {
 fn materialized_active_initial_empty_document_requires_loaded_page() {
     let mut context = BrowserContext::new("CTX-initial-active-invariant".to_owned());
     context.set_active_target_id("TID-initial-active-invariant");
-    context.set_target_url("about:blank#active".to_owned());
+    context.set_committed_url_for_test("about:blank#active".to_owned());
     context.begin_active_target_initial_empty_document("about:blank#active".to_owned());
 
     assert_eq!(
@@ -1823,14 +1826,18 @@ fn background_target_initial_empty_document_record_tracks_navigation_lifecycle()
         "background initial document target without a Page should count as pending page build"
     );
 
-    let initial = context
+    let target = context
         .background_target("TID-initial-bg")
-        .expect("background target must exist")
+        .expect("background target must exist");
+    let initial = target
         .owner_state
         .initial_empty_document_state()
         .expect("background target should record initial empty document");
     assert_eq!(initial.target_id(), "TID-initial-bg");
-    assert_eq!(initial.initial_url(), "about:blank#background");
+    assert_eq!(
+        target.committed_url().map(url::Url::as_str),
+        Some("about:blank#background")
+    );
     assert!(initial.is_on_initial_empty_document());
     assert!(!initial.materialized());
 

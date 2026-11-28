@@ -739,10 +739,9 @@ async fn attach_to_target_existing_session_creates_distinct_attached_session() {
     let mut ctx = TestContext::new();
     load_bc_with_target(&mut ctx, "BID-9", "TID-000000000B");
     ctx.with_fixture(|conn| {
-        conn.browser_context
-            .as_mut()
-            .unwrap()
-            .attach_active_session("SID-primary")
+        let browser = conn.browser_context.as_mut().unwrap();
+        browser.begin_active_target_initial_empty_document("about:blank".into());
+        browser.attach_active_session("SID-primary");
     });
     register_page_session_route(
         &mut ctx,
@@ -1387,7 +1386,8 @@ async fn session_route_finds_committed_browser_page_and_worker_sessions() {
     inactive.insert_page_target_host(crate::conn::PageTargetHost::new(
         "TID-000000000D".to_owned(),
         Some("SID-inactive-background".to_owned()),
-        crate::conn::TargetIdentityState::about_blank(),
+        "about:blank".into(),
+        crate::conn::TargetIdentityState::new_tab(),
         crate::conn::TargetPageSlot::empty_for_test_fixture(),
     ));
     assert!(inactive.assign_attached_session_to_target(
@@ -3994,6 +3994,12 @@ async fn browser_session_auto_attach_replays_an_existing_shared_worker_once() {
 async fn dedicated_worker_existing_target_auto_attach_requires_its_owner_page_session() {
     let mut ctx = TestContext::new();
     load_bc_with_target(&mut ctx, "BID-9", "TID-owner-page");
+    ctx.with_fixture(|conn| {
+        conn.browser_context
+            .as_mut()
+            .unwrap()
+            .begin_active_target_initial_empty_document("about:blank".into());
+    });
     ctx.process_async(json!({
         "id": 2470,
         "method": "Target.attachToTarget",

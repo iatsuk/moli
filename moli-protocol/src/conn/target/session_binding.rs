@@ -436,15 +436,12 @@ impl CdpConnection {
         let popup_initialization_owned = self
             .target_owner_identity_for_owner(&owner)
             .and_then(|(context, target)| {
-                self.browser_context_by_id(&context)?.page_target(&target?)
+                Some(
+                    self.browser_context_by_id(&context)?
+                        .is_auxiliary_target(&target?),
+                )
             })
-            .is_some_and(|target| {
-                target
-                    .owner_state
-                    .pending_initial_navigation
-                    .as_ref()
-                    .is_some_and(|navigation| navigation.auxiliary.is_some())
-            });
+            .unwrap_or(false);
         if popup_initialization_owned {
             return;
         }

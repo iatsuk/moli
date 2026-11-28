@@ -1,5 +1,6 @@
 use std::collections::{BTreeMap, HashMap};
 
+use moli_core::RendererDocumentLifecycleIdentity;
 use moli_core::page::{
     PageObservableOutputUpdate, RuntimeConsoleMessageSnapshot, ScriptObservableOutputItem,
 };
@@ -32,18 +33,47 @@ impl TargetRuntimeObservableQueueSnapshot {
         &self,
     ) -> Option<TargetRuntimeObservableSourceOutput> {
         let latest = self.source_outputs.last()?;
-        let sources = self.source_outputs.iter().filter(|source| {
-            source.url() == latest.url()
-                && source.page_attachment_id() == latest.page_attachment_id()
-        });
+        let sources = self
+            .source_outputs
+            .iter()
+            .filter(|source| source.identity == latest.identity);
         TargetRuntimeObservableSourceOutput::combine_same_identity(sources)
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub(crate) struct ObservableSourceIdentity {
+    pub(crate) attachment: TargetPageAttachmentId,
+    pub(crate) document: Option<RendererDocumentLifecycleIdentity>,
+}
+
+#[cfg(test)]
+impl From<TargetPageAttachmentId> for ObservableSourceIdentity {
+    fn from(attachment: TargetPageAttachmentId) -> Self {
+        Self {
+            attachment,
+            document: None,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(super) struct ObservableSourceRecord {
+    pub(super) item: ScriptObservableOutputItem,
+    pub(super) url: Option<String>,
+}
+
+#[cfg(test)]
+impl From<ScriptObservableOutputItem> for ObservableSourceRecord {
+    fn from(item: ScriptObservableOutputItem) -> Self {
+        Self { item, url: None }
     }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct TargetRuntimeObservableSourceOutput {
     url: String,
-    page_attachment_id: TargetPageAttachmentId,
+    identity: ObservableSourceIdentity,
     source_item_start_index: usize,
     source_item_end_index: usize,
     start_summary: TargetRuntimeObservableSourceSummary,
@@ -54,7 +84,7 @@ pub(crate) struct TargetRuntimeObservableSourceOutput {
 impl TargetRuntimeObservableSourceOutput {
     fn from_delta(
         url: String,
-        page_attachment_id: TargetPageAttachmentId,
+        identity: ObservableSourceIdentity,
         source_item_start_index: usize,
         source_item_end_index: usize,
         start_summary: TargetRuntimeObservableSourceSummary,
@@ -69,7 +99,7 @@ impl TargetRuntimeObservableSourceOutput {
             .advance_with_items(summary.default_execution_context_id(), &source_items)?;
         (derived_summary == summary).then_some(Self {
             url,
-            page_attachment_id,
+            identity,
             source_item_start_index,
             source_item_end_index,
             start_summary,
@@ -83,12 +113,12 @@ impl TargetRuntimeObservableSourceOutput {
         let first = sources.next()?;
         let mut combined = first.clone();
         for source in sources {
-            if combined.url != source.url
-                || combined.page_attachment_id != source.page_attachment_id
+            if combined.identity != source.identity
                 || combined.source_item_end_index != source.source_item_start_index
             {
                 return None;
             }
+            combined.url.clone_from(&source.url);
             combined.source_item_end_index = source.source_item_end_index;
             combined.default_execution_context_id = source.default_execution_context_id;
             combined
@@ -102,8 +132,8 @@ impl TargetRuntimeObservableSourceOutput {
         &self.url
     }
 
-    pub(crate) fn page_attachment_id(&self) -> TargetPageAttachmentId {
-        self.page_attachment_id
+    pub(crate) fn identity(&self) -> ObservableSourceIdentity {
+        self.identity
     }
 
     #[cfg(test)]
@@ -147,6 +177,7 @@ impl TargetRuntimeObservableSourceOutput {
                 TargetRuntimeObservableSourceItem::ConsoleMessage {
                     message,
                     context_count_end,
+                    ..
                 } => {
                     if !include_console_api_messages {
                         continue;
@@ -165,6 +196,7 @@ impl TargetRuntimeObservableSourceOutput {
                     text,
                     execution_context_id,
                     exception_index,
+                    url,
                 } => {
                     if *exception_index >= exception_start
                         && let Some(execution_context_id) = execution_context_id
@@ -172,7 +204,7 @@ impl TargetRuntimeObservableSourceOutput {
                         items.push(ObservableRuntimePreparedItem::output(
                             runtime_exception_thrown_item(
                                 text.clone(),
-                                self.url(),
+                                url.as_deref().unwrap_or_else(|| self.url()),
                                 *execution_context_id,
                                 *exception_index,
                             ),
@@ -186,8 +218,7 @@ impl TargetRuntimeObservableSourceOutput {
             return None;
         }
         Some(ObservableRuntimePreparedItems::from_runtime_source_items(
-            self.url.clone(),
-            self.page_attachment_id,
+            self.identity,
             items,
             owner_state
                 .source_context_console_counts(summary.default_execution_context_id(), &summary),
@@ -195,23 +226,53 @@ impl TargetRuntimeObservableSourceOutput {
         ))
     }
 
-    pub(crate) fn observable_output_items(&self) -> Vec<ScriptObservableOutputItem> {
+    pub(super) fn observable_records(&self) -> impl Iterator<Item = ObservableSourceRecord> + '_ {
+        self.source_items.iter().filter_map(|item| match item {
+            TargetRuntimeObservableSourceItem::ConsoleMessage { message, url, .. }
+                if Some(message.execution_context_id) == self.default_execution_context_id =>
+            {
+                Some(ObservableSourceRecord {
+                    item: ScriptObservableOutputItem::ConsoleMessage(message.message.clone()),
+                    url: Some(url.as_deref().unwrap_or_else(|| self.url()).to_owned()),
+                })
+            }
+            TargetRuntimeObservableSourceItem::ConsoleMessage { .. } => None,
+            TargetRuntimeObservableSourceItem::LifecycleError { text, url, .. } => {
+                Some(ObservableSourceRecord {
+                    item: ScriptObservableOutputItem::LifecycleError(text.clone()),
+                    url: Some(url.as_deref().unwrap_or_else(|| self.url()).to_owned()),
+                })
+            }
+        })
+    }
+
+    pub(crate) fn lifecycle_error_records(&self) -> Vec<(String, String)> {
         self.source_items
             .iter()
             .filter_map(|item| match item {
+                TargetRuntimeObservableSourceItem::ConsoleMessage { .. } => None,
+                TargetRuntimeObservableSourceItem::LifecycleError { text, url, .. } => Some((
+                    text.clone(),
+                    url.as_deref().unwrap_or_else(|| self.url()).to_owned(),
+                )),
+            })
+            .collect()
+    }
+
+    pub(crate) fn console_and_lifecycle_counts(&self) -> (usize, usize) {
+        self.source_items
+            .iter()
+            .fold((0, 0), |(console, lifecycle), item| match item {
                 TargetRuntimeObservableSourceItem::ConsoleMessage { message, .. }
                     if Some(message.execution_context_id) == self.default_execution_context_id =>
                 {
-                    Some(ScriptObservableOutputItem::ConsoleMessage(
-                        message.message.clone(),
-                    ))
+                    (console + 1, lifecycle)
                 }
-                TargetRuntimeObservableSourceItem::ConsoleMessage { .. } => None,
-                TargetRuntimeObservableSourceItem::LifecycleError { text, .. } => {
-                    Some(ScriptObservableOutputItem::LifecycleError(text.clone()))
+                TargetRuntimeObservableSourceItem::ConsoleMessage { .. } => (console, lifecycle),
+                TargetRuntimeObservableSourceItem::LifecycleError { .. } => {
+                    (console, lifecycle + 1)
                 }
             })
-            .collect()
     }
 
     pub(in crate::domains::observable_output) fn cursor_end(
@@ -270,22 +331,27 @@ pub(crate) enum TargetRuntimeObservableSourceItem {
     ConsoleMessage {
         message: RuntimeConsoleMessageSnapshot,
         context_count_end: usize,
+        url: Option<String>,
     },
     LifecycleError {
         text: String,
         execution_context_id: Option<i64>,
         exception_index: usize,
+        url: Option<String>,
     },
 }
 
 impl TargetRuntimeObservableSourceItem {
+    #[cfg(test)]
     fn console_message(message: RuntimeConsoleMessageSnapshot, context_count_end: usize) -> Self {
         Self::ConsoleMessage {
             message,
             context_count_end,
+            url: None,
         }
     }
 
+    #[cfg(test)]
     fn lifecycle_error(
         text: String,
         execution_context_id: Option<i64>,
@@ -295,6 +361,7 @@ impl TargetRuntimeObservableSourceItem {
             text,
             execution_context_id,
             exception_index,
+            url: None,
         }
     }
 }
@@ -377,6 +444,7 @@ impl TargetRuntimeObservableSourceSummary {
                 TargetRuntimeObservableSourceItem::ConsoleMessage {
                     message,
                     context_count_end,
+                    ..
                 } => {
                     let current = next
                         .console_messages_by_context
@@ -502,7 +570,7 @@ pub(crate) struct TargetRuntimeObservableQueueState {
     observable_output_items: Vec<ScriptObservableOutputItem>,
     latest_source_tail: Option<TargetRuntimeObservableSourceOutput>,
     source_tails_by_identity:
-        HashMap<(String, TargetPageAttachmentId), TargetRuntimeObservableSourceOutput>,
+        HashMap<ObservableSourceIdentity, TargetRuntimeObservableSourceOutput>,
     source_outputs: Vec<TargetRuntimeObservableSourceOutput>,
 }
 
@@ -575,18 +643,18 @@ impl TargetRuntimeObservableQueueState {
     pub(crate) fn sync_source_from_renderer_snapshot(
         &mut self,
         url: String,
-        page_attachment_id: TargetPageAttachmentId,
+        identity: ObservableSourceIdentity,
         source: &RendererPageDiagnosticsSnapshot,
     ) -> Option<TargetRuntimeObservableSourceOutput> {
         let renderer_source = source.runtime_observable_source()?;
-        self.sync_source_from_renderer_runtime_source(url, page_attachment_id, renderer_source)
+        self.sync_source_from_renderer_runtime_source(url, identity, renderer_source)
     }
 
     #[cfg(test)]
     pub(crate) fn sync_source_from_renderer_runtime_source(
         &mut self,
         url: String,
-        page_attachment_id: TargetPageAttachmentId,
+        identity: ObservableSourceIdentity,
         renderer_source: &RendererRuntimeObservableSourceSummary,
     ) -> Option<TargetRuntimeObservableSourceOutput> {
         let source_items = source_items_from_renderer_runtime_source(renderer_source);
@@ -597,12 +665,11 @@ impl TargetRuntimeObservableQueueState {
         if summary.is_empty() {
             return None;
         }
-        let source_url = url.clone();
         let source_item_count = source_items.len();
-        let Some(cursor) = self.source_tail_for_identity(&url, page_attachment_id) else {
+        let Some(cursor) = self.source_tail_for_identity(identity) else {
             self.append_source_output(
                 url,
-                page_attachment_id,
+                identity,
                 0,
                 source_item_count,
                 TargetRuntimeObservableSourceSummary::zero_with_default_execution_context(
@@ -611,76 +678,46 @@ impl TargetRuntimeObservableQueueState {
                 summary,
                 source_items,
             );
-            return self.source_tail_for_identity(&source_url, page_attachment_id);
+            return self.source_tail_for_identity(identity);
         };
         let Some(cursor_summary) = cursor.source_summary() else {
-            self.rebuild_source_outputs_from_renderer_source(
-                url,
-                page_attachment_id,
-                summary,
-                source_items,
-            );
-            return self.source_tail_for_identity(&source_url, page_attachment_id);
+            self.rebuild_source_outputs_from_renderer_source(url, identity, summary, source_items);
+            return self.source_tail_for_identity(identity);
         };
         if cursor_summary == summary {
-            return self.source_tail_for_identity(&source_url, page_attachment_id);
+            return self.source_tail_for_identity(identity);
         }
         if source_item_count < cursor.source_item_end_index {
-            self.rebuild_source_outputs_from_renderer_source(
-                url,
-                page_attachment_id,
-                summary,
-                source_items,
-            );
-            return self.source_tail_for_identity(&source_url, page_attachment_id);
+            self.rebuild_source_outputs_from_renderer_source(url, identity, summary, source_items);
+            return self.source_tail_for_identity(identity);
         }
         let delta_items = source_items[cursor.source_item_end_index..].to_vec();
         if delta_items.is_empty() {
-            self.rebuild_source_outputs_from_renderer_source(
-                url,
-                page_attachment_id,
-                summary,
-                source_items,
-            );
-            return self.source_tail_for_identity(&source_url, page_attachment_id);
+            self.rebuild_source_outputs_from_renderer_source(url, identity, summary, source_items);
+            return self.source_tail_for_identity(identity);
         }
         let Some(delta_summary) =
             cursor_summary.advance_with_items(summary.default_execution_context_id(), &delta_items)
         else {
-            self.rebuild_source_outputs_from_renderer_source(
-                url,
-                page_attachment_id,
-                summary,
-                source_items,
-            );
-            return self.source_tail_for_identity(&source_url, page_attachment_id);
+            self.rebuild_source_outputs_from_renderer_source(url, identity, summary, source_items);
+            return self.source_tail_for_identity(identity);
         };
         if delta_summary != summary {
-            self.rebuild_source_outputs_from_renderer_source(
-                url,
-                page_attachment_id,
-                summary,
-                source_items,
-            );
-            return self.source_tail_for_identity(&source_url, page_attachment_id);
+            self.rebuild_source_outputs_from_renderer_source(url, identity, summary, source_items);
+            return self.source_tail_for_identity(identity);
         }
         if !self.append_source_output(
             url.clone(),
-            page_attachment_id,
+            identity,
             cursor.source_item_end_index,
             source_item_count,
             cursor_summary,
             delta_summary,
             delta_items,
         ) {
-            self.rebuild_source_outputs_from_renderer_source(
-                url,
-                page_attachment_id,
-                summary,
-                source_items,
-            );
+            self.rebuild_source_outputs_from_renderer_source(url, identity, summary, source_items);
         }
-        self.source_tail_for_identity(&source_url, page_attachment_id)
+        self.source_tail_for_identity(identity)
     }
 
     /// Appends one concrete console fact already ordered by the renderer
@@ -692,13 +729,12 @@ impl TargetRuntimeObservableQueueState {
     pub(crate) fn append_renderer_console_message(
         &mut self,
         url: String,
-        page_attachment_id: TargetPageAttachmentId,
+        identity: ObservableSourceIdentity,
         message: RuntimeConsoleMessageSnapshot,
     ) -> Option<TargetRuntimeObservableSourceOutput> {
-        let key = (url.clone(), page_attachment_id);
         let (source_item_start_index, start_summary) = self
             .source_tails_by_identity
-            .get(&key)
+            .get(&identity)
             .and_then(|tail| Some((tail.source_item_end_index, tail.source_summary()?)))
             .unwrap_or_else(|| {
                 (
@@ -713,10 +749,11 @@ impl TargetRuntimeObservableQueueState {
             .unwrap_or_default()
             .checked_add(1)
             .expect("Runtime console source context count overflow");
-        let source_items = vec![TargetRuntimeObservableSourceItem::console_message(
+        let source_items = vec![TargetRuntimeObservableSourceItem::ConsoleMessage {
             message,
             context_count_end,
-        )];
+            url: Some(url.clone()),
+        }];
         let summary = start_summary
             .advance_with_items(start_summary.default_execution_context_id(), &source_items)
             .expect("one concrete Runtime console record must advance its source cursor");
@@ -726,7 +763,7 @@ impl TargetRuntimeObservableQueueState {
         assert!(
             self.append_source_output(
                 url.clone(),
-                page_attachment_id,
+                identity,
                 source_item_start_index,
                 source_item_end_index,
                 start_summary,
@@ -735,7 +772,7 @@ impl TargetRuntimeObservableQueueState {
             ),
             "one concrete Runtime console record must form a valid source delta"
         );
-        self.source_tail_for_identity(&url, page_attachment_id)
+        self.source_tail_for_identity(identity)
     }
 
     /// Appends one concrete renderer lifecycle error in stream order.
@@ -746,14 +783,13 @@ impl TargetRuntimeObservableQueueState {
     pub(crate) fn append_renderer_lifecycle_error(
         &mut self,
         url: String,
-        page_attachment_id: TargetPageAttachmentId,
+        identity: ObservableSourceIdentity,
         text: String,
         execution_context_id: Option<i64>,
     ) -> Option<TargetRuntimeObservableSourceOutput> {
-        let key = (url.clone(), page_attachment_id);
         let (source_item_start_index, start_summary) = self
             .source_tails_by_identity
-            .get(&key)
+            .get(&identity)
             .and_then(|tail| Some((tail.source_item_end_index, tail.source_summary()?)))
             .unwrap_or_else(|| {
                 (
@@ -761,11 +797,12 @@ impl TargetRuntimeObservableQueueState {
                     TargetRuntimeObservableSourceSummary::zero_with_default_execution_context(None),
                 )
             });
-        let source_items = vec![TargetRuntimeObservableSourceItem::lifecycle_error(
+        let source_items = vec![TargetRuntimeObservableSourceItem::LifecycleError {
             text,
             execution_context_id,
-            start_summary.lifecycle_errors(),
-        )];
+            exception_index: start_summary.lifecycle_errors(),
+            url: Some(url.clone()),
+        }];
         let summary = start_summary
             .advance_with_items(start_summary.default_execution_context_id(), &source_items)
             .expect("one concrete Runtime lifecycle error must advance its source cursor");
@@ -775,7 +812,7 @@ impl TargetRuntimeObservableQueueState {
         assert!(
             self.append_source_output(
                 url.clone(),
-                page_attachment_id,
+                identity,
                 source_item_start_index,
                 source_item_end_index,
                 start_summary,
@@ -784,17 +821,14 @@ impl TargetRuntimeObservableQueueState {
             ),
             "one concrete Runtime lifecycle error must form a valid source delta"
         );
-        self.source_tail_for_identity(&url, page_attachment_id)
+        self.source_tail_for_identity(identity)
     }
 
-    fn source_tail_for_identity(
+    pub(crate) fn source_tail_for_identity(
         &self,
-        url: &str,
-        page_attachment_id: TargetPageAttachmentId,
+        identity: ObservableSourceIdentity,
     ) -> Option<TargetRuntimeObservableSourceOutput> {
-        self.source_tails_by_identity
-            .get(&(url.to_owned(), page_attachment_id))
-            .cloned()
+        self.source_tails_by_identity.get(&identity).cloned()
     }
 
     #[cfg(test)]
@@ -802,6 +836,7 @@ impl TargetRuntimeObservableQueueState {
         self.snapshot_with_source_outputs(Vec::new())
     }
 
+    #[cfg(test)]
     pub(crate) fn latest_source_tail(&self) -> Option<TargetRuntimeObservableSourceOutput> {
         self.latest_source_tail.clone()
     }
@@ -834,7 +869,7 @@ impl TargetRuntimeObservableQueueState {
     fn append_source_output(
         &mut self,
         url: String,
-        page_attachment_id: TargetPageAttachmentId,
+        identity: ObservableSourceIdentity,
         source_item_start_index: usize,
         source_item_end_index: usize,
         start_summary: TargetRuntimeObservableSourceSummary,
@@ -843,7 +878,7 @@ impl TargetRuntimeObservableQueueState {
     ) -> bool {
         let Some(output) = TargetRuntimeObservableSourceOutput::from_delta(
             url.clone(),
-            page_attachment_id,
+            identity,
             source_item_start_index,
             source_item_end_index,
             start_summary,
@@ -858,7 +893,7 @@ impl TargetRuntimeObservableQueueState {
     }
 
     fn remember_latest_source_tail(&mut self, output: &TargetRuntimeObservableSourceOutput) {
-        let key = (output.url.clone(), output.page_attachment_id);
+        let key = output.identity;
         let next = if let Some(current) = self.source_tails_by_identity.remove(&key) {
             TargetRuntimeObservableSourceOutput::combine_same_identity([&current, output])
                 .unwrap_or_else(|| output.clone())
@@ -873,7 +908,7 @@ impl TargetRuntimeObservableQueueState {
     fn rebuild_source_outputs_from_renderer_source(
         &mut self,
         url: String,
-        page_attachment_id: TargetPageAttachmentId,
+        identity: ObservableSourceIdentity,
         summary: TargetRuntimeObservableSourceSummary,
         source_items: Vec<TargetRuntimeObservableSourceItem>,
     ) {
@@ -883,7 +918,7 @@ impl TargetRuntimeObservableQueueState {
         self.source_tails_by_identity.clear();
         self.append_source_output(
             url,
-            page_attachment_id,
+            identity,
             0,
             source_item_count,
             TargetRuntimeObservableSourceSummary::zero_with_default_execution_context(
@@ -904,13 +939,59 @@ mod tests {
     };
 
     use super::{
-        TargetRuntimeObservableQueueSnapshot, TargetRuntimeObservableQueueState,
-        TargetRuntimeObservableSourceItem, TargetRuntimeObservableSourceSummary,
+        ObservableSourceIdentity, TargetRuntimeObservableQueueSnapshot,
+        TargetRuntimeObservableQueueState, TargetRuntimeObservableSourceItem,
+        TargetRuntimeObservableSourceSummary,
     };
     use crate::conn::TargetPageAttachmentId;
 
-    fn page_attachment_id(raw: u64) -> TargetPageAttachmentId {
-        TargetPageAttachmentId::from_raw_for_test(raw)
+    fn source_identity(raw: u64) -> ObservableSourceIdentity {
+        TargetPageAttachmentId::from_raw_for_test(raw).into()
+    }
+
+    #[test]
+    fn document_identity_preserves_cursors_and_record_urls_across_same_document_changes() {
+        use moli_core::page::{RendererDocumentToken, RendererFrameToken, RendererLifecycleEpoch};
+        use moli_core::{PageId, RendererDocumentLifecycleIdentity};
+
+        let page_id = PageId::new_for_testing(17);
+        let mut document = RendererDocumentLifecycleIdentity {
+            frame: RendererFrameToken { page_id },
+            document: RendererDocumentToken::new_for_testing(page_id, 1),
+            epoch: RendererLifecycleEpoch(0),
+        };
+        let mut source = ObservableSourceIdentity {
+            document: Some(document),
+            ..source_identity(17)
+        };
+        let mut queue = TargetRuntimeObservableQueueState::default();
+        let first_url = "https://example.test/initial";
+        let second_url = "https://example.test/next";
+        queue
+            .append_renderer_lifecycle_error(first_url.into(), source, "first".into(), Some(7))
+            .unwrap();
+        let tail = queue
+            .append_renderer_lifecycle_error(second_url.into(), source, "second".into(), Some(7))
+            .unwrap();
+        assert_eq!(tail.source_item_end_index(), 2);
+        assert_eq!(
+            tail.lifecycle_error_records(),
+            vec![
+                ("first".into(), first_url.into()),
+                ("second".into(), second_url.into()),
+            ]
+        );
+
+        document.epoch = RendererLifecycleEpoch(1);
+        source.document = Some(document);
+        let tail = queue
+            .append_renderer_lifecycle_error(second_url.into(), source, "new epoch".into(), Some(7))
+            .unwrap();
+        assert_eq!(tail.source_item_end_index(), 1);
+        assert_eq!(
+            tail.lifecycle_error_records(),
+            vec![("new epoch".into(), second_url.into())]
+        );
     }
 
     fn renderer_source_snapshot(
@@ -1094,7 +1175,7 @@ mod tests {
 
         queue.sync_source_from_renderer_snapshot(
             "http://example.test/runtime-source".to_owned(),
-            page_attachment_id(17),
+            source_identity(17),
             &source_snapshot,
         );
 
@@ -1113,7 +1194,7 @@ mod tests {
             .last()
             .expect("source output should be available");
         assert_eq!(output.url(), "http://example.test/runtime-source");
-        assert_eq!(output.page_attachment_id().get(), 17);
+        assert_eq!(output.identity().attachment.get(), 17);
         assert_eq!(output.source_item_start_index(), 0);
         assert_eq!(output.source_item_end_index(), 2);
         assert_eq!(
@@ -1158,17 +1239,17 @@ mod tests {
 
         queue.sync_source_from_renderer_snapshot(
             "http://example.test/runtime-source".to_owned(),
-            page_attachment_id(17),
+            source_identity(17),
             &first_snapshot,
         );
         queue.sync_source_from_renderer_snapshot(
             "http://example.test/runtime-source".to_owned(),
-            page_attachment_id(17),
+            source_identity(17),
             &first_snapshot,
         );
         queue.sync_source_from_renderer_snapshot(
             "http://example.test/runtime-source".to_owned(),
-            page_attachment_id(17),
+            source_identity(17),
             &second_snapshot,
         );
 
@@ -1234,12 +1315,12 @@ mod tests {
 
         queue.sync_source_from_renderer_snapshot(
             "http://example.test/first-source".to_owned(),
-            page_attachment_id(17),
+            source_identity(17),
             &first_snapshot,
         );
         queue.sync_source_from_renderer_snapshot(
             "http://example.test/second-source".to_owned(),
-            page_attachment_id(18),
+            source_identity(18),
             &second_snapshot,
         );
 
@@ -1249,7 +1330,7 @@ mod tests {
             .expect("latest source identity should expose a prepared tail");
 
         assert_eq!(source.url(), "http://example.test/second-source");
-        assert_eq!(source.page_attachment_id().get(), 18);
+        assert_eq!(source.identity().attachment.get(), 18);
         assert_eq!(
             source.source_console_messages(),
             vec![
@@ -1290,17 +1371,17 @@ mod tests {
 
         queue.sync_source_from_renderer_snapshot(
             "http://example.test/first-source".to_owned(),
-            page_attachment_id(17),
+            source_identity(17),
             &first_initial_snapshot,
         );
         queue.sync_source_from_renderer_snapshot(
             "http://example.test/second-source".to_owned(),
-            page_attachment_id(18),
+            source_identity(18),
             &second_snapshot,
         );
         queue.sync_source_from_renderer_snapshot(
             "http://example.test/first-source".to_owned(),
-            page_attachment_id(17),
+            source_identity(17),
             &first_advanced_snapshot,
         );
 
@@ -1313,11 +1394,9 @@ mod tests {
             1,
             "source tail cache should resume the prior identity cursor instead of rebuilding from zero"
         );
-        let first_tail = queue
-            .source_tail_for_identity("http://example.test/first-source", page_attachment_id(17))
-            .expect(
-                "first identity source tail should stay cached after a different latest source",
-            );
+        let first_tail = queue.source_tail_for_identity(source_identity(17)).expect(
+            "first identity source tail should stay cached after a different latest source",
+        );
         assert_eq!(
             first_tail.source_console_messages(),
             vec![
@@ -1349,7 +1428,7 @@ mod tests {
             queue
                 .sync_source_from_renderer_snapshot(
                     "http://example.test/source".to_owned(),
-                    page_attachment_id(17),
+                    source_identity(17),
                     &source_snapshot,
                 )
                 .is_some(),
@@ -1359,7 +1438,7 @@ mod tests {
             queue
                 .sync_source_from_renderer_snapshot(
                     "http://example.test/source".to_owned(),
-                    page_attachment_id(17),
+                    source_identity(17),
                     &RendererPageDiagnosticsSnapshot::default(),
                 )
                 .is_none(),
@@ -1401,17 +1480,17 @@ mod tests {
 
         queue.sync_source_from_renderer_snapshot(
             "http://example.test/source-a".to_owned(),
-            page_attachment_id(17),
+            source_identity(17),
             &first_a_snapshot,
         );
         queue.sync_source_from_renderer_snapshot(
             "http://example.test/source-b".to_owned(),
-            page_attachment_id(18),
+            source_identity(18),
             &b_snapshot,
         );
         queue.sync_source_from_renderer_snapshot(
             "http://example.test/source-a".to_owned(),
-            page_attachment_id(17),
+            source_identity(17),
             &second_a_snapshot,
         );
 
@@ -1454,12 +1533,12 @@ mod tests {
 
         queue.sync_source_from_renderer_snapshot(
             "http://example.test/runtime-source".to_owned(),
-            page_attachment_id(17),
+            source_identity(17),
             &first_snapshot,
         );
         queue.sync_source_from_renderer_snapshot(
             "http://example.test/runtime-source".to_owned(),
-            page_attachment_id(17),
+            source_identity(17),
             &rewind_snapshot,
         );
 
@@ -1499,12 +1578,12 @@ mod tests {
 
         queue.sync_source_from_renderer_snapshot(
             "http://example.test/runtime-source".to_owned(),
-            page_attachment_id(17),
+            source_identity(17),
             &first_snapshot,
         );
         queue.sync_source_from_renderer_snapshot(
             "http://example.test/runtime-source".to_owned(),
-            page_attachment_id(17),
+            source_identity(17),
             &default_context_change_snapshot,
         );
 
@@ -1536,7 +1615,7 @@ mod tests {
 
         queue.sync_source_from_renderer_snapshot(
             "http://example.test/diagnostics-only-runtime-source".to_owned(),
-            page_attachment_id(41),
+            source_identity(41),
             &diagnostics_only_snapshot,
         );
 
@@ -1561,7 +1640,7 @@ mod tests {
 
         queue.sync_source_from_renderer_snapshot(
             "http://example.test/invalid-runtime-source".to_owned(),
-            page_attachment_id(41),
+            source_identity(41),
             &invalid_source_snapshot,
         );
 
@@ -1578,7 +1657,7 @@ mod tests {
 
         queue.sync_source_from_renderer_snapshot(
             "http://example.test/empty-runtime-source".to_owned(),
-            page_attachment_id(29),
+            source_identity(29),
             &RendererPageDiagnosticsSnapshot::default(),
         );
 
@@ -1602,7 +1681,7 @@ mod tests {
 
         queue.sync_source_from_renderer_snapshot(
             "http://example.test/runtime-source-items".to_owned(),
-            page_attachment_id(31),
+            source_identity(31),
             &source_snapshot,
         );
 
@@ -1640,6 +1719,7 @@ mod tests {
                 TargetRuntimeObservableSourceItem::ConsoleMessage {
                     message,
                     context_count_end: 1,
+                    ..
                 } if message.execution_context_id == 11
                     && message.message == "source item payload"
             ),
@@ -1652,6 +1732,7 @@ mod tests {
                     text,
                     execution_context_id: Some(11),
                     exception_index: 0,
+                    ..
                 } if text == "source lifecycle error"
             ),
             "source output should tag lifecycle source items with append-time exception index and context"

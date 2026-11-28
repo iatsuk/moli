@@ -14,7 +14,7 @@ use crate::conn::{
     BackgroundProtocolEvent, CommandOwnerScope, ConnectionNetworkRequestIdAllocator,
     DocumentStartScript, EmulatedDeviceMetrics, FetchRequestStage,
     InitialDocumentPageInstallResult, InitialDocumentPageOwner, InstalledNavigationPage,
-    LoadedNavigationPageCommit, LoadedNavigationRendererAttachmentCommit, NETWORK_ERROR_PAGE_URL,
+    LoadedNavigationPageCommit, LoadedNavigationRendererAttachmentCommit,
     NetworkErrorPageNavigation, PendingFetchNavigation, RuntimeBindingDefinition,
 };
 use moli_cookie_jar::{
@@ -354,10 +354,7 @@ impl TargetNavigationLoadInputs {
             tls_verify_host_override: page_state
                 .tls_verify_host_override
                 .or(browser_context.default_tls_verify_host_override),
-            navigation_initiator_url: target_navigation_initiator_url(
-                target.target_url(),
-                target.loaded_page(),
-            ),
+            navigation_initiator_url: target_navigation_initiator_url(target),
             navigation_request_metadata: None,
             navigation_request_origin: None,
             browser_navigation_kind: BrowserNavigationRequestKind::Navigate,
@@ -506,15 +503,8 @@ fn apply_user_agent_header(headers: &mut moli_fetch::RequestHeaders, user_agent:
     }
 }
 
-fn target_navigation_initiator_url(target_url: &str, loaded_page: Option<&Page>) -> Option<Url> {
-    if let Some(loaded_page) = loaded_page {
-        let url = loaded_page.final_url().clone();
-        if url.host_str().is_some() {
-            return Some(url);
-        }
-    }
-
-    let url = Url::parse(target_url).ok()?;
+fn target_navigation_initiator_url(target: &PageTargetHost) -> Option<Url> {
+    let url = Url::parse(target.document_url()?).ok()?;
     url.host_str().is_some().then_some(url)
 }
 
@@ -543,11 +533,7 @@ impl<'a> TargetSessionOwnerRef<'a> {
         target
             .owner_state
             .navigation_history_state
-            .browsing_context_group_for_navigation(
-                group,
-                target.loaded_page().map(Page::final_url),
-                browser_initiated,
-            )
+            .browsing_context_group_for_navigation(group, target.committed_url(), browser_initiated)
     }
 
     fn target(&self) -> &'a crate::conn::PageTargetHost {
@@ -557,8 +543,7 @@ impl<'a> TargetSessionOwnerRef<'a> {
     }
 
     fn navigation_initiator_url(&self) -> Option<Url> {
-        let target = self.target();
-        target_navigation_initiator_url(target.target_url(), target.loaded_page())
+        target_navigation_initiator_url(self.target())
     }
 
     pub(super) fn devtools_session_state(&self) -> Option<&'a DevToolsSessionState> {
@@ -600,12 +585,6 @@ impl<'a> TargetSessionOwnerRef<'a> {
         &self.target().owner_state
     }
 
-    pub(super) fn initial_empty_document_url_if_current(&self) -> Option<String> {
-        self.target_owner_state()
-            .initial_empty_document_url_if_current()
-            .map(str::to_owned)
-    }
-
     pub(super) fn initial_empty_document_storage_key_if_current(
         &self,
     ) -> Option<moli_storage_key::MoliStorageKey> {
@@ -633,19 +612,9 @@ impl<'a> TargetSessionOwnerRef<'a> {
         self.target().session_id().map(str::to_owned)
     }
 
-    pub(super) fn target_url(&self) -> String {
-        self.target().target_url().to_owned()
-    }
-
     pub(super) fn frame_tree_identity(&self) -> (String, String, String, String) {
         let target = self.target();
-        let document_url = target
-            .loaded_page()
-            // Only a browser-owned network error Document diverges from the
-            // user-visible Target/history URL.
-            .filter(|page| page.final_url().as_str() == NETWORK_ERROR_PAGE_URL)
-            .map(|page| page.final_url().to_string())
-            .unwrap_or_else(|| target.target_identity().url().to_owned());
+        let document_url = target.document_url().unwrap_or("about:blank").to_owned();
         (
             target.target_id().to_owned(),
             document_url,
@@ -732,14 +701,9 @@ impl<'a> TargetSessionOwnerMut<'a> {
         {
             return None;
         }
-        target
-            .runtime_slot()
-            .loaded_page()
-            .map(|page| (target.target_url().to_owned(), page.document_title()))
-    }
-
-    pub(super) fn target_url(&self) -> String {
-        self.target().target_url().to_owned()
+        let committed_url = target.committed_url()?;
+        let title = target.loaded_page()?.document_title();
+        Some((committed_url.to_string(), title))
     }
 
     pub(super) fn runtime_slot_ref(&self) -> &TargetRuntimeSlot {
@@ -787,7 +751,6 @@ impl<'a> TargetSessionOwnerMut<'a> {
     fn take_crashed_page(&mut self) -> Option<Page> {
         let target = self.target_mut();
         target.owner_state.target_crash_state.mark_crashed();
-        target.owner_state.committed_document = None;
         target.owner_state.navigation_history_state.clear();
         target.owner_state.navigation_history_document = None;
         target.owner_state.clear_loaded_document_context_state();
@@ -804,13 +767,8 @@ impl<'a> TargetSessionOwnerMut<'a> {
         previous
     }
 
-    fn take_loaded_page_after_failed_navigation(&mut self, final_url: &Url) -> Option<Page> {
-        let next_url = final_url.to_string();
-        let security_origin = final_url.origin().ascii_serialization();
+    fn take_loaded_page_after_failed_navigation(&mut self) -> Option<Page> {
         let target = self.target_mut();
-        target.set_target_url(next_url);
-        target.owner_state.committed_document = None;
-        target.set_target_security_origin(security_origin);
         target.owner_state.mark_initial_empty_document_exited();
         target
             .owner_state
@@ -882,8 +840,6 @@ impl<'a> TargetSessionOwnerMut<'a> {
         url: &Url,
         history_update: moli_core::page::SessionHistoryUpdateKind,
     ) -> Option<String> {
-        let next_url = url.to_string();
-        let security_origin = url.origin().ascii_serialization();
         let page_snapshot = self.page_snapshot();
         let title = page_snapshot
             .as_ref()
@@ -893,8 +849,6 @@ impl<'a> TargetSessionOwnerMut<'a> {
         target
             .owner_state
             .record_session_history_update(page_snapshot, url, title, history_update);
-        target.set_target_url(next_url);
-        target.set_target_security_origin(security_origin);
         Some(target.target_id().to_owned())
     }
 
@@ -1030,7 +984,6 @@ impl<'a> TargetSessionOwnerMut<'a> {
         main_document_commit: &RendererMainDocumentCommit,
         target_url: &Url,
     ) -> Option<()> {
-        let next_url = target_url.to_string();
         let security_origin = main_document_commit.security_origin.clone();
         let secure_context_type = main_document_commit.secure_context_type.clone();
         let target = self.target_mut();
@@ -1054,7 +1007,6 @@ impl<'a> TargetSessionOwnerMut<'a> {
         if native_source.is_none()
             || target.owner_state.navigation_history_document != native_source
         {
-            target.set_target_url(next_url);
             target.owner_state.commit_document_url(
                 target_url.clone(),
                 main_document_commit.unreachable_url.is_some(),
@@ -1445,7 +1397,6 @@ impl CdpConnection {
         owner: &CommandOwnerScope,
         token: &crate::conn::DocumentNavigationToken,
         expected: Option<&crate::conn::StablePageNavigationCommitTarget>,
-        final_url: &Url,
     ) -> Option<Page> {
         // A session and even a renderer Page can survive multiple Documents.
         // Cleanup requires both the failed navigation and its captured Page.
@@ -1460,7 +1411,7 @@ impl CdpConnection {
             return None;
         }
         self.target_session_owner_mut_for_owner(owner)?
-            .take_loaded_page_after_failed_navigation(final_url)
+            .take_loaded_page_after_failed_navigation()
     }
 
     pub(crate) fn start_page_target_close(
@@ -2480,19 +2431,32 @@ impl CdpConnection {
             .then_some(attachments)
     }
 
-    pub(crate) fn runtime_session_owner_target_url(
-        &self,
-        session_id: Option<&str>,
-    ) -> Option<String> {
-        let owner = CommandOwnerScope::capture(self, session_id);
-        self.runtime_session_owner_target_url_for_owner(&owner)
-    }
-
-    pub(crate) fn runtime_session_owner_target_url_for_owner(
+    pub(crate) fn runtime_session_owner_committed_url_for_owner(
         &self,
         owner: &CommandOwnerScope,
-    ) -> Option<String> {
-        Some(self.target_session_owner_ref_for_owner(owner)?.target_url())
+    ) -> Option<&Url> {
+        self.target_session_owner_ref_for_owner(owner)?
+            .target()
+            .committed_url()
+    }
+
+    pub(crate) fn runtime_session_owner_document_url_for_owner(
+        &self,
+        owner: &CommandOwnerScope,
+    ) -> Option<&str> {
+        self.target_session_owner_ref_for_owner(owner)?
+            .target()
+            .document_url()
+    }
+
+    pub(crate) fn runtime_session_owner_reload_url_for_owner(
+        &self,
+        owner: &CommandOwnerScope,
+    ) -> Option<&str> {
+        let target = self.target_session_owner_ref_for_owner(owner)?.target();
+        target
+            .initial_pending_url()
+            .or_else(|| target.committed_url().map(Url::as_str))
     }
 
     pub(crate) fn runtime_session_owner_fragment_source_url_for_owner(
@@ -2500,10 +2464,13 @@ impl CdpConnection {
         owner: &CommandOwnerScope,
     ) -> Option<&Url> {
         let target = self.target_session_owner_ref_for_owner(owner)?.target();
-        if target
-            .runtime_slot()
-            .page_slot()
-            .has_pending_cross_document_commit()
+        if target.owner_state.target_crash_state.is_crashed()
+            || target
+                .runtime_slot()
+                .page_slot()
+                .has_pending_cross_document_commit()
+            || (!target.has_loaded_page()
+                && target.owner_state.is_on_initial_empty_document() != Some(true))
         {
             return None;
         }
@@ -2531,11 +2498,12 @@ impl CdpConnection {
             .take()
     }
 
-    pub(crate) fn runtime_session_owner_record_initial_empty_document_url_for_owner(
+    pub(crate) fn runtime_session_owner_initial_empty_document_url_for_owner(
         &self,
         owner: &CommandOwnerScope,
-    ) -> Option<String> {
+    ) -> Option<&Url> {
         self.target_session_owner_ref_for_owner(owner)?
+            .target_owner_state()
             .initial_empty_document_url_if_current()
     }
 
@@ -2553,6 +2521,22 @@ impl CdpConnection {
     ) -> Option<moli_storage_key::MoliStorageKey> {
         self.target_session_owner_ref_for_owner(owner)?
             .initial_empty_document_storage_key_if_current()
+    }
+
+    pub(crate) fn unmaterialized_document_storage_key_for_owner(
+        &self,
+        owner: &CommandOwnerScope,
+    ) -> Option<moli_storage_key::MoliStorageKey> {
+        let target_owner = self.target_session_owner_ref_for_owner(owner)?;
+        if let Some(storage_key) = target_owner.initial_empty_document_storage_key_if_current() {
+            return Some(storage_key);
+        }
+        let url = Url::parse(target_owner.target().document_url()?).ok()?;
+        Some(moli_storage_key::MoliStorageKey::first_party_from_url(
+            &url,
+            moli_storage_key::url_needs_opaque_nonce(&url)
+                .then_some(moli_storage_key::OpaqueOriginNonce::new(0)),
+        ))
     }
 
     pub(crate) fn runtime_session_owner_record_is_on_initial_empty_document_for_owner(
@@ -2838,6 +2822,92 @@ mod tests {
     use crate::testing::TestContext;
     use moli_core::page::SubresourceResourceType;
     use url::Url;
+
+    #[test]
+    fn initial_request_address_is_visible_without_replacing_the_document_address() {
+        let mut conn = CdpConnection::new();
+        let mut browser = BrowserContext::new("BID-preview".into());
+        let target_id = "TID-preview";
+        let staged_url = "https://example.test/staged";
+        let request_url = "https://example.test/request";
+        browser.stage_foreground_target(
+            target_id.into(),
+            Some("SID-preview".into()),
+            staged_url.into(),
+            Some("about:blank".into()),
+        );
+        conn.install_browser_context_fixture_for_test(browser);
+        let owner = CommandOwnerScope::for_session("SID-preview");
+        let visible = |conn: &CdpConnection| {
+            conn.browser_context
+                .as_ref()
+                .unwrap()
+                .devtools_target_info(target_id)
+                .unwrap()
+                .url
+        };
+
+        assert_eq!(visible(&conn), staged_url);
+        assert_eq!(
+            conn.runtime_session_owner_reload_url_for_owner(&owner),
+            Some(staged_url)
+        );
+        assert_eq!(
+            conn.runtime_session_owner_document_url_for_owner(&owner),
+            Some("about:blank")
+        );
+        assert_eq!(
+            conn.runtime_session_owner_fragment_source_url_for_owner(&owner)
+                .map(Url::as_str),
+            Some("about:blank")
+        );
+
+        let request = conn
+            .start_document_navigation_for_owner(&owner, "LID-preview".into())
+            .unwrap();
+        conn.runtime_session_owner_slot_mut_for_owner(&owner)
+            .unwrap()
+            .page_slot_mut()
+            .record_pending_navigation_url(&request, Url::parse(request_url).unwrap());
+
+        assert_eq!(visible(&conn), request_url);
+        assert_eq!(
+            conn.runtime_session_owner_reload_url_for_owner(&owner),
+            Some(request_url)
+        );
+        assert_eq!(
+            conn.runtime_session_owner_document_url_for_owner(&owner),
+            Some("about:blank")
+        );
+        conn.clear_pending_document_navigation_for_owner_if_loader_matches(
+            &owner,
+            &request.loader_id,
+        );
+        assert_eq!(
+            conn.runtime_session_owner_reload_url_for_owner(&owner),
+            Some("about:blank")
+        );
+        assert_eq!(visible(&conn), "about:blank");
+
+        let committed = "https://example.test/committed";
+        conn.with_target_owner_state_for_owner_mut(&owner, |state| {
+            state.mark_initial_empty_document_exited();
+            state.commit_document_url(Url::parse(committed).unwrap(), false);
+        })
+        .unwrap();
+        let request = conn
+            .start_document_navigation_for_owner(&owner, "LID-next".into())
+            .unwrap();
+        conn.runtime_session_owner_slot_mut_for_owner(&owner)
+            .unwrap()
+            .page_slot_mut()
+            .record_pending_navigation_url(&request, Url::parse(request_url).unwrap());
+        assert_eq!(
+            conn.runtime_session_owner_reload_url_for_owner(&owner),
+            Some(committed)
+        );
+        assert_eq!(visible(&conn), committed);
+    }
 
     #[tokio::test]
     async fn fragment_source_remains_available_until_cross_document_commit_handoff() {
@@ -3747,7 +3817,7 @@ mod tests {
             background
                 .background_target("TID-background")
                 .expect("background target")
-                .target_url(),
+                .visible_url(),
             "about:blank",
             "preparing commit state should not mutate target identity"
         );
@@ -3782,7 +3852,7 @@ mod tests {
             background
                 .background_target("TID-background")
                 .expect("background target")
-                .target_url(),
+                .visible_url(),
             "https://nav.example/path"
         );
         assert_eq!(
@@ -4326,7 +4396,7 @@ mod tests {
         let mut conn = CdpConnection::default();
         let mut active = BrowserContext::new_with_page_for_test("BID-active", "TID-active");
         active.set_active_target_id("TID-active".to_owned());
-        active.set_target_url("https://active.example/".to_owned());
+        active.set_committed_url_for_test("https://active.example/".to_owned());
         active.attach_active_session("SID-active".to_owned());
         active.insert_page_target_host(crate::conn::PageTargetHost::with_url(
             "TID-background".to_owned(),
@@ -4346,7 +4416,7 @@ mod tests {
 
         let mut inactive = BrowserContext::new("BID-inactive".to_owned());
         inactive.set_active_target_id("TID-inactive".to_owned());
-        inactive.set_target_url("https://inactive.example/".to_owned());
+        inactive.set_committed_url_for_test("https://inactive.example/".to_owned());
         inactive
             .active_page_target_mut()
             .devtools_sessions
@@ -4417,13 +4487,19 @@ mod tests {
             Some("SID-background")
         );
         assert_eq!(
-            conn.runtime_session_owner_target_url(Some("SID-background"))
-                .as_deref(),
+            conn.runtime_session_owner_committed_url_for_owner(&CommandOwnerScope::capture(
+                &conn,
+                Some("SID-background"),
+            ))
+            .map(Url::as_str),
             Some("https://background.example/")
         );
         assert_eq!(
-            conn.runtime_session_owner_target_url(Some("SID-attached-inactive"))
-                .as_deref(),
+            conn.runtime_session_owner_committed_url_for_owner(&CommandOwnerScope::capture(
+                &conn,
+                Some("SID-attached-inactive"),
+            ))
+            .map(Url::as_str),
             Some("https://inactive.example/")
         );
         assert_eq!(

@@ -230,52 +230,20 @@ pub(crate) fn prepare_popup_target(
                         .same_origin(&initiator.origin())
                     })
             });
-        let has_loaded_page =
-            popup_target_has_loaded_page(conn, &browser_context_id, &existing_target_id);
-        let navigation = has_loaded_page
-            .then(|| {
-                PopupTargetNavigationOwnerAction::capture(
-                    conn,
-                    &browser_context_id,
-                    &existing_target_id,
-                    Some(url.clone()),
-                    PopupTargetNavigationKind::NamedTargetReuse { replace_current },
-                )
-            })
-            .flatten();
+        let target = browser_context.page_target(&existing_target_id)?;
+        let has_loaded_page = target.has_loaded_page();
         let activation = (disposition != moli_core::page::RendererPopupDisposition::Background)
             .then(|| {
                 PopupTargetActivationAction::capture(conn, &browser_context_id, &existing_target_id)
             })
             .flatten();
 
-        let target_url_updated = conn
-            .browser_context_by_id_mut(&browser_context_id)
-            .is_some_and(|browser_context| {
-                browser_context.update_target_url(&existing_target_id, url.clone())
-            });
-        if target_url_updated {
-            emit_target_info_changed_for_target_background_event(
-                conn,
-                out,
-                &browser_context_id,
-                &existing_target_id,
-            );
-            if let Some(navigation) = navigation {
-                conn.publish_popup_target_navigation_owner_action(
-                    navigation
-                        .with_document_response(document_response)
-                        .with_initial_document_environment(initial_document_environment)
-                        .with_navigation_initiator(navigation_initiator),
-                );
-            } else if !has_loaded_page {
-                // Keep the latest accepted request while the same Host joins
-                // adoption. Never reuse the first URL's response or initiator.
-                conn.browser_context_by_id_mut(&browser_context_id)
-                    .and_then(|context| context.page_target_mut(&existing_target_id))
-                    .expect("accepted named target remains registered")
-                    .owner_state
-                    .pending_initial_navigation = Some(crate::conn::PendingInitialNavigation {
+        if !has_loaded_page {
+            let target = conn
+                .browser_context_by_id_mut(&browser_context_id)?
+                .page_target_mut(&existing_target_id)?;
+            target.owner_state.pending_initial_navigation =
+                Some(crate::conn::PendingInitialNavigation {
                     url,
                     auxiliary: Some(crate::conn::InitialAuxiliaryNavigation {
                         response: document_response,
@@ -283,14 +251,30 @@ pub(crate) fn prepare_popup_target(
                         initiator: navigation_initiator,
                     }),
                 });
-            }
-            if let Some(activation) = activation {
-                crate::conn::PendingProtocolSchedulerWork::publish_popup_activation(
-                    conn, activation,
-                );
-            }
+            emit_target_info_changed_for_target_background_event(
+                conn,
+                out,
+                &browser_context_id,
+                &existing_target_id,
+            );
+        } else if let Some(action) = PopupTargetNavigationOwnerAction::capture(
+            conn,
+            &browser_context_id,
+            &existing_target_id,
+            Some(url),
+            PopupTargetNavigationKind::NamedTargetReuse { replace_current },
+        ) {
+            conn.publish_popup_target_navigation_owner_action(
+                action
+                    .with_document_response(document_response)
+                    .with_initial_document_environment(initial_document_environment)
+                    .with_navigation_initiator(navigation_initiator),
+            );
         }
-        return target_url_updated.then_some(PreparedPopupTarget::Existing(existing_target_id));
+        if let Some(activation) = activation {
+            crate::conn::PendingProtocolSchedulerWork::publish_popup_activation(conn, activation);
+        }
+        return Some(PreparedPopupTarget::Existing(existing_target_id));
     }
 
     if browsing_context_name.is_some() && auxiliary_window.is_none() {
@@ -395,14 +379,15 @@ pub(crate) fn prepare_popup_target(
         browser_context
             .page_target_mut(&target_id)?
             .owner_state
-            .pending_initial_navigation = Some(crate::conn::PendingInitialNavigation {
-            url: requested_url,
-            auxiliary: Some(crate::conn::InitialAuxiliaryNavigation {
-                response: document_response,
-                environment: initial_document_environment,
-                initiator: navigation_initiator,
-            }),
-        });
+            .pending_initial_navigation =
+            (requested_url != "about:blank").then_some(crate::conn::PendingInitialNavigation {
+                url: requested_url,
+                auxiliary: Some(crate::conn::InitialAuxiliaryNavigation {
+                    response: document_response,
+                    environment: initial_document_environment,
+                    initiator: navigation_initiator,
+                }),
+            });
     }
 
     let tab_target_id = conn.register_top_level_page_target(&target_id);

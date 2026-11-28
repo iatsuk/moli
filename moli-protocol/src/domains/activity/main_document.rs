@@ -287,10 +287,14 @@ impl MainDocumentNavigationActivity {
         conn: &mut CdpConnection,
         out: &mut BackgroundProtocolEventBuffer,
         pending_download: Option<RendererPendingDownloadActivation>,
+        source: Option<(
+            RendererPageResidenceIdentity,
+            RendererDocumentLifecycleIdentity,
+        )>,
     ) -> Option<crate::conn::PreparedDownloadActivationDelivery> {
         let timing_enabled = moli_trace::cdp_nav_timing_enabled();
         let timing_started = std::time::Instant::now();
-        if !self.is_still_current(conn) {
+        if !self.is_still_current(conn, source) {
             if timing_enabled {
                 tracing::info!(
                     target: "moli_cdp_nav_timing",
@@ -335,15 +339,26 @@ impl MainDocumentNavigationActivity {
         }
     }
 
-    fn is_still_current(&self, conn: &CdpConnection) -> bool {
+    fn is_still_current(
+        &self,
+        conn: &CdpConnection,
+        source: Option<(
+            RendererPageResidenceIdentity,
+            RendererDocumentLifecycleIdentity,
+        )>,
+    ) -> bool {
         if let Some(token) = self.document_navigation_token.as_ref() {
             // The document token is the document identity. A same-document
             // navigation may update the target URL between DCL and load, but
             // it must not make the current document's load completion stale.
             return conn.accepts_document_body_completion_for_owner(&self.state.owner, token);
         }
-        conn.runtime_session_owner_target_url_for_owner(&self.state.owner)
-            .is_some_and(|url| url == self.final_url.as_str())
+        let Some((page, document)) = source else {
+            return false;
+        };
+        conn.renderer_page_residence_identity_for_owner(&self.state.owner) == Some(page)
+            && conn.target_root_document_lifecycle_identity_for_owner(&self.state.owner)
+                == Some(document)
     }
 
     fn emit_navigation_result_from_state_into_buffer(&mut self, out: &mut CommandOutputBuffer) {
@@ -650,8 +665,13 @@ impl MainDocumentPostLoadAction {
             return None;
         }
         let pending_download = self.pending_download.take();
-        self.navigation_activity
-            .prepare_deferred_load_completion(conn, out, pending_download)
+        self.navigation_activity.prepare_deferred_load_completion(
+            conn,
+            out,
+            pending_download,
+            self.renderer_page_residence_identity
+                .zip(self.renderer_document),
+        )
     }
 }
 
@@ -807,7 +827,7 @@ mod tests {
         let mut browser_context = BrowserContext::new("BID-load-publication".to_owned());
         browser_context.set_active_target_id("TID-load-publication");
         browser_context.attach_active_session("SID-nav");
-        browser_context.set_target_url("https://example.test/start".to_owned());
+        browser_context.set_committed_url_for_test("https://example.test/start".to_owned());
         browser_context
             .active_page_target_mut()
             .runtime_slot
@@ -1210,7 +1230,7 @@ mod tests {
         let mut browser_context = BrowserContext::new("BID-child".to_owned());
         browser_context.set_active_target_id("FRAME-1");
         browser_context.attach_active_session("SID-nav");
-        browser_context.set_target_url("https://example.test/parent".to_owned());
+        browser_context.set_committed_url_for_test("https://example.test/parent".to_owned());
         browser_context.active_page_target_mut().devtools_sessions
             [moli_page_types::DevToolsSessionKey::Primary]
             .page_session_state
@@ -1304,7 +1324,7 @@ mod tests {
         let mut browser_context = BrowserContext::new("BID-reload".to_owned());
         browser_context.set_active_target_id("TID-reload");
         browser_context.attach_active_session("SID-nav");
-        browser_context.set_target_url(final_url.as_str().to_owned());
+        browser_context.set_committed_url_for_test(final_url.as_str().to_owned());
         let old_token = browser_context
             .start_document_navigation_for_active_target("LID-1".to_owned())
             .expect("old navigation token");
@@ -1319,7 +1339,7 @@ mod tests {
             Some(old_token),
         );
         assert!(
-            activity.is_still_current(&conn),
+            activity.is_still_current(&conn, None),
             "freshly committed navigation token should be accepted"
         );
 
@@ -1332,10 +1352,10 @@ mod tests {
         conn.browser_context
             .as_mut()
             .expect("browser context")
-            .set_target_url(final_url.as_str().to_owned());
+            .set_committed_url_for_test(final_url.as_str().to_owned());
 
         assert!(
-            !activity.is_still_current(&conn),
+            !activity.is_still_current(&conn, None),
             "URL equality is not enough: a newer pending navigation to the same URL must make the old load completion stale"
         );
 
@@ -1345,7 +1365,7 @@ mod tests {
             .commit_document_navigation_if_matches(&new_token);
 
         assert!(
-            !activity.is_still_current(&conn),
+            !activity.is_still_current(&conn, None),
             "a newer committed navigation to the same URL must not accept an older deferred load completion"
         );
     }
@@ -1356,7 +1376,7 @@ mod tests {
         let mut browser_context = BrowserContext::new("BID-same-doc".to_owned());
         browser_context.set_active_target_id("TID-same-doc");
         browser_context.attach_active_session("SID-nav");
-        browser_context.set_target_url(final_url.as_str().to_owned());
+        browser_context.set_committed_url_for_test(final_url.as_str().to_owned());
         let token = browser_context
             .start_document_navigation_for_active_target("LID-1".to_owned())
             .expect("navigation token");
@@ -1373,10 +1393,10 @@ mod tests {
         conn.browser_context
             .as_mut()
             .expect("browser context")
-            .set_target_url("https://example.test/page#after-dcl".to_owned());
+            .set_committed_url_for_test("https://example.test/page#after-dcl".to_owned());
 
         assert!(
-            activity.is_still_current(&conn),
+            activity.is_still_current(&conn, None),
             "same-document URL changes after DCL must not cancel the current document's deferred load completion"
         );
     }

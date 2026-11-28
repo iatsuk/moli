@@ -502,7 +502,7 @@ mod tests {
     async fn load_document(ctx: &mut TestContext, html: &str) {
         let mut browser_context = BrowserContext::new("BID-1".into());
         browser_context.set_active_target_id("TID-1".to_owned());
-        browser_context.set_target_url("data:text/html,dom-debugger-test".to_owned());
+        browser_context.set_committed_url_for_test("data:text/html,dom-debugger-test".to_owned());
         browser_context.attach_active_session("SID-1".to_owned());
         ctx.with_fixture(|conn| conn.install_browser_context_fixture_for_test(browser_context));
         ctx.install_navigation_fixture_for_session_owner(

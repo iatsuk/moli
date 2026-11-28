@@ -1352,7 +1352,10 @@ fn start_devtools_reload_command(
     options: DevToolsNavigationStartOptions,
 ) -> PageCommandTaskStep {
     let owner = options.owner;
-    let Some(url) = conn.runtime_session_owner_target_url_for_owner(&owner) else {
+    let Some(url) = conn
+        .runtime_session_owner_reload_url_for_owner(&owner)
+        .map(str::to_owned)
+    else {
         return PageCommandTaskStep::Complete(CommandOutputPlan::error(-31998, "TargetNotLoaded"));
     };
     if conn
@@ -2756,8 +2759,7 @@ fn start_navigate_to_url_command_with_background_policy_and_request(
     let replaces_prepared_document = conn
         .runtime_session_owner_slot_for_owner(owner)
         .is_some_and(|slot| slot.has_prepared_document_output());
-    let document_navigation_token =
-        conn.start_document_navigation_for_owner(owner, navigation_loader_id.to_owned());
+    let document_navigation_token = conn.start_document_navigation_request(&navigation_state);
     let Some(document_navigation_token) = document_navigation_token else {
         return NavigateCommandStart::CompletePlan(CommandOutputPlan::error(
             -31998,

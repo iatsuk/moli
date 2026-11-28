@@ -37,6 +37,6 @@ pub(in crate::domains) use runtime_queue::RuntimeObservableEmissionSnapshot;
 #[cfg(test)]
 pub(crate) use runtime_queue::TargetRuntimeObservableQueueSnapshot;
 pub(crate) use runtime_queue::{
-    TargetRuntimeObservableQueueState, TargetRuntimeObservableSourceOutput,
-    TargetRuntimeObservableSourceSummary,
+    ObservableSourceIdentity, TargetRuntimeObservableQueueState,
+    TargetRuntimeObservableSourceOutput, TargetRuntimeObservableSourceSummary,
 };

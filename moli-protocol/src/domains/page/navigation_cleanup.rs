@@ -93,7 +93,6 @@ pub(crate) fn prepare_failed_navigation_cleanup(
             &owner,
             &token,
             expected.as_ref(),
-            &state.requested_url,
         );
     }
     activity::MainDocumentFailedNavigationActivity::new(state, progress_gate, response_mode)

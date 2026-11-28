@@ -701,7 +701,7 @@ async fn main_document_navigation_redirect_emits_second_request_with_redirect_re
     let mut bc = BrowserContext::new("BID-1".into());
     bc.set_active_target_id("TID-1");
     bc.attach_active_session("SID-1");
-    bc.set_target_url(format!("http://localhost:{}/origin", addr.port()));
+    bc.set_committed_url_for_test(format!("http://localhost:{}/origin", addr.port()));
     {
         let mut jar = bc.cookie_store_for_test().lock().unwrap();
         jar.store_response_headers(
@@ -1167,7 +1167,7 @@ async fn main_document_multi_hop_redirect_preserves_cookie_downgrade_report() {
     let mut bc = BrowserContext::new("BID-1".into());
     bc.set_active_target_id("TID-1");
     bc.attach_active_session("SID-1");
-    bc.set_target_url(format!("http://localhost:{}/origin", addr.port()));
+    bc.set_committed_url_for_test(format!("http://localhost:{}/origin", addr.port()));
     {
         let mut jar = bc.cookie_store_for_test().lock().unwrap();
         jar.store_response_headers(
@@ -1649,7 +1649,7 @@ async fn first_main_document_transport_failure_commits_error_document() {
             conn.browser_context
                 .as_ref()
                 .expect("browser context")
-                .target_url(),
+                .visible_url(),
             url
         )
     });

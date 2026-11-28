@@ -194,10 +194,12 @@ impl TargetSessionOwnerMut<'_> {
         let storage = self.mutate_target_owner_state(|owner_state| owner_state.log_storage_state);
         let should_replay =
             self.mutate_session_state_ref(|state| state.enable_log_with_storage(storage));
-        let replay = should_replay.then_some(output).flatten().and_then(
-            |(url, lifecycle_errors, network_entries)| {
-                let lifecycle_end = lifecycle_errors.len();
-                let network_end = network_entries.len();
+        let replay = should_replay
+            .then_some(output)
+            .flatten()
+            .and_then(|mut output| {
+                let lifecycle_end = output.lifecycle_errors.len();
+                let network_end = output.network_entries.len();
                 let lifecycle_start = storage.lifecycle_start().min(lifecycle_end);
                 let network_start = storage.network_start().min(network_end);
                 self.mutate_session_state_ref(|mut state| {
@@ -206,23 +208,11 @@ impl TargetSessionOwnerMut<'_> {
                         .console_output_session_state
                         .mark_log_entries_emitted(storage.generation(), lifecycle_end, network_end);
                 });
-                let lifecycle_errors = lifecycle_errors
-                    .into_iter()
-                    .skip(lifecycle_start)
-                    .collect::<Vec<_>>();
-                let network_entries = network_entries
-                    .into_iter()
-                    .skip(network_start)
-                    .collect::<Vec<_>>();
-                (!lifecycle_errors.is_empty() || !network_entries.is_empty()).then_some(
-                    crate::domains::log::TargetLogReplaySnapshot {
-                        url,
-                        lifecycle_errors,
-                        network_entries,
-                    },
-                )
-            },
-        );
+                output.lifecycle_errors.drain(..lifecycle_start);
+                output.network_entries.drain(..network_start);
+                (!output.lifecycle_errors.is_empty() || !output.network_entries.is_empty())
+                    .then_some(output)
+            });
         SessionOwnerLogEnableResult::Handled { replay }
     }
 
@@ -234,9 +224,7 @@ impl TargetSessionOwnerMut<'_> {
     fn clear_log(mut self) -> bool {
         let (lifecycle_end, network_end) = self
             .log_output_snapshot()
-            .map(|(_, lifecycle_errors, network_entries)| {
-                (lifecycle_errors.len(), network_entries.len())
-            })
+            .map(|output| (output.lifecycle_errors.len(), output.network_entries.len()))
             .unwrap_or_default();
         self.mutate_target_owner_state(|owner_state| {
             owner_state
@@ -380,11 +368,9 @@ impl TargetSessionOwnerMut<'_> {
     }
 
     fn console_counts(&self) -> Option<(usize, usize)> {
-        runtime_observable_console_payloads(self.runtime_slot_ref()).map(
-            |(_, console_messages, lifecycle_errors)| {
-                (console_messages.len(), lifecycle_errors.len())
-            },
-        )
+        self.runtime_slot_ref()
+            .observable_output_latest_source_tail()
+            .map(|source| source.console_and_lifecycle_counts())
     }
 
     fn advance_console_domain_cursors_to_current(&mut self) {
@@ -398,42 +384,22 @@ impl TargetSessionOwnerMut<'_> {
         });
     }
 
-    fn log_output_snapshot(
-        &mut self,
-    ) -> Option<(
-        String,
-        Vec<String>,
-        Vec<crate::domains::log_output_state::TargetNetworkLogEntry>,
-    )> {
+    fn log_output_snapshot(&self) -> Option<crate::domains::log::TargetLogReplaySnapshot> {
         // Concrete renderer records are already admitted into target-owned
         // queues. Late `Log.enable` replay must read those queues rather than
         // rediscovering output from the immutable Page diagnostics snapshot.
         // Network storage is independent from Console/lifecycle storage: a
         // page that only produced a failed request has no observable source
         // tail, but Chromium must still replay its network Log entry.
-        let url = self.target_url();
         let runtime_slot = self.runtime_slot_ref();
         let lifecycle_errors = runtime_slot
             .observable_output_latest_source_tail()
-            .map(|source| {
-                source
-                    .observable_output_items()
-                    .into_iter()
-                    .filter_map(|item| match item {
-                        moli_core::page::ScriptObservableOutputItem::LifecycleError(error) => {
-                            Some(error)
-                        }
-                        moli_core::page::ScriptObservableOutputItem::ConsoleMessage(_)
-                        | moli_core::page::ScriptObservableOutputItem::InspectorIssue(_) => None,
-                    })
-                    .collect()
-            })
+            .map(|source| source.lifecycle_error_records())
             .unwrap_or_default();
-        Some((
-            url,
+        Some(crate::domains::log::TargetLogReplaySnapshot {
             lifecycle_errors,
-            runtime_slot.network_log_entries()?.to_vec(),
-        ))
+            network_entries: runtime_slot.network_log_entries()?.to_vec(),
+        })
     }
 }
 
@@ -961,26 +927,6 @@ impl CdpConnection {
         })
         .or(accepts_without_target.then_some(true))
     }
-}
-
-fn runtime_observable_console_payloads(
-    runtime_slot: &TargetRuntimeSlot,
-) -> Option<(String, Vec<String>, Vec<String>)> {
-    let source = runtime_slot.observable_output_latest_source_tail()?;
-    let mut console_messages = Vec::new();
-    let mut lifecycle_errors = Vec::new();
-    for item in source.observable_output_items() {
-        match item {
-            moli_core::page::ScriptObservableOutputItem::ConsoleMessage(message) => {
-                console_messages.push(message);
-            }
-            moli_core::page::ScriptObservableOutputItem::LifecycleError(error) => {
-                lifecycle_errors.push(error);
-            }
-            moli_core::page::ScriptObservableOutputItem::InspectorIssue(_) => {}
-        }
-    }
-    Some((source.url().to_owned(), console_messages, lifecycle_errors))
 }
 
 #[cfg(test)]

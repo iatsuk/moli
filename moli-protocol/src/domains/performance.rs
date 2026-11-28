@@ -677,7 +677,7 @@ mod tests {
     async fn load_document(ctx: &mut TestContext, html: &str) {
         let mut bc = BrowserContext::new("BID-1".into());
         bc.set_active_target_id("TID-1".to_owned());
-        bc.set_target_url("data:text/html,performance-test".to_owned());
+        bc.set_committed_url_for_test("data:text/html,performance-test".to_owned());
         bc.attach_active_session("SID-1".to_owned());
         ctx.with_fixture(|conn| conn.install_browser_context_fixture_for_test(bc));
         ctx.install_navigation_fixture_for_session_owner(
@@ -944,7 +944,7 @@ mod tests {
         let mut browser_context = BrowserContext::new("BID-performance-owner".to_owned());
         browser_context.set_active_target_id("TID-performance-active");
         browser_context.attach_active_session("SID-performance-active");
-        browser_context.set_target_url(active_url.to_owned());
+        browser_context.set_committed_url_for_test(active_url.to_owned());
         browser_context.stage_background_target(
             "TID-performance-background".to_owned(),
             Some("SID-performance-background".to_owned()),
@@ -1051,7 +1051,7 @@ mod tests {
         let mut bc = BrowserContext::new("BID-1".into());
         bc.set_active_target_id("TID-active".to_owned());
         bc.attach_active_session("SID-active".to_owned());
-        bc.set_target_url("data:text/html,<body>active</body>".to_owned());
+        bc.set_committed_url_for_test("data:text/html,<body>active</body>".to_owned());
         bc.stage_background_target(
             "TID-background".to_owned(),
             Some("SID-background".to_owned()),

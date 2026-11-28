@@ -5,7 +5,6 @@ use moli_core::{
     page::{ChildFrameTreeSnapshot, Page},
 };
 use serde_json::json;
-use url::Url;
 
 use crate::{
     conn::{
@@ -218,19 +217,15 @@ fn start_storage_operation(
         );
     }
 
-    let Some(target_url) = conn.runtime_session_owner_target_url(cmd.session_id) else {
+    let Some(storage_key) = conn.unmaterialized_document_storage_key_for_owner(&owner_scope) else {
         return DomStorageCommandTaskStep::Complete(frame_not_found_plan());
-    };
-    let storage_key = match top_frame_storage_key_for_url(&target_url) {
-        Ok(storage_key) => storage_key,
-        Err(plan) => return DomStorageCommandTaskStep::Complete(plan),
     };
     DomStorageCommandTaskStep::Complete(complete_storage_operation(
         conn,
         &owner_scope,
         storage_id,
         operation,
-        &storage_key,
+        &storage_key.serialized_storage_key(),
     ))
 }
 
@@ -416,17 +411,6 @@ fn storage_id_matches_key(storage_id: &DomStorageId, storage_key: &str) -> bool 
         .security_origin
         .as_deref()
         .is_some_and(|security_origin| security_origin == parsed.origin())
-}
-
-fn top_frame_storage_key_for_url(target_url: &str) -> Result<String, CommandOutputPlan> {
-    let url =
-        Url::parse(target_url).map_err(|_| CommandOutputPlan::error(-32602, "InvalidParams"))?;
-    Ok(moli_storage_key::MoliStorageKey::first_party_from_url(
-        &url,
-        moli_storage_key::url_needs_opaque_nonce(&url)
-            .then_some(moli_storage_key::OpaqueOriginNonce::new(0)),
-    )
-    .serialized_storage_key())
 }
 
 fn frame_not_found_plan() -> CommandOutputPlan {

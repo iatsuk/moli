@@ -280,11 +280,8 @@ mod tests {
         bc.insert_page_target_host(crate::conn::PageTargetHost::new(
             "TID-B".into(),
             Some("SID-B".into()),
-            crate::conn::TargetIdentityState::new(
-                "about:blank#background".into(),
-                "null".into(),
-                "InsecureScheme".into(),
-            ),
+            "about:blank#background".into(),
+            crate::conn::TargetIdentityState::new("null".into(), "InsecureScheme".into()),
             crate::conn::TargetPageSlot::empty_for_test_fixture(),
         ));
         bc.active_page_target_mut()

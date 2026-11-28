@@ -465,7 +465,7 @@ async fn navigation_history_supports_playwright_back_forward_commands() {
     take_response_by_id(&mut ctx, 4);
     ctx.with_fixture(|conn| {
         assert_eq!(
-            conn.browser_context.as_ref().unwrap().target_url(),
+            conn.browser_context.as_ref().unwrap().visible_url(),
             first_url
         )
     });
@@ -496,7 +496,7 @@ async fn navigation_history_supports_playwright_back_forward_commands() {
     take_response_by_id(&mut ctx, 6);
     ctx.with_fixture(|conn| {
         assert_eq!(
-            conn.browser_context.as_ref().unwrap().target_url(),
+            conn.browser_context.as_ref().unwrap().visible_url(),
             second_url
         )
     });
@@ -557,7 +557,7 @@ async fn renderer_history_back_uses_browser_owned_navigation_history() {
     assert_eq!(response["result"]["result"]["value"], json!("queued"));
     ctx.wait_until_scheduler_state("script navigation commit", |conn| {
         conn.browser_context.as_ref().is_some_and(|browser| {
-            browser.target_url() == "data:text/html,<title>First</title><main>first</main>"
+            browser.visible_url() == "data:text/html,<title>First</title><main>first</main>"
                 && browser
                     .loaded_page()
                     .is_some_and(|page| page.final_url().as_str() == first_url)
@@ -566,7 +566,7 @@ async fn renderer_history_back_uses_browser_owned_navigation_history() {
     .await;
     ctx.with_fixture(|conn| {
         assert_eq!(
-            conn.browser_context.as_ref().unwrap().target_url(),
+            conn.browser_context.as_ref().unwrap().visible_url(),
             first_url
         )
     });
@@ -602,7 +602,7 @@ async fn renderer_history_back_uses_browser_owned_navigation_history() {
     );
     ctx.wait_until_scheduler_state("initial history entry commit", |conn| {
         conn.browser_context.as_ref().is_some_and(|browser| {
-            browser.target_url() == "about:blank"
+            browser.visible_url() == "about:blank"
                 && browser
                     .loaded_page()
                     .is_some_and(|page| page.final_url().as_str() == "about:blank")
@@ -611,7 +611,7 @@ async fn renderer_history_back_uses_browser_owned_navigation_history() {
     .await;
     ctx.with_fixture(|conn| {
         assert_eq!(
-            conn.browser_context.as_ref().unwrap().target_url(),
+            conn.browser_context.as_ref().unwrap().visible_url(),
             "about:blank"
         )
     });
@@ -631,7 +631,7 @@ async fn renderer_history_back_uses_browser_owned_navigation_history() {
     assert_eq!(response["result"]["result"]["value"], json!("at-start"));
     ctx.with_fixture(|conn| {
         assert_eq!(
-            conn.browser_context.as_ref().unwrap().target_url(),
+            conn.browser_context.as_ref().unwrap().visible_url(),
             "about:blank"
         )
     });
@@ -661,13 +661,13 @@ async fn renderer_history_back_uses_browser_owned_navigation_history() {
             browser
                 .loaded_page()
                 .is_some_and(|page| page.final_url().as_str() == first_url)
-                && browser.target_url() == first_url
+                && browser.visible_url() == first_url
         })
     })
     .await;
     ctx.with_fixture(|conn| {
         assert_eq!(
-            conn.browser_context.as_ref().unwrap().target_url(),
+            conn.browser_context.as_ref().unwrap().visible_url(),
             first_url
         )
     });
@@ -1271,11 +1271,8 @@ async fn navigation_history_is_preserved_per_background_target() {
             browser_context.insert_page_target_host(PageTargetHost::new(
                 "TID-B".to_owned(),
                 Some("SID-B".to_owned()),
-                crate::conn::TargetIdentityState::new(
-                    "about:blank".to_owned(),
-                    URL_BASE.to_owned(),
-                    "Secure".to_owned(),
-                ),
+                "about:blank".to_owned(),
+                crate::conn::TargetIdentityState::new(URL_BASE.to_owned(), "Secure".to_owned()),
                 crate::conn::TargetPageSlot::empty_for_test_fixture(),
             ));
         });
@@ -1358,7 +1355,9 @@ async fn get_navigation_history_targets_loaded_background_owner_without_activati
     let mut bc = BrowserContext::new("BID-1".to_owned());
     bc.set_active_target_id("TID-active".to_owned());
     bc.attach_active_session("SID-active".to_owned());
-    bc.set_target_url("data:text/html,<title>Active</title><main>active</main>".to_owned());
+    bc.set_committed_url_for_test(
+        "data:text/html,<title>Active</title><main>active</main>".to_owned(),
+    );
     bc.insert_page_target_host(background);
     ctx.with_fixture(|conn| conn.install_browser_context_fixture_for_test(bc));
     ctx.install_navigation_fixture_for_session_owner(background_url, Some("SID-background"))
@@ -1404,8 +1403,9 @@ async fn reset_navigation_history_targets_loaded_background_owner_without_activa
     let mut browser_context = BrowserContext::new("BID-reset-background".to_owned());
     browser_context.set_active_target_id("TID-active".to_owned());
     browser_context.attach_active_session("SID-active".to_owned());
-    browser_context
-        .set_target_url("data:text/html,<title>Active</title><main>active</main>".to_owned());
+    browser_context.set_committed_url_for_test(
+        "data:text/html,<title>Active</title><main>active</main>".to_owned(),
+    );
     browser_context.insert_page_target_host(background);
     ctx.with_fixture(|conn| conn.install_browser_context_fixture_for_test(browser_context));
     ctx.install_navigation_fixture_for_session_owner(background_url, Some("SID-background-reset"))
@@ -1455,7 +1455,9 @@ async fn navigate_to_history_entry_targets_background_owner_without_activation()
     let mut bc = BrowserContext::new("BID-1".to_owned());
     bc.set_active_target_id("TID-active".to_owned());
     bc.attach_active_session("SID-active".to_owned());
-    bc.set_target_url("data:text/html,<title>Active</title><main>active</main>".to_owned());
+    bc.set_committed_url_for_test(
+        "data:text/html,<title>Active</title><main>active</main>".to_owned(),
+    );
     bc.insert_page_target_host(PageTargetHost::with_url(
         "TID-background".to_owned(),
         Some("SID-background".to_owned()),
@@ -1513,7 +1515,7 @@ async fn navigate_to_history_entry_targets_background_owner_without_activation()
                 .background_target("TID-background")
                 .expect("background target should remain background")
         };
-        assert_eq!(background.target_url(), first_url);
+        assert_eq!(background.visible_url(), first_url);
     });
     ctx.sent.clear();
 
@@ -1545,7 +1547,7 @@ async fn get_navigation_history_targets_inactive_loaded_owner_without_activation
     let mut inactive = BrowserContext::new("BID-inactive".to_owned());
     inactive.set_active_target_id("TID-inactive".to_owned());
     inactive.attach_active_session("SID-inactive".to_owned());
-    inactive.set_target_url(page.final_url().as_str().to_owned());
+    inactive.set_committed_url_for_test(page.final_url().as_str().to_owned());
     inactive
         .active_page_target_mut()
         .runtime_slot
@@ -1751,7 +1753,7 @@ async fn fragment_meta_refresh_is_one_same_document_navigation() {
             conn.browser_context
                 .as_ref()
                 .expect("browser context")
-                .target_url(),
+                .visible_url(),
             fragment_url
         )
     });

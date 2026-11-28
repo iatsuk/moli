@@ -1965,16 +1965,8 @@ impl CdpConnection {
         &self,
         owner: &CommandOwnerScope,
     ) -> bool {
-        if let Some(is_on_initial_empty_document) =
-            self.runtime_session_owner_record_is_on_initial_empty_document_for_owner(owner)
-        {
-            return is_on_initial_empty_document;
-        }
-        self.runtime_session_owner_target_url_for_owner(owner)
-            .as_deref()
-            .and_then(|raw_url| Url::parse(raw_url).ok())
-            .as_ref()
-            .is_some_and(moli_url::is_about_blank)
+        self.runtime_session_owner_record_is_on_initial_empty_document_for_owner(owner)
+            == Some(true)
     }
 
     /// Returns whether the materialized initial `about:blank` still needs to
@@ -2053,6 +2045,8 @@ impl CdpConnection {
         let load_inputs = self.navigation_load_inputs_for_owner(owner);
         let requested_url = self
             .runtime_session_owner_initial_empty_document_url_for_owner(owner)
+            .filter(|url| moli_url::is_about_blank(url))
+            .cloned()
             .unwrap_or_else(|| Url::parse("about:blank").expect("about:blank should be valid"));
         let fetch_subresource_interception_classes = load_inputs.fetch_subresource_interception;
         let mut engine = self.navigation_engine_handle_for_load_inputs(&load_inputs);
@@ -2208,21 +2202,6 @@ impl CdpConnection {
             }
         }
         failed.into_message()
-    }
-
-    fn runtime_session_owner_initial_empty_document_url_for_owner(
-        &self,
-        owner: &CommandOwnerScope,
-    ) -> Option<Url> {
-        if let Some(raw_url) =
-            self.runtime_session_owner_record_initial_empty_document_url_for_owner(owner)
-        {
-            return Url::parse(&raw_url).ok().filter(moli_url::is_about_blank);
-        }
-        self.runtime_session_owner_target_url_for_owner(owner)
-            .as_deref()
-            .and_then(|raw_url| Url::parse(raw_url).ok())
-            .filter(moli_url::is_about_blank)
     }
 
     pub(crate) fn complete_initial_document_page_build_for_page_owner(
@@ -3476,17 +3455,7 @@ impl CdpConnection {
 
     #[cfg(test)]
     pub(crate) fn current_navigation_initiator_url(&self) -> Option<Url> {
-        let browser_context = self.browser_context.as_ref()?;
-
-        if let Some(loaded_page) = browser_context.loaded_page() {
-            let url = loaded_page.final_url().clone();
-            if url.host_str().is_some() {
-                return Some(url);
-            }
-        }
-
-        let url = Url::parse(browser_context.target_url()).ok()?;
-        url.host_str().is_some().then_some(url)
+        self.navigation_initiator_url_for_owner(&CommandOwnerScope::capture(self, None))
     }
 }
 

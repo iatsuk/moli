@@ -342,12 +342,48 @@ impl PageTargetHost {
         })
     }
 
-    pub(crate) fn target_url(&self) -> &str {
-        self.target_identity.url()
+    pub(crate) fn committed_url(&self) -> Option<&Url> {
+        self.owner_state
+            .committed_document
+            .as_ref()
+            .map(|document| &document.url)
     }
 
-    pub(crate) fn set_target_url(&mut self, url: String) {
-        self.target_identity.set_url(url);
+    pub(crate) fn document_url(&self) -> Option<&str> {
+        let slot = self.runtime_slot.page_slot();
+        slot.published_pending_document_url()
+            .or_else(|| self.loaded_page().map(|page| page.final_url().as_str()))
+            .or_else(|| match slot.loaded_page_absence_reason()? {
+                TargetPageAbsenceReason::NavigationFailed
+                | TargetPageAbsenceReason::TargetClosed
+                | TargetPageAbsenceReason::TargetCrashed => None,
+                _ => self.committed_url().map(Url::as_str),
+            })
+    }
+
+    /// DevTools target discovery can advertise the first pending navigation
+    /// while the initial empty Document is still current.
+    pub(crate) fn visible_url(&self) -> &str {
+        self.initial_pending_url()
+            .or_else(|| self.committed_url().map(Url::as_str))
+            .unwrap_or("about:blank")
+    }
+
+    pub(crate) fn initial_pending_url(&self) -> Option<&str> {
+        if self.owner_state.is_on_initial_empty_document() != Some(true) {
+            return None;
+        }
+        self.runtime_slot()
+            .page_slot()
+            .pending_navigation_url()
+            .map(Url::as_str)
+            .or_else(|| self.owner_state.pending_initial_navigation_url())
+    }
+
+    #[cfg(test)]
+    pub(crate) fn set_committed_url_for_test(&mut self, url: String) {
+        self.owner_state
+            .commit_document_url(Url::parse(&url).expect("valid fixture document URL"), false);
     }
 
     pub(crate) fn set_target_security_origin(&mut self, security_origin: String) {

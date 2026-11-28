@@ -494,7 +494,7 @@ async fn rust_cdp_chromium_target_create_target_in_matching_context_stages_activ
     ctx.with_fixture(|conn| {
         let browser_context = conn.browser_context.as_ref().expect("browser context");
         assert_eq!(browser_context.active_target_id(), Some(target_id.as_str()));
-        assert_eq!(browser_context.target_url(), "about:blank#active");
+        assert_eq!(browser_context.visible_url(), "about:blank#active");
     });
 }
 
@@ -1622,12 +1622,12 @@ async fn rust_cdp_chromium_target_window_open_self_does_not_create_popup_target(
     ctx.wait_until_scheduler_state("script navigation commit", |conn| {
         conn.browser_context
             .as_ref()
-            .is_some_and(|browser| browser.target_url() == "data:text/html,<main>self</main>")
+            .is_some_and(|browser| browser.visible_url() == "data:text/html,<main>self</main>")
     })
     .await;
     ctx.with_fixture(|conn| {
         assert_eq!(
-            conn.browser_context.as_ref().unwrap().target_url(),
+            conn.browser_context.as_ref().unwrap().visible_url(),
             "data:text/html,<main>self</main>"
         )
     });
@@ -1637,77 +1637,94 @@ async fn rust_cdp_chromium_target_window_open_self_does_not_create_popup_target(
 // third_party/blink/web_tests/http/tests/inspector-protocol/target/target-info-changed.js
 #[tokio::test(flavor = "multi_thread")]
 async fn rust_cdp_chromium_target_window_open_named_target_reuses_existing_target() {
-    let mut ctx = TestContext::new_with_target_discovery(false);
-    load_bc_with_titled_page_async(
-        &mut ctx,
-        "BID-popup-name",
-        "TID-name-opener",
-        "<main>opener</main>",
-    )
-    .await;
+    tokio::task::LocalSet::new()
+        .run_until(async {
+            let mut ctx = TestContext::new_with_target_discovery(false);
+            load_bc_with_titled_page_async(
+                &mut ctx,
+                "BID-popup-name",
+                "TID-name-opener",
+                "<main>opener</main>",
+            )
+            .await;
 
-    let first = open_popup_from_runtime(
-        &mut ctx,
-        260_026,
-        "window.open('https://example.com/one', 'named') !== null",
-    )
-    .await;
-    let target_id = event(&first, "Target.targetCreated")["params"]["targetInfo"]["targetId"]
-        .as_str()
-        .expect("named target id")
-        .to_owned();
+            ctx.enable_background_navigation_scheduler_for_test();
+            let first = open_popup_from_runtime(
+                &mut ctx,
+                260_026,
+                "window.open('data:text/html,one', 'named') !== null",
+            )
+            .await;
+            let target_id =
+                event(&first, "Target.targetCreated")["params"]["targetInfo"]["targetId"]
+                    .as_str()
+                    .expect("named target id")
+                    .to_owned();
 
-    let second = open_popup_from_runtime(
-        &mut ctx,
-        260_027,
-        "window.open('https://example.com/two', 'named') !== null",
-    )
-    .await;
+            wait_for_committed_popup_url(&mut ctx, &target_id, "data:text/html,one").await;
 
-    assert!(
-        !second
-            .iter()
-            .any(|message| message["method"] == "Target.targetCreated"),
-        "{second:?}"
-    );
-    let changed = event(&second, "Target.targetInfoChanged");
-    assert_eq!(changed["params"]["targetInfo"]["targetId"], target_id);
-    assert_eq!(
-        changed["params"]["targetInfo"]["url"],
-        "https://example.com/two"
-    );
+            let second = open_popup_from_runtime(
+                &mut ctx,
+                260_027,
+                "window.open('data:text/html,two', 'named') !== null",
+            )
+            .await;
+
+            assert!(
+                !second
+                    .iter()
+                    .any(|message| message["method"] == "Target.targetCreated"),
+                "{second:?}"
+            );
+            ctx.sent.extend(second);
+            let changed =
+                wait_for_popup_url_change(&mut ctx, &target_id, "data:text/html,two").await;
+            assert_eq!(changed["params"]["targetInfo"]["targetId"], target_id);
+            assert_eq!(changed["params"]["targetInfo"]["url"], "data:text/html,two");
+        })
+        .await;
 }
 
 // Chromium source:
 // third_party/blink/web_tests/http/tests/inspector-protocol/target/target-info-changed.js
 #[tokio::test(flavor = "multi_thread")]
 async fn rust_cdp_chromium_target_info_changed_is_emitted_for_named_popup_reuse() {
-    let mut ctx = TestContext::new_with_target_discovery(false);
-    load_bc_with_titled_page_async(
-        &mut ctx,
-        "BID-popup-change",
-        "TID-change-opener",
-        "<main>opener</main>",
-    )
-    .await;
+    tokio::task::LocalSet::new()
+        .run_until(async {
+            let mut ctx = TestContext::new_with_target_discovery(false);
+            load_bc_with_titled_page_async(
+                &mut ctx,
+                "BID-popup-change",
+                "TID-change-opener",
+                "<main>opener</main>",
+            )
+            .await;
 
-    let _first = open_popup_from_runtime(
-        &mut ctx,
-        260_028,
-        "window.open('https://example.com/first', 'reuse') !== null",
-    )
-    .await;
-    let second = open_popup_from_runtime(
-        &mut ctx,
-        260_029,
-        "window.open('https://example.com/second', 'reuse') !== null",
-    )
-    .await;
+            ctx.enable_background_navigation_scheduler_for_test();
+            let first = open_popup_from_runtime(
+                &mut ctx,
+                260_028,
+                "window.open('data:text/html,first', 'reuse') !== null",
+            )
+            .await;
+            let target_id =
+                event(&first, "Target.targetCreated")["params"]["targetInfo"]["targetId"]
+                    .as_str()
+                    .expect("named target id")
+                    .to_owned();
+            wait_for_committed_popup_url(&mut ctx, &target_id, "data:text/html,first").await;
 
-    assert_eq!(
-        event(&second, "Target.targetInfoChanged")["params"]["targetInfo"]["url"],
-        "https://example.com/second"
-    );
+            let second = open_popup_from_runtime(
+                &mut ctx,
+                260_029,
+                "window.open('data:text/html,second', 'reuse') !== null",
+            )
+            .await;
+
+            ctx.sent.extend(second);
+            wait_for_popup_url_change(&mut ctx, &target_id, "data:text/html,second").await;
+        })
+        .await;
 }
 
 // Chromium source:

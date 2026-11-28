@@ -222,7 +222,7 @@ async fn assert_empty_http_error_response_stage(ctx: &mut TestContext, url: &str
             conn.browser_context
                 .as_ref()
                 .expect("browser context should remain installed")
-                .target_url(),
+                .visible_url(),
             url
         )
     });

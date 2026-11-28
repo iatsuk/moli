@@ -228,53 +228,33 @@ impl TargetRootDocumentProtocolAttachmentIdentity {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct TargetIdentityState {
-    url: String,
     security_origin: String,
     secure_context_type: String,
 }
 
 impl TargetIdentityState {
-    pub(crate) fn new(url: String, security_origin: String, secure_context_type: String) -> Self {
+    pub(crate) fn new(security_origin: String, secure_context_type: String) -> Self {
         Self {
-            url,
             security_origin,
             secure_context_type,
         }
     }
 
     pub(crate) fn new_tab() -> Self {
-        Self::new(URL_BASE.into(), URL_BASE.into(), "Secure".into())
+        Self::new(URL_BASE.into(), "Secure".into())
     }
 
-    pub(crate) fn about_blank() -> Self {
-        Self::new("about:blank".into(), URL_BASE.into(), "Secure".into())
-    }
-
-    pub(crate) fn with_url(url: String) -> Self {
-        let parsed_url = url::Url::parse(&url).ok();
-        let inherits_initial_origin = parsed_url.as_ref().is_some_and(moli_url::is_about_blank);
-        let security_origin = if inherits_initial_origin {
-            URL_BASE.to_owned()
-        } else {
-            parsed_url
-                .as_ref()
-                .map(moli_url::origin_ascii_serialization)
-                .unwrap_or_else(|| URL_BASE.to_owned())
-        };
-        let secure_context_type = if inherits_initial_origin
-            || parsed_url
-                .as_ref()
-                .is_some_and(moli_url::is_potentially_trustworthy_url)
-        {
+    pub(crate) fn for_document_url(url: &url::Url) -> Self {
+        if moli_url::is_about_blank(url) || url.as_str() == URL_BASE {
+            return Self::new_tab();
+        }
+        let security_origin = moli_url::origin_ascii_serialization(url);
+        let secure_context_type = if moli_url::is_potentially_trustworthy_url(url) {
             "Secure"
         } else {
             "InsecureScheme"
         };
-        Self::new(url, security_origin, secure_context_type.into())
-    }
-
-    pub(crate) fn url(&self) -> &str {
-        &self.url
+        Self::new(security_origin, secure_context_type.into())
     }
 
     pub(crate) fn security_origin(&self) -> &str {
@@ -283,10 +263,6 @@ impl TargetIdentityState {
 
     pub(crate) fn secure_context_type(&self) -> &str {
         &self.secure_context_type
-    }
-
-    pub(crate) fn set_url(&mut self, url: String) {
-        self.url = url;
     }
 
     pub(crate) fn set_security_origin(&mut self, security_origin: String) {
@@ -310,16 +286,17 @@ mod tests {
 
     #[test]
     fn target_identity_with_url_derives_origin_for_real_urls() {
-        let identity = TargetIdentityState::with_url("http://example.test/path".to_owned());
-        assert_eq!(identity.url(), "http://example.test/path");
+        let identity = TargetIdentityState::for_document_url(
+            &url::Url::parse("http://example.test/path").unwrap(),
+        );
         assert_eq!(identity.security_origin(), "http://example.test");
         assert_eq!(identity.secure_context_type(), "InsecureScheme");
     }
 
     #[test]
     fn target_identity_with_url_keeps_initial_origin_for_about_blank() {
-        let identity = TargetIdentityState::with_url("about:blank".to_owned());
-        assert_eq!(identity.url(), "about:blank");
+        let identity =
+            TargetIdentityState::for_document_url(&url::Url::parse("about:blank").unwrap());
         assert_eq!(identity.security_origin(), URL_BASE);
         assert_eq!(identity.secure_context_type(), "Secure");
     }

@@ -435,7 +435,7 @@ impl<'a> TargetInfo<'a> {
                         .map(|page| page.document_title())
                 })
                 .unwrap_or_default(),
-            url: bc.target_url(),
+            url: bc.active_page_target().visible_url(),
             attached,
             can_access_opener: false,
             browser_context_id: &bc.id,

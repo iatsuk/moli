@@ -26,7 +26,7 @@ async fn evaluate_rejects_default_context_while_main_document_navigation_is_pend
         };
         browser_context.set_active_target_id("TID-1");
         browser_context.attach_active_session("SID-1");
-        browser_context.set_target_url("data:text/html,previous".to_owned());
+        browser_context.set_committed_url_for_test("data:text/html,previous".to_owned());
         browser_context
             .start_document_navigation_for_active_target("PENDING-LOADER".to_owned())
             .expect("active navigation should start");
@@ -63,7 +63,7 @@ async fn evaluate_started_before_pending_navigation_can_complete() {
         };
         browser_context.set_active_target_id("TID-1");
         browser_context.attach_active_session("SID-1");
-        browser_context.set_target_url("data:text/html,previous".to_owned());
+        browser_context.set_committed_url_for_test("data:text/html,previous".to_owned());
     });
     ctx.with_fixture(|conn| conn.commit_declared_session_fixtures_for_test());
     ctx.sent.clear();
@@ -120,7 +120,7 @@ async fn evaluate_rejects_attached_session_while_main_document_navigation_is_pen
             browser_context.assign_attached_session_to_target("TID-1", "SID-attached".to_owned()),
             "attached session should attach to the active target"
         );
-        browser_context.set_target_url("data:text/html,previous".to_owned());
+        browser_context.set_committed_url_for_test("data:text/html,previous".to_owned());
         browser_context
             .start_document_navigation_for_active_target("PENDING-LOADER".to_owned())
             .expect("active navigation should start");
@@ -164,7 +164,7 @@ async fn dom_get_document_rejects_while_main_document_navigation_is_pending() {
         };
         browser_context.set_active_target_id("TID-1");
         browser_context.attach_active_session("SID-1");
-        browser_context.set_target_url("data:text/html,previous".to_owned());
+        browser_context.set_committed_url_for_test("data:text/html,previous".to_owned());
         browser_context
             .start_document_navigation_for_active_target("PENDING-LOADER".to_owned())
             .expect("active navigation should start");
@@ -302,7 +302,7 @@ async fn page_navigate_commits_http_error_response_document() {
         conn.browser_context
             .as_mut()
             .expect("browser context should exist")
-            .set_target_url(first_url)
+            .set_committed_url_for_test(first_url)
     });
     ctx.sent.clear();
 
@@ -341,7 +341,7 @@ async fn page_navigate_commits_http_error_response_document() {
             conn.browser_context
                 .as_ref()
                 .expect("browser context should exist")
-                .target_url(),
+                .visible_url(),
             error_url
         )
     });
@@ -390,7 +390,7 @@ async fn page_navigate_empty_http_error_commits_browser_error_document() {
         conn.browser_context
             .as_mut()
             .expect("browser context should exist")
-            .set_target_url(first_url)
+            .set_committed_url_for_test(first_url)
     });
     ctx.enable_background_navigation_scheduler_for_test();
     ctx.enable_page_events_for_test(Some("SID-1"));
@@ -444,7 +444,7 @@ async fn page_navigate_network_failure_commits_error_document() {
         conn.browser_context
             .as_mut()
             .expect("browser context should exist")
-            .set_target_url(first_url)
+            .set_committed_url_for_test(first_url)
     });
     ctx.enable_page_events_for_test(Some("SID-1"));
     ctx.process_async(json!({
@@ -634,7 +634,7 @@ async fn page_navigate_network_failure_commits_error_document() {
             conn.browser_context
                 .as_ref()
                 .expect("browser context should exist")
-                .target_url(),
+                .visible_url(),
             failing_url
         )
     });

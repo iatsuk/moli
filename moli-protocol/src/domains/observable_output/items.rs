@@ -6,7 +6,9 @@ use crate::automation::{
 };
 use serde_json::{Value, json};
 
-use crate::conn::{BackgroundProtocolEvent, TargetPageAttachmentId};
+use crate::conn::BackgroundProtocolEvent;
+
+use super::runtime_queue::ObservableSourceIdentity;
 use crate::domains::log_output_state::TargetNetworkLogEntry;
 use moli_core::page::{InspectorIssueSnapshot, SubresourceNetworkRequestHandle};
 
@@ -54,7 +56,7 @@ pub(super) enum ObservableRuntimePreparedItem {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(in crate::domains::observable_output) struct ObservableRuntimePreparedItems {
-    source_identity: Option<ObservableRuntimePreparedSourceIdentity>,
+    source_identity: Option<ObservableSourceIdentity>,
     items: Vec<ObservableRuntimePreparedItem>,
     cursor: ObservableRuntimeEmissionCursor,
 }
@@ -65,25 +67,15 @@ pub(in crate::domains::observable_output) struct ObservableRuntimeEmissionCursor
     exception_end: usize,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub(in crate::domains::observable_output) struct ObservableRuntimePreparedSourceIdentity {
-    url: String,
-    page_attachment_id: TargetPageAttachmentId,
-}
-
 impl ObservableRuntimePreparedItems {
     pub(in crate::domains::observable_output) fn from_runtime_source_items(
-        url: String,
-        page_attachment_id: TargetPageAttachmentId,
+        identity: ObservableSourceIdentity,
         items: Vec<ObservableRuntimePreparedItem>,
         context_console_counts: HashMap<i64, usize>,
         exception_end: usize,
     ) -> Self {
         Self {
-            source_identity: Some(ObservableRuntimePreparedSourceIdentity {
-                url,
-                page_attachment_id,
-            }),
+            source_identity: Some(identity),
             items,
             cursor: ObservableRuntimeEmissionCursor::new(context_console_counts, exception_end),
         }
@@ -107,12 +99,10 @@ impl ObservableRuntimePreparedItems {
 
     pub(in crate::domains::observable_output) fn matches_source_identity(
         &self,
-        url: &str,
-        page_attachment_id: TargetPageAttachmentId,
+        source: ObservableSourceIdentity,
     ) -> bool {
-        self.source_identity.as_ref().is_none_or(|identity| {
-            identity.url == url && identity.page_attachment_id == page_attachment_id
-        })
+        self.source_identity
+            .is_none_or(|identity| identity == source)
     }
 
     pub(super) fn into_emission_parts(
@@ -364,12 +354,11 @@ pub(in crate::domains) fn log_lifecycle_error_level_and_text(error: &str) -> (&'
 }
 
 pub(super) fn console_domain_items<'a>(
-    url: &str,
-    console_messages: impl IntoIterator<Item = &'a str>,
-    lifecycle_errors: impl IntoIterator<Item = &'a str>,
+    console_messages: impl IntoIterator<Item = (&'a str, &'a str)>,
+    lifecycle_errors: impl IntoIterator<Item = (&'a str, &'a str)>,
 ) -> Vec<ObservableOutputItem> {
     let mut items = Vec::new();
-    for message in console_messages {
+    for (message, url) in console_messages {
         let (level, text) = console_message_level_and_text(message);
         items.push(ObservableOutputItem::ConsoleMessageAdded {
             source: "console-api".to_owned(),
@@ -378,7 +367,7 @@ pub(super) fn console_domain_items<'a>(
             url: url.to_owned(),
         });
     }
-    for error in lifecycle_errors {
+    for (error, url) in lifecycle_errors {
         items.push(ObservableOutputItem::ConsoleMessageAdded {
             source: "javascript".to_owned(),
             level: "error".to_owned(),
@@ -390,13 +379,11 @@ pub(super) fn console_domain_items<'a>(
 }
 
 pub(super) fn log_domain_items<'a>(
-    url: &str,
-    _console_messages: impl IntoIterator<Item = &'a str>,
-    lifecycle_errors: impl IntoIterator<Item = &'a str>,
+    lifecycle_errors: impl IntoIterator<Item = (&'a str, &'a str)>,
     network_entries: impl IntoIterator<Item = &'a TargetNetworkLogEntry>,
 ) -> Vec<ObservableOutputItem> {
     let mut items = Vec::new();
-    for error in lifecycle_errors {
+    for (error, url) in lifecycle_errors {
         let (level, text) = log_lifecycle_error_level_and_text(error);
         items.push(ObservableOutputItem::LogEntryAdded {
             source: "javascript".to_owned(),
@@ -599,8 +586,10 @@ mod tests {
 
     #[test]
     fn console_domain_items_project_console_and_lifecycle_backlog() {
-        let items =
-            super::console_domain_items("http://example.test/app", ["warn: heads up"], ["boom"]);
+        let items = super::console_domain_items(
+            [("warn: heads up", "http://example.test/app")],
+            [("boom", "http://example.test/app")],
+        );
 
         assert!(matches!(
             items.as_slice(),
@@ -631,12 +620,8 @@ mod tests {
 
     #[test]
     fn log_domain_items_project_lifecycle_backlog_without_console_api_messages() {
-        let items = super::log_domain_items(
-            "http://example.test/app",
-            ["debug: trace"],
-            ["boom"],
-            std::iter::empty(),
-        );
+        let items =
+            super::log_domain_items([("boom", "http://example.test/app")], std::iter::empty());
 
         assert!(matches!(
             items.as_slice(),

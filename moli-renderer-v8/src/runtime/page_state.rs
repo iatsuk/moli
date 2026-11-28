@@ -31,6 +31,7 @@ pub struct RendererPageRecord {
 #[derive(Debug, Clone)]
 pub struct RendererPageState {
     pub snapshot_revision: RendererPageStateRevision,
+    pub root_document: Option<super::RendererDocumentLifecycleIdentity>,
     pub requested_url: Url,
     pub navigation_initiator_url: Option<Url>,
     pub navigation_redirected: bool,
@@ -72,6 +73,7 @@ impl RendererPageState {
 
         Arc::new(Self {
             snapshot_revision: state_capture.snapshot_revision,
+            root_document: Some(state_capture.root_document),
             requested_url,
             navigation_initiator_url,
             navigation_redirected,

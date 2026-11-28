@@ -505,7 +505,7 @@ async fn deferred_heap_profiler_state_follows_renderer_owned_document_navigation
         conn.browser_context
             .as_mut()
             .expect("browser context should exist")
-            .set_target_url(start_url)
+            .set_committed_url_for_test(start_url)
     });
 
     ctx.process_async(json!({
@@ -1186,7 +1186,7 @@ async fn runtime_timer_cross_document_navigation_with_history_api_emits_full_con
                 .browser_context
                 .as_mut()
                 .expect("browser context should exist")
-                .set_target_url(start_url));
+                .set_committed_url_for_test(start_url));
             ctx.enable_background_navigation_scheduler_for_test();
             let _ = enable_runtime_and_take_execution_context_id_async(&mut ctx, 20_700).await;
             ctx.process_async(json!({

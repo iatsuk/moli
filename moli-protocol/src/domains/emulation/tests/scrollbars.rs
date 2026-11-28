@@ -124,7 +124,7 @@ async fn scrollbars_hidden_is_replayed_before_navigation_scripts_and_initial_pag
     let mut ctx = TestContext::new();
     let mut bc = BrowserContext::new("BID-1".into());
     bc.set_active_target_id("TID-1");
-    bc.set_target_url("about:blank".to_owned());
+    bc.begin_active_target_initial_empty_document("about:blank".to_owned());
     bc.attach_active_session("SID-1");
     ctx.with_fixture(|conn| conn.install_browser_context_fixture_for_test(bc));
     expect_session_command_result(

@@ -191,7 +191,7 @@ impl PreparedNavigationProtocolCompletion {
                     if error.disposition() == moli_core::page::RendererPageReplacementFailureDisposition::DocumentUnavailable {
                         if let Some(expected) = expected.as_ref() {
                             result.failed_page = conn.take_loaded_page_after_failed_navigation_for_owner(
-                                &result.state.owner, &result.token, Some(expected), &result.state.requested_url,
+                                &result.state.owner, &result.token, Some(expected),
                             );
                         }
                     } else if let Some(transaction) = transaction
@@ -229,7 +229,7 @@ impl PreparedNavigationProtocolCompletion {
             Some(self.token.clone()),
             navigation,
         )?;
-        let target_url = publication.target_url();
+        let target_url = publication.committed_url();
         let artifacts = &publication.page_creation_artifacts;
         let document = moli_core::RendererDocumentLifecycleIdentity {
             frame: artifacts.lifecycle_snapshot.frame,
@@ -388,7 +388,7 @@ impl PreparedNavigationProtocolCompletion {
             let binding = self.binding.clone();
             let renderer_attachment = loaded.renderer_attachment;
             let main_commit = loaded.main_commit;
-            let url = loaded.publication.target_url();
+            let url = loaded.publication.committed_url();
             let preloads = context.with_state(driver, move |state, context| {
                 state.prepare_navigation_commit_preloads(
                     owner,

@@ -377,7 +377,9 @@ async fn reload_targets_background_owner_without_activation() {
     let mut bc = BrowserContext::new("BID-1".to_owned());
     bc.set_active_target_id("TID-active".to_owned());
     bc.attach_active_session("SID-active".to_owned());
-    bc.set_target_url("data:text/html,<title>Active</title><main>active</main>".to_owned());
+    bc.set_committed_url_for_test(
+        "data:text/html,<title>Active</title><main>active</main>".to_owned(),
+    );
     bc.insert_page_target_host(background);
     ctx.with_fixture(|conn| conn.install_browser_context_fixture_for_test(bc));
     ctx.install_navigation_fixture_for_session_owner(&page_url, Some("SID-background"))

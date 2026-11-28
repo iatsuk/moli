@@ -375,7 +375,6 @@ fn execute_devtools_create_target_command_in_window(
         };
         if claims_default_placeholder && bc.page_targets.rekey_active(target_id.clone(), window_id)
         {
-            bc.set_target_url(command.url.clone());
             bc.begin_active_target_initial_empty_document(initial_empty_document_url.clone());
             let state = &mut bc
                 .page_target_mut(&target_id)

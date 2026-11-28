@@ -805,7 +805,8 @@ async fn devtools_set_cache_behavior_global_updates_existing_targets_and_default
     bc.insert_page_target_host(PageTargetHost::new(
         "TID-background".to_owned(),
         None,
-        TargetIdentityState::about_blank(),
+        "about:blank".into(),
+        TargetIdentityState::new_tab(),
         TargetPageSlot::empty_for_test_fixture(),
     ));
     ctx.with_fixture(|conn| conn.install_browser_context_fixture_for_test(bc));
@@ -860,7 +861,8 @@ async fn devtools_set_cache_behavior_contexts_only_updates_requested_targets() {
     bc.insert_page_target_host(PageTargetHost::new(
         "TID-background".to_owned(),
         None,
-        TargetIdentityState::about_blank(),
+        "about:blank".into(),
+        TargetIdentityState::new_tab(),
         TargetPageSlot::empty_for_test_fixture(),
     ));
     ctx.with_fixture(|conn| conn.install_browser_context_fixture_for_test(bc));

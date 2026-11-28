@@ -409,7 +409,7 @@ async fn parser_script_location_navigation_suppresses_aborted_document_dcl() {
             conn.browser_context
                 .as_ref()
                 .expect("browser context")
-                .target_url(),
+                .visible_url(),
             format!("http://{addr}/final")
         )
     });
@@ -518,7 +518,7 @@ async fn parser_script_location_navigation_continues_after_target_response() {
             conn.browser_context
                 .as_ref()
                 .expect("browser context")
-                .target_url(),
+                .visible_url(),
             format!("http://{addr}/final")
         )
     });
@@ -625,7 +625,7 @@ async fn delayed_meta_refresh_keeps_source_document_dcl_and_load() {
             conn.browser_context
                 .as_ref()
                 .expect("browser context")
-                .target_url(),
+                .visible_url(),
             final_url
         )
     });

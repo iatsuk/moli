@@ -142,7 +142,8 @@ pub(crate) fn prepare_automation_navigation(
         }
         AutomationCommand::Reload(command) => {
             let url = conn
-                .runtime_session_owner_target_url_for_owner(&owner)
+                .runtime_session_owner_reload_url_for_owner(&owner)
+                .map(ToString::to_string)
                 .ok_or_else(|| {
                     DevToolsError::new(
                         DevToolsErrorKind::NoSuchTarget,

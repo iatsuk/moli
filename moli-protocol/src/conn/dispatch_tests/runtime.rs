@@ -740,7 +740,7 @@ async fn devtools_runtime_evaluate_reports_no_document_without_resolver_fallback
     let mut browser_context = BrowserContext::new("BID-no-page-runtime".to_owned());
     browser_context.set_active_target_id("TID-no-page-runtime".to_owned());
     browser_context.attach_active_session("SID-no-page-runtime".to_owned());
-    browser_context.set_target_url("about:blank".to_owned());
+    browser_context.set_committed_url_for_test("about:blank".to_owned());
     ctx.with_fixture(|conn| conn.install_browser_context_fixture_for_test(browser_context));
 
     let evaluate_result = ctx

@@ -299,7 +299,7 @@ async fn dom_resolve_geometry_targets_inactive_loaded_owner_without_activation()
 
     let mut inactive = BrowserContext::new("BID-inactive".to_owned());
     inactive.set_active_target_id("TID-inactive".to_owned());
-    inactive.set_target_url("about:blank".to_owned());
+    inactive.set_committed_url_for_test("about:blank".to_owned());
     inactive.attach_active_session("SID-inactive".to_owned());
     ctx.with_fixture(|conn| conn.push_inactive_browser_context_fixture_for_test(inactive));
     ctx.install_navigation_fixture_for_session_owner(

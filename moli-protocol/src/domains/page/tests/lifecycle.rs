@@ -2741,7 +2741,9 @@ async fn crash_targets_background_owner_without_activation() {
     let mut bc = BrowserContext::new("BID-1".to_owned());
     bc.set_active_target_id("TID-active".to_owned());
     bc.attach_active_session("SID-active".to_owned());
-    bc.set_target_url("data:text/html,<title>Active</title><main>active</main>".to_owned());
+    bc.set_committed_url_for_test(
+        "data:text/html,<title>Active</title><main>active</main>".to_owned(),
+    );
     bc.insert_page_target_host(background);
     bc.background_target_mut("TID-background")
         .expect("background target must exist")

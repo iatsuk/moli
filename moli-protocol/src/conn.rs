@@ -2156,6 +2156,19 @@ impl CdpConnection {
             .start_document_navigation_for_target(&target_id, loader_id)
     }
 
+    pub(crate) fn start_document_navigation_request(
+        &mut self,
+        navigation: &NavigationDispatchState,
+    ) -> Option<DocumentNavigationToken> {
+        let token = self
+            .start_document_navigation_for_owner(&navigation.owner, navigation.loader_id.clone())?;
+        self.runtime_session_owner_slot_mut_for_owner(&navigation.owner)
+            .expect("a newly admitted navigation must have a runtime slot")
+            .page_slot_mut()
+            .record_pending_navigation_url(&token, navigation.requested_url.clone());
+        Some(token)
+    }
+
     pub(crate) fn commit_document_navigation_for_owner_if_matches(
         &mut self,
         owner: &CommandOwnerScope,
@@ -3955,7 +3968,6 @@ impl CdpConnection {
         if !self.has_browser_context_id(&default_browser_context_id) {
             let mut browser_context = self.new_browser_context(default_browser_context_id.clone());
             browser_context.set_active_target_id(default_target_id.clone());
-            browser_context.set_target_url("about:blank".to_owned());
             browser_context.begin_active_target_initial_empty_document("about:blank".to_owned());
             self.insert_browser_context(browser_context);
         } else {
@@ -3977,7 +3989,6 @@ impl CdpConnection {
                     );
                 } else {
                     browser_context.set_active_target_id(default_target_id.clone());
-                    browser_context.set_target_url("about:blank".to_owned());
                     browser_context
                         .begin_active_target_initial_empty_document("about:blank".to_owned());
                 }

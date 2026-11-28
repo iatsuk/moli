@@ -113,7 +113,7 @@ async fn loaded_dom_storage_context() -> (TestContext, String, String, tokio::ta
     let mut ctx = TestContext::new();
     let mut browser_context = BrowserContext::new("BID-DOM-STORAGE".to_owned());
     browser_context.set_active_target_id("TID-DOM-STORAGE");
-    browser_context.set_target_url(page_url.clone());
+    browser_context.set_committed_url_for_test(page_url.clone());
     browser_context.set_target_security_origin(origin.clone());
     browser_context.set_target_secure_context_type("Secure".to_owned());
     ctx.with_fixture(|conn| conn.install_browser_context_fixture_for_test(browser_context));
@@ -557,7 +557,7 @@ async fn dom_storage_resolves_child_frame_storage_ids_without_collapsing_to_top_
     let mut ctx = TestContext::new();
     let mut browser_context = BrowserContext::new("BID-DOM-STORAGE-CHILD".to_owned());
     browser_context.set_active_target_id("TID-DOM-STORAGE-CHILD");
-    browser_context.set_target_url(page_url.clone());
+    browser_context.set_committed_url_for_test(page_url.clone());
     browser_context.set_target_security_origin(top_origin.clone());
     browser_context.set_target_secure_context_type("Secure".to_owned());
     ctx.with_fixture(|conn| conn.install_browser_context_fixture_for_test(browser_context));

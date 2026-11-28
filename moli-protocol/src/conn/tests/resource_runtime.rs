@@ -178,14 +178,14 @@ fn current_navigation_initiator_url_uses_loaded_browser_context_url_when_availab
     assert!(conn.current_navigation_initiator_url().is_none());
 
     let mut bc = BrowserContext::new_with_page_for_test("BID-1", "TID-1");
-    bc.set_target_url("about:blank".into());
+    bc.set_committed_url_for_test("about:blank".into());
     conn.install_browser_context_fixture_for_test(bc);
     assert!(conn.current_navigation_initiator_url().is_none());
 
     conn.browser_context
         .as_mut()
         .unwrap()
-        .set_target_url("https://example.com/app".into());
+        .set_committed_url_for_test("https://example.com/app".into());
     assert_eq!(
         conn.current_navigation_initiator_url(),
         Some(Url::parse("https://example.com/app").unwrap())
@@ -614,7 +614,7 @@ async fn build_loaded_navigation_from_buffered_response_updates_request_cookie_a
     let mut conn = CdpConnection::new();
     let requested_url = Url::parse("https://example.com/app/index.html").unwrap();
     let mut bc = BrowserContext::new_with_page_for_test("BID-1", "TID-1");
-    bc.set_target_url("https://example.com/origin".into());
+    bc.set_committed_url_for_test("https://example.com/origin".into());
     bc.store_response_cookie_headers_for_test(
         &requested_url,
         &[(
@@ -668,7 +668,7 @@ async fn buffered_navigation_builds_keep_the_target_window_identity() {
         let mut conn = CdpConnection::new();
         let url = Url::parse("https://window-identity.test/page").unwrap();
         let mut context = BrowserContext::new_with_page_for_test("BID-identity", "TID-identity");
-        context.set_target_url(url.to_string());
+        context.set_committed_url_for_test(url.to_string());
         let name = context
             .active_page_target()
             .window_identity()
@@ -736,7 +736,7 @@ async fn rebuild_buffered_response_preserving_request_report_avoids_second_acces
     let mut conn = CdpConnection::new();
     let requested_url = Url::parse("https://example.com/app/index.html").unwrap();
     let mut bc = BrowserContext::new_with_page_for_test("BID-1", "TID-1");
-    bc.set_target_url("https://example.com/origin".into());
+    bc.set_committed_url_for_test("https://example.com/origin".into());
     bc.store_response_cookie_headers_for_test(
         &requested_url,
         &[(
@@ -1900,7 +1900,7 @@ async fn direct_runtime_evaluate_same_document_navigation_updates_inactive_owner
         [moli_page_types::DevToolsSessionKey::Primary]
         .runtime_session_state
         .runtime_frontend_enabled = true;
-    inactive.set_target_url(initial_url.clone());
+    inactive.set_committed_url_for_test(initial_url.clone());
     ctx.with_fixture(|conn| conn.push_inactive_browser_context_fixture_for_test(inactive));
     ctx.enable_page_events_for_test(Some("SID-same-document"));
     ctx.install_navigation_fixture_for_session_owner(&initial_url, Some("SID-same-document"))
@@ -1954,7 +1954,7 @@ async fn direct_runtime_evaluate_same_document_navigation_updates_inactive_owner
                 .expect("inactive owner should remain background")
         };
         assert!(
-            inactive.target_url().ends_with("#owner-fragment"),
+            inactive.visible_url().ends_with("#owner-fragment"),
             "same-document navigation should update the inactive owner target URL"
         );
     });
@@ -2161,7 +2161,7 @@ async fn direct_runtime_evaluate_popup_creates_target_in_inactive_background_own
         assert!(
             inactive
                 .background_target(&popup_target_id)
-                .is_some_and(|target| target.target_url() == "https://example.com/owner-popup"),
+                .is_some_and(|target| target.visible_url() == "https://example.com/owner-popup"),
             "popup target should be staged in the inactive owner browser context"
         );
     });
@@ -2174,7 +2174,7 @@ async fn direct_runtime_evaluate_self_popup_does_not_navigate_active_target_for_
     let mut active = BrowserContext::new("BID-active".into());
     active.set_active_target_id("TID-active".to_owned());
     active.attach_active_session("SID-active");
-    active.set_target_url("https://active.example/current".to_owned());
+    active.set_committed_url_for_test("https://active.example/current".to_owned());
     ctx.with_fixture(|conn| conn.install_browser_context_fixture_for_test(active));
 
     let page_url = "data:text/html,<!doctype html><title>self-popup</title>";
@@ -2224,7 +2224,7 @@ async fn direct_runtime_evaluate_self_popup_does_not_navigate_active_target_for_
     );
     ctx.with_fixture(|conn| {
         assert_eq!(
-            conn.browser_context.as_ref().map(|bc| bc.target_url()),
+            conn.browser_context.as_ref().map(|bc| bc.visible_url()),
             Some("https://active.example/current"),
             "inactive owner _self popup must not navigate the currently active target"
         )
@@ -2498,7 +2498,8 @@ async fn direct_page_preload_routes_to_inactive_background_owner_without_activat
     inactive.insert_page_target_host(PageTargetHost::new(
         "TID-background".to_owned(),
         Some("SID-background".to_owned()),
-        TargetIdentityState::about_blank(),
+        "about:blank".into(),
+        TargetIdentityState::new_tab(),
         TargetPageSlot::empty_for_test_fixture(),
     ));
     ctx.with_fixture(|conn| conn.push_inactive_browser_context_fixture_for_test(inactive));
@@ -2556,7 +2557,8 @@ async fn direct_network_enable_routes_to_inactive_background_owner_without_activ
     inactive.insert_page_target_host(PageTargetHost::new(
         "TID-background".to_owned(),
         Some("SID-background".to_owned()),
-        TargetIdentityState::about_blank(),
+        "about:blank".into(),
+        TargetIdentityState::new_tab(),
         TargetPageSlot::empty_for_test_fixture(),
     ));
     ctx.with_fixture(|conn| conn.push_inactive_browser_context_fixture_for_test(inactive));
@@ -2600,7 +2602,8 @@ async fn direct_attached_network_enable_for_background_target_does_not_enable_pr
     inactive.insert_page_target_host(PageTargetHost::new(
         "TID-background".to_owned(),
         Some("SID-background".to_owned()),
-        TargetIdentityState::about_blank(),
+        "about:blank".into(),
+        TargetIdentityState::new_tab(),
         TargetPageSlot::empty_for_test_fixture(),
     ));
     assert!(
@@ -2647,7 +2650,8 @@ async fn direct_network_enable_routes_to_active_background_owner_without_activat
     active.insert_page_target_host(PageTargetHost::new(
         "TID-background".to_owned(),
         Some("SID-background".to_owned()),
-        TargetIdentityState::about_blank(),
+        "about:blank".into(),
+        TargetIdentityState::new_tab(),
         TargetPageSlot::empty_for_test_fixture(),
     ));
     ctx.with_fixture(|conn| conn.install_browser_context_fixture_for_test(active));
@@ -2832,7 +2836,8 @@ async fn direct_background_command_does_not_emit_active_observable_output_under_
     active.insert_page_target_host(PageTargetHost::new(
         "TID-background".to_owned(),
         Some("SID-background".to_owned()),
-        TargetIdentityState::about_blank(),
+        "about:blank".into(),
+        TargetIdentityState::new_tab(),
         TargetPageSlot::empty_for_test_fixture(),
     ));
     ctx.with_fixture(|conn| conn.install_browser_context_fixture_for_test(active));
@@ -2984,7 +2989,8 @@ async fn direct_console_routes_to_inactive_background_owner_without_activating_s
     inactive.insert_page_target_host(PageTargetHost::new(
         "TID-background".to_owned(),
         Some("SID-background".to_owned()),
-        TargetIdentityState::about_blank(),
+        "about:blank".into(),
+        TargetIdentityState::new_tab(),
         TargetPageSlot::empty_for_test_fixture(),
     ));
     ctx.with_fixture(|conn| conn.push_inactive_browser_context_fixture_for_test(inactive));
@@ -3196,7 +3202,7 @@ async fn direct_log_enable_routes_to_inactive_active_owner_without_activating_sl
         .await
         .expect("test page should load");
     let mut inactive = BrowserContext::new_with_page_for_test("BID-B", "TID-B");
-    inactive.set_target_url("data:text/html,log-direct-test".to_owned());
+    inactive.set_committed_url_for_test("data:text/html,log-direct-test".to_owned());
     inactive.attach_active_session("SID-B");
     inactive.replace_loaded_page(Some(page));
     ctx.with_fixture(|conn| conn.push_inactive_browser_context_fixture_for_test(inactive));
@@ -3253,7 +3259,8 @@ async fn direct_log_enable_routes_to_inactive_background_owner_without_activatin
     inactive.insert_page_target_host(PageTargetHost::new(
         "TID-background".to_owned(),
         Some("SID-background".to_owned()),
-        TargetIdentityState::about_blank(),
+        "about:blank".into(),
+        TargetIdentityState::new_tab(),
         TargetPageSlot::empty_for_test_fixture(),
     ));
     ctx.with_fixture(|conn| conn.push_inactive_browser_context_fixture_for_test(inactive));
@@ -3304,10 +3311,11 @@ async fn direct_log_enable_routes_to_loaded_background_owner_without_replaying_c
     let mut background = PageTargetHost::new(
         "TID-background".to_owned(),
         Some("SID-background".to_owned()),
-        TargetIdentityState::about_blank(),
+        "about:blank".into(),
+        TargetIdentityState::new_tab(),
         TargetPageSlot::empty_for_test_fixture(),
     );
-    background.set_target_url(page.final_url().as_str().to_owned());
+    background.set_committed_url_for_test(page.final_url().as_str().to_owned());
     background.replace_loaded_page(Some(page));
 
     let mut inactive = BrowserContext::new("BID-B".into());
@@ -3423,7 +3431,8 @@ async fn direct_log_disable_routes_to_inactive_background_owner_without_activati
     inactive.insert_page_target_host(PageTargetHost::new(
         "TID-background".to_owned(),
         Some("SID-background".to_owned()),
-        TargetIdentityState::about_blank(),
+        "about:blank".into(),
+        TargetIdentityState::new_tab(),
         TargetPageSlot::empty_for_test_fixture(),
     ));
     inactive
@@ -3621,7 +3630,8 @@ async fn direct_network_policy_routes_to_inactive_background_owner_without_activ
     inactive.insert_page_target_host(PageTargetHost::new(
         "TID-background".to_owned(),
         Some("SID-background".to_owned()),
-        TargetIdentityState::about_blank(),
+        "about:blank".into(),
+        TargetIdentityState::new_tab(),
         TargetPageSlot::empty_for_test_fixture(),
     ));
     ctx.with_fixture(|conn| conn.push_inactive_browser_context_fixture_for_test(inactive));

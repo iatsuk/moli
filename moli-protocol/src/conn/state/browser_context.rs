@@ -1780,12 +1780,15 @@ impl BrowserContext {
         self.page_targets.active_mut()?.detach_session()
     }
 
-    pub(crate) fn target_url(&self) -> &str {
-        self.active_page_target().target_identity.url()
+    #[cfg(test)]
+    pub(crate) fn visible_url(&self) -> &str {
+        self.active_page_target().visible_url()
     }
 
-    pub(crate) fn set_target_url(&mut self, url: String) {
-        self.active_page_target_mut().target_identity.set_url(url);
+    #[cfg(test)]
+    pub(crate) fn set_committed_url_for_test(&mut self, url: String) {
+        self.active_page_target_mut()
+            .set_committed_url_for_test(url);
     }
 
     #[cfg(test)]

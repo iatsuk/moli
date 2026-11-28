@@ -111,11 +111,8 @@ async fn set_auto_attach_true_still_reports_transient_no_page_target_like_chromi
             bc.insert_page_target_host(crate::conn::PageTargetHost::new(
                 "TID-background-in-transit".to_owned(),
                 None,
-                crate::conn::TargetIdentityState::new(
-                    "https://example.test/in-transit".to_owned(),
-                    crate::conn::URL_BASE.into(),
-                    "Secure".into(),
-                ),
+                "https://example.test/in-transit".to_owned(),
+                crate::conn::TargetIdentityState::new_tab(),
                 crate::conn::TargetPageSlot::empty_for_test_fixture(),
             ));
         });

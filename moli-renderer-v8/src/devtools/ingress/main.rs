@@ -893,6 +893,7 @@ mod tests {
         let url = url::Url::parse("about:blank").expect("test URL");
         Arc::new(RendererPageState {
             snapshot_revision: Default::default(),
+            root_document: None,
             requested_url: url.clone(),
             navigation_initiator_url: None,
             navigation_redirected: false,

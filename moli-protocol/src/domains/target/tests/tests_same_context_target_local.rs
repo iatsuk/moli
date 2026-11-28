@@ -268,7 +268,7 @@ async fn popup_target_diagnostics_count_related_pages_in_one_document_isolate() 
                     .as_mut()
                     .expect("browser context should remain active")
             };
-            browser_context.set_target_url(opener_url);
+            browser_context.set_committed_url_for_test(opener_url);
             browser_context.replace_loaded_page(Some(opener_page));
         });
     }
@@ -434,7 +434,7 @@ async fn attach_to_target_keeps_background_target_background_when_active_target_
         );
         assert_eq!(
             bc.background_target(&second_target_id)
-                .map(|target| target.target_url()),
+                .map(|target| target.visible_url()),
             Some("about:blank#second")
         );
     });
@@ -1503,21 +1503,15 @@ async fn activate_target_chain_restores_multiple_set_auto_attach_background_load
             bc.insert_page_target_host(crate::conn::PageTargetHost::new(
                 "TID-000000000F".into(),
                 None,
-                crate::conn::TargetIdentityState::new(
-                    "about:blank#second".into(),
-                    crate::conn::URL_BASE.into(),
-                    "Secure".into(),
-                ),
+                "about:blank#second".into(),
+                crate::conn::TargetIdentityState::new_tab(),
                 crate::conn::TargetPageSlot::empty_for_test_fixture(),
             ));
             bc.insert_page_target_host(crate::conn::PageTargetHost::new(
                 "TID-0000000010".into(),
                 None,
-                crate::conn::TargetIdentityState::new(
-                    "about:blank#third".into(),
-                    crate::conn::URL_BASE.into(),
-                    "Secure".into(),
-                ),
+                "about:blank#third".into(),
+                crate::conn::TargetIdentityState::new_tab(),
                 crate::conn::TargetPageSlot::empty_for_test_fixture(),
             ));
         });
@@ -1712,21 +1706,15 @@ async fn close_target_restores_loaded_runtime_to_previous_set_auto_attach_target
             bc.insert_page_target_host(crate::conn::PageTargetHost::new(
                 "TID-000000000F".into(),
                 None,
-                crate::conn::TargetIdentityState::new(
-                    "about:blank#second".into(),
-                    crate::conn::URL_BASE.into(),
-                    "Secure".into(),
-                ),
+                "about:blank#second".into(),
+                crate::conn::TargetIdentityState::new_tab(),
                 crate::conn::TargetPageSlot::empty_for_test_fixture(),
             ));
             bc.insert_page_target_host(crate::conn::PageTargetHost::new(
                 "TID-0000000010".into(),
                 None,
-                crate::conn::TargetIdentityState::new(
-                    "about:blank#third".into(),
-                    crate::conn::URL_BASE.into(),
-                    "Secure".into(),
-                ),
+                "about:blank#third".into(),
+                crate::conn::TargetIdentityState::new_tab(),
                 crate::conn::TargetPageSlot::empty_for_test_fixture(),
             ));
         });
@@ -1975,11 +1963,8 @@ async fn page_command_on_background_target_session_routes_without_activating_loa
             .insert_page_target_host(crate::conn::PageTargetHost::new(
                 "TID-000000000F".into(),
                 Some("SID-bg".into()),
-                crate::conn::TargetIdentityState::new(
-                    "about:blank#second".into(),
-                    crate::conn::URL_BASE.into(),
-                    "Secure".into(),
-                ),
+                "about:blank#second".into(),
+                crate::conn::TargetIdentityState::new_tab(),
                 crate::conn::TargetPageSlot::empty_for_test_fixture(),
             ))
     });

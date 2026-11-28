@@ -442,7 +442,7 @@ async fn same_context_loaded_background_window_open_self_navigates_owner_without
                     .expect("background target should remain background")
             };
             assert_eq!(
-                background_target.target_url(),
+                background_target.visible_url(),
                 "data:text/html,<title>self</title><main>self target</main>"
             );
             assert!(
@@ -535,31 +535,19 @@ async fn same_context_named_popup_reuse_navigates_and_activates_loaded_owner() {
         },
     )
     .await;
+    let changed = wait_for_popup_url_change(
+        &mut ctx,
+        &owner.target_id,
+        "data:text/html,<title>named</title><main>named target</main>",
+    )
+    .await;
+    assert_eq!(changed["params"]["targetInfo"]["targetId"], owner.target_id);
     let emitted = ctx.take_all();
     assert!(
         !emitted
             .iter()
             .any(|message| message["method"] == json!("Target.targetCreated")),
         "reusing a loaded named target must not create a new popup target: {emitted:?}"
-    );
-    let changed = emitted
-        .iter()
-        .find(|message| {
-            message["method"] == json!("Target.targetInfoChanged")
-                && message["params"]["targetInfo"]["targetId"] == json!(owner.target_id)
-                && message["params"]["targetInfo"]["url"]
-                    == json!("data:text/html,<title>named</title><main>named target</main>")
-        })
-        .unwrap_or_else(|| {
-            panic!("loaded named target reuse should report targetInfoChanged: {emitted:?}")
-        });
-    assert_eq!(
-        changed["params"]["targetInfo"]["targetId"],
-        json!(owner.target_id)
-    );
-    assert_eq!(
-        changed["params"]["targetInfo"]["url"],
-        json!("data:text/html,<title>named</title><main>named target</main>")
     );
 
     {
@@ -571,7 +559,7 @@ let browser_context = conn.browser_context.as_ref().expect("browser context");
             "ordinary window.open should activate its reused named target"
         );
         assert_eq!(
-            browser_context.target_url(),
+            browser_context.visible_url(),
             "data:text/html,<title>named</title><main>named target</main>"
         );
         assert!(

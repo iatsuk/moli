@@ -1243,7 +1243,7 @@ async fn window_open_hands_off_session_storage_snapshot_and_initial_storage_key(
     {
         ctx.with_fixture(|conn| {
             let browser_context = conn.browser_context.as_mut().unwrap();
-            browser_context.set_target_url(page.final_url().as_str().to_owned());
+            browser_context.set_committed_url_for_test(page.final_url().as_str().to_owned());
             let _ = browser_context
                 .active_page_target_mut()
                 .runtime_slot
@@ -1832,14 +1832,14 @@ async fn window_open_self_navigates_current_target_without_popup_target() {
     );
     ctx.wait_until_scheduler_state("script navigation commit", |conn| {
         conn.browser_context.as_ref().is_some_and(|browser| {
-            browser.target_url() == "data:text/html,<main>self target</main>"
+            browser.visible_url() == "data:text/html,<main>self target</main>"
         })
     })
     .await;
     ctx.with_fixture(|conn| {
         let browser_context = conn.browser_context.as_ref().unwrap();
         assert_eq!(
-            browser_context.target_url(),
+            browser_context.visible_url(),
             "data:text/html,<main>self target</main>"
         );
         assert_eq!(browser_context.active_target_id(), Some("TID-opener-self"));
@@ -1901,14 +1901,14 @@ async fn call_function_on_window_open_self_navigates_current_target_without_popu
     );
     ctx.wait_until_scheduler_state("script navigation commit", |conn| {
         conn.browser_context.as_ref().is_some_and(|browser| {
-            browser.target_url() == "data:text/html,<main>call self target</main>"
+            browser.visible_url() == "data:text/html,<main>call self target</main>"
         })
     })
     .await;
     ctx.with_fixture(|conn| {
         let browser_context = conn.browser_context.as_ref().unwrap();
         assert_eq!(
-            browser_context.target_url(),
+            browser_context.visible_url(),
             "data:text/html,<main>call self target</main>"
         );
         assert_eq!(
@@ -2086,7 +2086,7 @@ async fn window_open_named_target_reuses_existing_popup_target() {
 let browser_context = conn.browser_context.as_ref().unwrap();
             assert_eq!(browser_context.active_target_id(), Some(target_id.as_str()));
             assert_eq!(
-                browser_context.target_url(),
+                browser_context.visible_url(),
                 "data:text/html,second-popup"
             );
 });
@@ -2160,7 +2160,7 @@ async fn window_open_named_target_reused_in_same_command_emits_one_page_event() 
             browser_context
                 .page_target(&target_id)
                 .unwrap()
-                .target_url(),
+                .visible_url(),
             "https://example.com/second-popup"
         );
     });
@@ -2168,87 +2168,85 @@ async fn window_open_named_target_reused_in_same_command_emits_one_page_event() 
 
 #[tokio::test(flavor = "multi_thread")]
 async fn named_popup_reuse_with_catchall_discovery_only_changes_the_page_target_info() {
-    let mut ctx = TestContext::new();
-    load_bc_with_titled_page_async(
-        &mut ctx,
-        "BID-popup-info-change",
-        "TID-popup-info-opener",
-        "<main>popup opener</main>",
-    )
-    .await;
-    ctx.sent.clear();
+    tokio::task::LocalSet::new()
+        .run_until(async {
+            let mut ctx = TestContext::new();
+            load_bc_with_titled_page_async(
+                &mut ctx,
+                "BID-popup-info-change",
+                "TID-popup-info-opener",
+                "<main>popup opener</main>",
+            )
+            .await;
+            ctx.sent.clear();
 
-    ctx.process_async(json!({
-        "id": 151,
-        "method": "Target.setDiscoverTargets",
-        "params": {
-            "discover": true,
-            "filter": [{}]
-        }
-    }))
-    .await;
-    ctx.expect_result(151, json!({}), None);
-    ctx.sent.clear();
+            ctx.process_async(json!({
+                "id": 151,
+                "method": "Target.setDiscoverTargets",
+                "params": {
+                    "discover": true,
+                    "filter": [{}]
+                }
+            }))
+            .await;
+            ctx.expect_result(151, json!({}), None);
+            ctx.sent.clear();
 
-    ctx.process_async(json!({
-        "id": 152,
-        "method": "Runtime.evaluate",
-        "params": {
-            "expression": "window.open('https://example.com/first-popup', 'reportWindow') !== null"
-        }
-    }))
-    .await;
-    let first_sent = ctx.take_all();
-    let page_created = first_sent
-        .iter()
-        .find(|message| {
-            message["method"] == json!("Target.targetCreated")
-                && message["params"]["targetInfo"]["type"] == json!("page")
-                && message["params"]["targetInfo"]["url"]
-                    == json!("https://example.com/first-popup")
+            ctx.enable_background_navigation_scheduler_for_test();
+            ctx.process_async(json!({
+                "id": 152,
+                "method": "Runtime.evaluate",
+                "params": {
+                    "expression": "window.open('data:text/html,first-popup', 'reportWindow') !== null"
+                }
+            }))
+            .await;
+            let first_sent = ctx.take_all();
+            let page_created = first_sent
+                .iter()
+                .find(|message| {
+                    message["method"] == json!("Target.targetCreated")
+                        && message["params"]["targetInfo"]["type"] == json!("page")
+                        && message["params"]["targetInfo"]["url"] == json!("data:text/html,first-popup")
+                })
+                .unwrap_or_else(|| panic!("missing first popup page targetCreated: {first_sent:?}"));
+            let page_target_id = page_created["params"]["targetInfo"]["targetId"]
+                .as_str()
+                .expect("popup page target id")
+                .to_owned();
+            let tab_target_id = tab_id_for_page(&ctx, &page_target_id);
+            assert!(
+                first_sent.iter().any(|message| {
+                    message["method"] == json!("Target.targetCreated")
+                        && message["params"]["targetInfo"]["targetId"] == json!(tab_target_id)
+                        && message["params"]["targetInfo"]["type"] == json!("tab")
+                }),
+                "catch-all discovery should report popup tab targetCreated: {first_sent:?}"
+            );
+
+            wait_for_committed_popup_url(&mut ctx, &page_target_id, "data:text/html,first-popup").await;
+            ctx.process_async(json!({
+                "id": 153,
+                "method": "Runtime.evaluate",
+                "params": {
+                    "expression": "window.open('data:text/html,second-popup', 'reportWindow') !== null"
+                }
+            }))
+            .await;
+
+            let changed =
+                wait_for_popup_url_change(&mut ctx, &page_target_id, "data:text/html,second-popup").await;
+            assert_eq!(changed["params"]["targetInfo"]["type"], "page");
+            let second_sent = ctx.take_all();
+            assert!(
+                second_sent.iter().all(|message| {
+                    message["method"] != json!("Target.targetInfoChanged")
+                        || message["params"]["targetInfo"]["targetId"] != json!(tab_target_id)
+                }),
+                "document navigation must not mirror Page targetInfoChanged onto the stable Tab host: {second_sent:?}"
+            );
         })
-        .unwrap_or_else(|| panic!("missing first popup page targetCreated: {first_sent:?}"));
-    let page_target_id = page_created["params"]["targetInfo"]["targetId"]
-        .as_str()
-        .expect("popup page target id")
-        .to_owned();
-    let tab_target_id = tab_id_for_page(&ctx, &page_target_id);
-    assert!(
-        first_sent.iter().any(|message| {
-            message["method"] == json!("Target.targetCreated")
-                && message["params"]["targetInfo"]["targetId"] == json!(tab_target_id)
-                && message["params"]["targetInfo"]["type"] == json!("tab")
-        }),
-        "catch-all discovery should report popup tab targetCreated: {first_sent:?}"
-    );
-
-    ctx.process_async(json!({
-        "id": 153,
-        "method": "Runtime.evaluate",
-        "params": {
-            "expression": "window.open('https://example.com/second-popup', 'reportWindow') !== null"
-        }
-    }))
-    .await;
-
-    let second_sent = ctx.take_all();
-    assert!(
-        second_sent.iter().all(|message| {
-            message["method"] != json!("Target.targetInfoChanged")
-                || message["params"]["targetInfo"]["targetId"] != json!(tab_target_id)
-        }),
-        "document navigation must not mirror Page targetInfoChanged onto the stable Tab host: {second_sent:?}"
-    );
-    assert!(
-        second_sent.iter().any(|message| {
-            message["method"] == json!("Target.targetInfoChanged")
-                && message["params"]["targetInfo"]["targetId"] == json!(page_target_id)
-                && message["params"]["targetInfo"]["type"] == json!("page")
-                && message["params"]["targetInfo"]["url"]
-                    == json!("https://example.com/second-popup")
-        }),
-        "catch-all discovery should report page targetInfoChanged: {second_sent:?}"
-    );
+        .await;
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -3438,7 +3436,7 @@ async fn incomplete_active_popup_close_clears_active_slot_sessions_and_target_gr
         ctx.with_fixture(|conn| {
             let browser_context = conn.browser_context.as_mut().expect("browser context");
             browser_context.set_active_target_id(page_target_id);
-            browser_context.set_target_url("about:blank".to_owned());
+            browser_context.set_committed_url_for_test("about:blank".to_owned());
             browser_context.begin_active_target_initial_empty_document("about:blank".to_owned());
             browser_context.attach_active_session("SID-active-popup-page-primary");
             assert!(browser_context.assign_auto_attached_session_to_target(

@@ -1041,7 +1041,7 @@ async fn network_set_cookie_reports_structured_name_value_rejections_without_pro
 async fn network_set_cookie_uses_browser_context_default_cookie_url_when_missing() {
     let mut ctx = TestContext::new();
     let mut bc = BrowserContext::new_with_page_for_test("BID-N6", "TID-N6");
-    bc.set_target_url("https://example.com/path".into());
+    bc.set_committed_url_for_test("https://example.com/path".into());
     ctx.with_fixture(|conn| conn.install_browser_context_fixture_for_test(bc));
 
     ctx.process_async(json!({

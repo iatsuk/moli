@@ -3,7 +3,7 @@ use super::*;
 fn browser_context_document_cookie_facade_snapshot_tracks_shared_cookie_store_generation() {
     let mut conn = CdpConnection::new();
     let mut bc = BrowserContext::new_with_page_for_test("BID-cookie-facade", "TID-cookie-facade");
-    bc.set_target_url("https://example.com/app".into());
+    bc.set_committed_url_for_test("https://example.com/app".into());
     conn.install_browser_context_fixture_for_test(bc);
 
     let before = conn
@@ -63,7 +63,7 @@ fn browser_context_document_cookie_facade_snapshot_tracks_shared_cookie_store_ge
 async fn browser_context_document_cookie_facade_snapshot_projects_cookie_get_freshness_state() {
     let mut conn = CdpConnection::new();
     let mut bc = BrowserContext::new_with_page_for_test("BID-cookie-facade", "TID-cookie-facade");
-    bc.set_target_url("https://example.com/app".into());
+    bc.set_committed_url_for_test("https://example.com/app".into());
     conn.install_browser_context_fixture_for_test(bc);
 
     let navigation = conn

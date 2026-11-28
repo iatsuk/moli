@@ -104,14 +104,12 @@ async fn failed_navigation_cleanup_requires_current_request_and_exact_page() {
             .unwrap()
     });
     assert_ne!(old, current);
-    let failed_url = Url::parse("https://failed.example/").unwrap();
     ctx.with_fixture(|conn| {
         assert!(
             conn.take_loaded_page_after_failed_navigation_for_owner(
                 &navigation.owner,
                 &old,
                 Some(&expected),
-                &failed_url,
             )
             .is_none(),
             "an old request cannot discard B even when both use the same Page and loader"
@@ -130,7 +128,6 @@ async fn failed_navigation_cleanup_requires_current_request_and_exact_page() {
                 &navigation.owner,
                 &current,
                 Some(&stale_page),
-                &failed_url,
             )
             .is_none()
         })
@@ -155,7 +152,6 @@ async fn failed_navigation_cleanup_requires_current_request_and_exact_page() {
                     &navigation.owner,
                     &current,
                     Some(&stale_renderer),
-                    &failed_url,
                 )
                 .is_none()
             })
@@ -176,7 +172,6 @@ async fn failed_navigation_cleanup_requires_current_request_and_exact_page() {
             &navigation.owner,
             &current,
             Some(&expected),
-            &failed_url,
         )
         .expect("the exact failing request must still discard its unavailable Page")
     });

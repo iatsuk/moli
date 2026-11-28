@@ -9,7 +9,7 @@ fn context_with_page_sessions() -> TestContext {
     let ctx = TestContext::new();
     let mut browser_context = BrowserContext::new("BID-tracing".to_owned());
     browser_context.set_active_target_id("TID-tracing".to_owned());
-    browser_context.set_target_url("https://example.test/page#fragment".to_owned());
+    browser_context.set_committed_url_for_test("https://example.test/page#fragment".to_owned());
     browser_context.attach_active_session("SID-owner".to_owned());
     assert!(
         browser_context.assign_attached_session_to_target("TID-tracing", "SID-peer".to_owned(),)

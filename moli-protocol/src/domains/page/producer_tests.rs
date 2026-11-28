@@ -1083,7 +1083,7 @@ async fn javascript_dialog_projection_uses_captured_url_and_frame() {
     let ctx = crate::testing::TestContext::from_conn(CdpConnection::default());
     let mut bc = BrowserContext::new("BID-dialog-source".into());
     bc.set_active_target_id("TID-dialog-source");
-    bc.set_target_url("https://example.test/current-before-capture".to_owned());
+    bc.set_committed_url_for_test("https://example.test/current-before-capture".to_owned());
     bc.attach_active_session("SID-dialog-source");
     ctx.with_fixture(|conn| conn.install_browser_context_fixture_for_test(bc));
     ctx.with_fixture(|conn| {
@@ -1121,7 +1121,7 @@ async fn javascript_dialog_projection_uses_captured_url_and_frame() {
         conn.browser_context
             .as_mut()
             .expect("browser context")
-            .set_target_url("https://replacement.example/current".to_owned())
+            .set_committed_url_for_test("https://replacement.example/current".to_owned())
     });
 
     let mut out = Vec::new();
@@ -1151,7 +1151,7 @@ async fn canonical_activity_drain_order_survives_ordered_typed_event_stream() {
     });
     let mut bc = BrowserContext::new("BID-activity-order".into());
     bc.set_active_target_id("TID-activity-order");
-    bc.set_target_url("https://example.test/page".to_owned());
+    bc.set_committed_url_for_test("https://example.test/page".to_owned());
     bc.attach_active_session("SID-activity-order");
     bc.active_page_target_mut().devtools_sessions[moli_page_types::DevToolsSessionKey::Primary]
         .page_session_state
@@ -1312,7 +1312,7 @@ async fn later_navigation_drain_order_survives_ordered_typed_event_stream() {
     let mut ctx = crate::testing::TestContext::from_conn(CdpConnection::default());
     let mut bc = BrowserContext::new("BID-later-activity-order".into());
     bc.set_active_target_id("TID-later-activity-order");
-    bc.set_target_url("https://example.test/page".to_owned());
+    bc.set_committed_url_for_test("https://example.test/page".to_owned());
     bc.attach_active_session("SID-later-activity-order");
     bc.active_page_target_mut().devtools_sessions[moli_page_types::DevToolsSessionKey::Primary]
         .page_session_state
@@ -1480,7 +1480,7 @@ async fn browser_initiated_child_frame_completion_omits_renderer_request_events(
     let ctx = crate::testing::TestContext::from_conn(CdpConnection::default());
     let mut bc = BrowserContext::new("BID-1".into());
     bc.set_active_target_id("TID-1");
-    bc.set_target_url("https://example.test/page".to_owned());
+    bc.set_committed_url_for_test("https://example.test/page".to_owned());
     bc.attach_active_session("SID-1");
     bc.active_page_target_mut().devtools_sessions[moli_page_types::DevToolsSessionKey::Primary]
         .page_session_state
@@ -1566,7 +1566,7 @@ async fn child_frame_activity_emits_navigation_before_init_before_lifecycle_term
     let ctx = crate::testing::TestContext::from_conn(CdpConnection::default());
     let mut bc = BrowserContext::new("BID-1".into());
     bc.set_active_target_id("TID-1");
-    bc.set_target_url("https://example.test/page".to_owned());
+    bc.set_committed_url_for_test("https://example.test/page".to_owned());
     bc.attach_active_session("SID-1");
     bc.active_page_target_mut().devtools_sessions[moli_page_types::DevToolsSessionKey::Primary]
         .page_session_state
@@ -1635,7 +1635,7 @@ async fn child_frame_activity_fans_out_page_events_to_enabled_attached_session()
     let ctx = crate::testing::TestContext::from_conn(CdpConnection::default());
     let mut bc = BrowserContext::new("BID-child-page-fanout".into());
     bc.set_active_target_id("TID-child-page-fanout");
-    bc.set_target_url("https://example.test/page".to_owned());
+    bc.set_committed_url_for_test("https://example.test/page".to_owned());
     bc.attach_active_session("SID-primary");
     assert!(
         bc.assign_attached_session_to_target("TID-child-page-fanout", "SID-attached".to_owned(),)
@@ -1698,7 +1698,7 @@ async fn child_frame_activity_projects_sandboxed_about_blank_from_document_url()
     let ctx = crate::testing::TestContext::from_conn(CdpConnection::default());
     let mut bc = BrowserContext::new("BID-1".into());
     bc.set_active_target_id("TID-1");
-    bc.set_target_url("https://top.example/page".to_owned());
+    bc.set_committed_url_for_test("https://top.example/page".to_owned());
     bc.attach_active_session("SID-1");
     bc.active_page_target_mut().devtools_sessions[moli_page_types::DevToolsSessionKey::Primary]
         .page_session_state
@@ -1964,7 +1964,7 @@ async fn child_frame_activity_emits_document_network_events_before_load_completi
     let mut conn = CdpConnection::default();
     let mut bc = BrowserContext::new("BID-1".into());
     bc.set_active_target_id("TID-1");
-    bc.set_target_url("https://example.test/page".to_owned());
+    bc.set_committed_url_for_test("https://example.test/page".to_owned());
     bc.attach_active_session("SID-1");
     assert!(bc.assign_attached_session_to_target("TID-1", "SID-ATTACHED".to_owned(),));
     conn.install_browser_context_fixture_for_test(bc);
@@ -2102,7 +2102,7 @@ async fn stale_child_document_response_emits_network_without_navigation_or_lifec
     let mut conn = CdpConnection::default();
     let mut bc = BrowserContext::new("BID-1".into());
     bc.set_active_target_id("TID-1");
-    bc.set_target_url("https://example.test/page".to_owned());
+    bc.set_committed_url_for_test("https://example.test/page".to_owned());
     bc.attach_active_session("SID-1");
     bc.active_page_target_mut().devtools_sessions[moli_page_types::DevToolsSessionKey::Primary]
         .page_session_state
@@ -2276,7 +2276,7 @@ async fn child_frame_activity_drain_preserves_prepared_attachment_only_token() {
     let ctx = crate::testing::TestContext::from_conn(CdpConnection::default());
     let mut bc = BrowserContext::new("BID-1".into());
     bc.set_active_target_id("TID-1");
-    bc.set_target_url("https://example.test/page".to_owned());
+    bc.set_committed_url_for_test("https://example.test/page".to_owned());
     bc.attach_active_session("SID-1");
     bc.active_page_target_mut().devtools_sessions[moli_page_types::DevToolsSessionKey::Primary]
         .page_session_state
@@ -2375,7 +2375,7 @@ async fn prepared_child_frame_activity_does_not_follow_replacement_page_residenc
     let ctx = crate::testing::TestContext::from_conn(CdpConnection::default());
     let mut browser_context = BrowserContext::new("BID-child-page-owner".into());
     browser_context.set_active_target_id("TID-child-page-owner");
-    browser_context.set_target_url("https://example.test/page".to_owned());
+    browser_context.set_committed_url_for_test("https://example.test/page".to_owned());
     browser_context.attach_active_session("SID-child-page-owner");
     ctx.with_fixture(|conn| conn.install_browser_context_fixture_for_test(browser_context));
     let source_document = renderer_document_identity_for_test(1, 1);
@@ -2422,7 +2422,7 @@ async fn prepared_child_frame_activity_does_not_follow_root_document_open_replac
     let ctx = crate::testing::TestContext::from_conn(CdpConnection::default());
     let mut browser_context = BrowserContext::new("BID-child-root-document".into());
     browser_context.set_active_target_id("TID-child-root-document");
-    browser_context.set_target_url("https://example.test/page".to_owned());
+    browser_context.set_committed_url_for_test("https://example.test/page".to_owned());
     browser_context.attach_active_session("SID-child-root-document");
     ctx.with_fixture(|conn| conn.install_browser_context_fixture_for_test(browser_context));
     let source_document = renderer_document_identity_for_test(1, 1);
@@ -2605,7 +2605,7 @@ async fn prepared_child_frame_activity_keeps_root_document_route_until_delivery(
     let ctx = crate::testing::TestContext::from_conn(CdpConnection::default());
     let mut browser_context = BrowserContext::new("BID-child-delivery-route".into());
     browser_context.set_active_target_id("TID-child-delivery-route");
-    browser_context.set_target_url("https://example.test/page".to_owned());
+    browser_context.set_committed_url_for_test("https://example.test/page".to_owned());
     browser_context.attach_active_session("SID-child-delivery-route");
     browser_context.active_page_target_mut().devtools_sessions
         [moli_page_types::DevToolsSessionKey::Primary]
@@ -2666,7 +2666,7 @@ async fn prepared_child_frame_activity_does_not_follow_detached_protocol_session
     let ctx = crate::testing::TestContext::from_conn(CdpConnection::default());
     let mut browser_context = BrowserContext::new("BID-child-session".into());
     browser_context.set_active_target_id("TID-child-session");
-    browser_context.set_target_url("https://example.test/page".to_owned());
+    browser_context.set_committed_url_for_test("https://example.test/page".to_owned());
     browser_context.attach_active_session("SID-child-session");
     ctx.with_fixture(|conn| conn.install_browser_context_fixture_for_test(browser_context));
     let source_document = renderer_document_identity_for_test(1, 1);
@@ -2715,7 +2715,7 @@ fn child_frame_tree_emission_deduplicates_attach_and_removes_owner_state_on_deta
     let mut conn = CdpConnection::default();
     let mut bc = BrowserContext::new("BID-1".into());
     bc.set_active_target_id("TID-1");
-    bc.set_target_url("about:blank".to_owned());
+    bc.set_committed_url_for_test("about:blank".to_owned());
     bc.attach_active_session("SID-1");
     bc.active_page_target_mut().devtools_sessions[moli_page_types::DevToolsSessionKey::Primary]
         .page_session_state
@@ -2783,7 +2783,7 @@ async fn child_frame_activity_drain_requires_prepared_output() {
     let ctx = crate::testing::TestContext::from_conn(CdpConnection::default());
     let mut bc = BrowserContext::new("BID-1".into());
     bc.set_active_target_id("TID-1");
-    bc.set_target_url("https://example.test/page".to_owned());
+    bc.set_committed_url_for_test("https://example.test/page".to_owned());
     bc.attach_active_session("SID-1");
     ctx.with_fixture(|conn| conn.install_browser_context_fixture_for_test(bc));
     let owner = crate::conn::CommandOwnerScope::for_session("SID-1");
@@ -3035,7 +3035,7 @@ async fn same_document_drain_consumes_prepared_navigations_without_page_readback
     let ctx = crate::testing::TestContext::from_conn(CdpConnection::default());
     let mut bc = BrowserContext::new("BID-1".into());
     bc.set_active_target_id("TID-1");
-    bc.set_target_url("https://example.test/page".to_owned());
+    bc.set_committed_url_for_test("https://example.test/page".to_owned());
     bc.attach_active_session("SID-1");
     ctx.with_fixture(|conn| conn.install_browser_context_fixture_for_test(bc));
     let source_document = renderer_document_identity_for_test(1, 1);
@@ -3089,7 +3089,7 @@ async fn same_document_drain_consumes_prepared_navigations_without_page_readback
     ));
     ctx.with_fixture(|conn| {
         assert_eq!(
-            conn.browser_context.as_ref().unwrap().target_url(),
+            conn.browser_context.as_ref().unwrap().visible_url(),
             "https://example.test/page#prepared",
             "prepared same-document navigation should still update owner URL state"
         )
@@ -3101,7 +3101,7 @@ async fn document_open_replacement_keeps_same_document_navigation_handoff() {
     let ctx = crate::testing::TestContext::from_conn(CdpConnection::default());
     let mut bc = BrowserContext::new("BID-document-open-same-document".into());
     bc.set_active_target_id("TID-document-open-same-document");
-    bc.set_target_url("https://example.test/source".to_owned());
+    bc.set_committed_url_for_test("https://example.test/source".to_owned());
     bc.attach_active_session("SID-document-open-same-document");
     ctx.with_fixture(|conn| conn.install_browser_context_fixture_for_test(bc));
 
@@ -3154,7 +3154,7 @@ async fn document_open_replacement_keeps_same_document_navigation_handoff() {
     );
     ctx.with_fixture(|conn| {
         assert_eq!(
-            conn.browser_context.as_ref().unwrap().target_url(),
+            conn.browser_context.as_ref().unwrap().visible_url(),
             "https://example.test/source#preserved",
             "same-Document history mutation survives replacement of only the Document shell"
         )
@@ -3166,7 +3166,7 @@ async fn stale_page_residence_same_document_navigation_cannot_mutate_replacement
     let ctx = crate::testing::TestContext::from_conn(CdpConnection::default());
     let mut bc = BrowserContext::new("BID-stale-page-same-document".into());
     bc.set_active_target_id("TID-stale-page-same-document");
-    bc.set_target_url("https://example.test/replacement".to_owned());
+    bc.set_committed_url_for_test("https://example.test/replacement".to_owned());
     bc.attach_active_session("SID-stale-page-same-document");
     ctx.with_fixture(|conn| conn.install_browser_context_fixture_for_test(bc));
 
@@ -3214,7 +3214,7 @@ async fn stale_page_residence_same_document_navigation_cannot_mutate_replacement
     );
     ctx.with_fixture(|conn| {
         assert_eq!(
-            conn.browser_context.as_ref().unwrap().target_url(),
+            conn.browser_context.as_ref().unwrap().visible_url(),
             "https://example.test/replacement",
             "a retired Page's output must not update replacement target state"
         )
@@ -3225,7 +3225,7 @@ fn initial_document_navigation_context_for_test() -> (TestContext, CommandOwnerS
     let ctx = TestContext::from_conn(CdpConnection::default());
     let mut bc = BrowserContext::new("BID-initial-navigation".into());
     bc.set_active_target_id("TID-initial-navigation");
-    bc.set_target_url("about:blank".to_owned());
+    bc.begin_active_target_initial_empty_document("about:blank".to_owned());
     bc.attach_active_session("SID-initial-navigation");
     ctx.with_fixture(|conn| conn.install_browser_context_fixture_for_test(bc));
     (
@@ -3304,7 +3304,7 @@ async fn initial_document_navigation_waits_for_adoption_and_honors_cancellation(
     ctx.with_fixture(|conn| {
         context.finish_projection(conn, &mut command);
         assert_eq!(
-            conn.browser_context.as_ref().unwrap().target_url(),
+            conn.browser_context.as_ref().unwrap().visible_url(),
             "about:blank"
         );
         assert!(!conn.has_pending_document_navigation_for_owner(&owner));
@@ -3345,7 +3345,7 @@ async fn initial_document_navigation_resumes_after_successful_adoption() {
     }
     ctx.with_fixture(|conn| {
         context.finish_projection(conn, &mut command);
-        assert_eq!(conn.browser_context.as_ref().unwrap().target_url(), url);
+        assert_eq!(conn.browser_context.as_ref().unwrap().visible_url(), url);
         assert_eq!(
             conn.loaded_page_mut_for_owner(&owner)
                 .unwrap()
@@ -3410,7 +3410,7 @@ async fn initial_document_navigation_exits_when_replacement_navigation_starts() 
         assert!(!slot.has_loaded_page());
         assert!(!slot.has_initial_document_page_build_in_progress());
         assert_eq!(
-            conn.browser_context.as_ref().unwrap().target_url(),
+            conn.browser_context.as_ref().unwrap().visible_url(),
             "about:blank"
         );
     });
@@ -3516,7 +3516,7 @@ async fn initial_document_navigation_noop_history_preserves_accepted_location() 
         }
         ctx.with_fixture(|conn| {
             context.finish_projection(conn, &mut command);
-            assert_eq!(conn.browser_context.as_ref().unwrap().target_url(), url);
+            assert_eq!(conn.browser_context.as_ref().unwrap().visible_url(), url);
             assert_eq!(
                 conn.loaded_page_mut_for_owner(&owner)
                     .unwrap()
@@ -3629,7 +3629,7 @@ async fn initial_document_navigation_latest_request_wins_in_either_resume_order(
             first_context.finish_projection(conn, &mut first_command);
             second_context.finish_projection(conn, &mut second_command);
             assert_eq!(
-                conn.browser_context.as_ref().unwrap().target_url(),
+                conn.browser_context.as_ref().unwrap().visible_url(),
                 "data:text/html,second",
                 "the last accepted request must win even when the older waiter resumes first"
             );
@@ -3726,7 +3726,7 @@ async fn initial_document_navigation_survives_newer_fragment_navigation() {
         ctx.with_fixture(|conn| {
             context.finish_projection(conn, &mut command);
             assert_eq!(
-                conn.browser_context.as_ref().unwrap().target_url(),
+                conn.browser_context.as_ref().unwrap().visible_url(),
                 "data:text/html,older"
             );
             assert_eq!(
@@ -3797,6 +3797,7 @@ async fn initial_document_navigation_only_committed_root_traversal_supersedes() 
                 .unwrap()
                 .active_page_target_mut()
                 .owner_state;
+            state.navigation_history_state.clear();
             for (index, entry_url) in ["about:blank#first", "about:blank#second"]
                 .into_iter()
                 .enumerate()
@@ -3833,7 +3834,7 @@ async fn initial_document_navigation_only_committed_root_traversal_supersedes() 
                     root_entry_steps: root_steps.to_vec(),
                 },
             );
-            assert_eq!(conn.browser_context.as_ref().unwrap().target_url(), url);
+            assert_eq!(conn.browser_context.as_ref().unwrap().visible_url(), url);
             assert_eq!(
                 conn.pending_target_page_residence_identity_for_owner(&owner),
                 Some(page)
@@ -3925,7 +3926,7 @@ async fn initial_document_navigation_survives_rejected_navigation_commands() {
     );
     ctx.with_fixture(|conn| {
         context.finish_projection(conn, &mut command);
-        assert_eq!(conn.browser_context.as_ref().unwrap().target_url(), url);
+        assert_eq!(conn.browser_context.as_ref().unwrap().visible_url(), url);
         assert_eq!(
             conn.loaded_page_mut_for_owner(&owner)
                 .unwrap()
@@ -3941,7 +3942,7 @@ async fn prepared_top_level_location_navigation_waits_for_its_scheduler_turn() {
     let mut ctx = crate::testing::TestContext::from_conn(CdpConnection::default());
     let mut bc = BrowserContext::new("BID-location".into());
     bc.set_active_target_id("TID-location");
-    bc.set_target_url("about:blank".to_owned());
+    bc.set_committed_url_for_test("about:blank".to_owned());
     bc.attach_active_session("SID-location");
     ctx.with_fixture(|conn| conn.install_browser_context_fixture_for_test(bc));
     let source_document = renderer_document_identity_for_test(1, 1);
@@ -3971,7 +3972,7 @@ async fn prepared_top_level_location_navigation_waits_for_its_scheduler_turn() {
 
     ctx.with_fixture(|conn| {
         assert_eq!(
-            conn.browser_context.as_ref().unwrap().target_url(),
+            conn.browser_context.as_ref().unwrap().visible_url(),
             "about:blank",
             "capturing prepared output must not execute its owner action"
         )
@@ -4013,7 +4014,7 @@ async fn document_open_replacement_keeps_requested_top_level_navigation() {
     let mut ctx = crate::testing::TestContext::from_conn(CdpConnection::default());
     let mut bc = BrowserContext::new("BID-document-open-location".into());
     bc.set_active_target_id("TID-document-open-location");
-    bc.set_target_url("https://example.test/source".to_owned());
+    bc.set_committed_url_for_test("https://example.test/source".to_owned());
     bc.attach_active_session("SID-document-open-location");
     ctx.with_fixture(|conn| conn.install_browser_context_fixture_for_test(bc));
 
@@ -4086,7 +4087,7 @@ async fn stale_page_residence_top_level_navigation_cannot_replace_current_page()
     let mut ctx = crate::testing::TestContext::from_conn(CdpConnection::default());
     let mut bc = BrowserContext::new("BID-stale-page-location".into());
     bc.set_active_target_id("TID-stale-page-location");
-    bc.set_target_url("https://example.test/replacement".to_owned());
+    bc.set_committed_url_for_test("https://example.test/replacement".to_owned());
     bc.attach_active_session("SID-stale-page-location");
     ctx.with_fixture(|conn| conn.install_browser_context_fixture_for_test(bc));
 
@@ -4133,7 +4134,7 @@ async fn stale_page_residence_top_level_navigation_cannot_replace_current_page()
     assert!(out.is_empty(), "a retired Page must start no navigation");
     ctx.with_fixture(|conn| {
         assert_eq!(
-            conn.browser_context.as_ref().unwrap().target_url(),
+            conn.browser_context.as_ref().unwrap().visible_url(),
             "https://example.test/replacement",
             "a retired Page's action must not navigate its replacement"
         )

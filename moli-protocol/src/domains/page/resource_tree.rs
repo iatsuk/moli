@@ -354,8 +354,9 @@ pub(super) fn network_error_page_unreachable_url(
     document_url: &str,
 ) -> Option<String> {
     (document_url == NETWORK_ERROR_PAGE_URL)
-        .then(|| conn.runtime_session_owner_target_url_for_owner(owner))
+        .then(|| conn.runtime_session_owner_committed_url_for_owner(owner))
         .flatten()
+        .map(Url::to_string)
 }
 
 pub(super) fn main_document_mime_type(page: &Page) -> String {
@@ -453,7 +454,7 @@ pub(super) fn start_devtools_get_frame_tree_command(
             }
         };
     let target_unreachable_url = network_error_page_unreachable_url(conn, &owner, &target_url);
-    let target_url = if pending_initial_document_url(conn, &owner).is_some() {
+    let target_url = if projects_initial_empty_loader_url(conn, &owner) {
         ":".to_owned()
     } else {
         target_url
@@ -647,10 +648,8 @@ fn attach_resources_to_frame(
 /// so retain the lifecycle distinction until the target's first navigation
 /// replaces it. An ordinary ready about:blank target needs no replacement.
 /// This is independent of debugger suspension and response delivery mode.
-fn pending_initial_document_url(conn: &CdpConnection, owner: &CommandOwnerScope) -> Option<String> {
+fn projects_initial_empty_loader_url(conn: &CdpConnection, owner: &CommandOwnerScope) -> bool {
     conn.runtime_session_owner_initial_empty_document_has_replacement_url_for_owner(owner)
-        .then(|| conn.runtime_session_owner_record_initial_empty_document_url_for_owner(owner))
-        .flatten()
 }
 
 /// Resolve both children and resource records before publishing the terminal.
@@ -671,16 +670,19 @@ pub(super) fn prepare_native_tree(
         .ok_or_else(|| CommandOutputPlan::error(-31998, "TargetNotLoaded"))?;
     let unreachable_url = network_error_page_unreachable_url(conn, &owner, &target_url);
     let loader_id = frame_tree_loader_id_for_current_owner(conn, &owner);
-    let initial_document_url = pending_initial_document_url(conn, &owner);
+    let initial_document = if projects_initial_empty_loader_url(conn, &owner) {
+        conn.runtime_session_owner_slot_for_owner(&owner)
+            .and_then(|slot| slot.committed_renderer_document_binding())
+            .map(|binding| binding.renderer_document_identity())
+    } else {
+        None
+    };
     Ok(Operation::with_page_state(
         Command::ChildFrameTreeSnapshot,
         move |reply, state| match reply {
             Ok(Reply::ChildFrameTreeSnapshots(children)) => {
-                // A preceding renderer command may already have changed the
-                // document URL before its Browser adapter applies the state.
-                // Only project the initial loader while that document is current.
                 let document_url =
-                    if initial_document_url.as_deref() == Some(state.final_url.as_str()) {
+                    if initial_document.is_some() && initial_document == state.root_document {
                         ":".to_owned()
                     } else {
                         state.final_url.to_string()

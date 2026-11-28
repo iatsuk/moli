@@ -101,7 +101,7 @@ async fn element_screenshot_reports_unsupported_without_initial_document_repair(
     let mut browser_context = BrowserContext::new("BID-no-page-element-shot".to_owned());
     browser_context.set_active_target_id("TID-no-page-element-shot".to_owned());
     browser_context.attach_active_session("SID-no-page-element-shot".to_owned());
-    browser_context.set_target_url("about:blank".to_owned());
+    browser_context.set_committed_url_for_test("about:blank".to_owned());
     ctx.with_fixture(|conn| conn.install_browser_context_fixture_for_test(browser_context));
 
     let screenshot_result = ctx

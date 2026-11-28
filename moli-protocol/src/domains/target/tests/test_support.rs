@@ -27,6 +27,40 @@ pub(super) fn tab_id_for_page(ctx: &TestContext, page_target_id: &str) -> String
     })
 }
 
+pub(super) async fn wait_for_committed_popup_url(
+    ctx: &mut TestContext,
+    target_id: &str,
+    url: &str,
+) {
+    ctx.wait_until_scheduler_state("popup document commit", |conn| {
+        conn.browser_context_id_for_target(target_id)
+            .and_then(|id| conn.browser_context_by_id(id))
+            .and_then(|context| context.page_target(target_id))
+            .is_some_and(|target| {
+                target
+                    .committed_url()
+                    .is_some_and(|committed| committed.as_str() == url)
+                    && target
+                        .loaded_page()
+                        .is_some_and(|page| page.final_url().as_str() == url)
+            })
+    })
+    .await;
+}
+
+pub(super) async fn wait_for_popup_url_change(
+    ctx: &mut TestContext,
+    target_id: &str,
+    url: &str,
+) -> serde_json::Value {
+    ctx.wait_for_scheduler_message("popup targetInfoChanged", |message| {
+        message["method"] == "Target.targetInfoChanged"
+            && message["params"]["targetInfo"]["targetId"] == target_id
+            && message["params"]["targetInfo"]["url"] == url
+    })
+    .await
+}
+
 pub(super) fn register_page_session_route(
     ctx: &mut TestContext,
     browser_context_id: &str,
@@ -61,11 +95,8 @@ pub(super) fn push_background_target(
             bc.insert_page_target_host(crate::conn::PageTargetHost::new(
                 target_id.to_owned(),
                 session_id.map(str::to_owned),
-                crate::conn::TargetIdentityState::new(
-                    url.to_owned(),
-                    crate::conn::URL_BASE.into(),
-                    "Secure".into(),
-                ),
+                url.to_owned(),
+                crate::conn::TargetIdentityState::new_tab(),
                 crate::conn::TargetPageSlot::empty_for_test_fixture(),
             ));
         }
@@ -239,7 +270,7 @@ pub(super) async fn load_bc_with_titled_page_async(
             .browser_context
             .as_mut()
             .expect("loaded Target fixture must retain its BrowserContext owner");
-        bc.set_target_url(url);
+        bc.set_committed_url_for_test(url);
         let _ = bc
             .active_page_target_mut()
             .runtime_slot

@@ -51,10 +51,8 @@ fn runtime_observable_cursor_end_from_owner_queue_for_owner(
     owner: &CommandOwnerScope,
 ) -> Option<(HashMap<i64, usize>, usize)> {
     let runtime_slot = conn.runtime_session_owner_slot_for_owner(owner)?;
-    let source = runtime_slot.observable_output_latest_source_tail()?;
-    let url = conn.runtime_session_owner_target_url_for_owner(owner)?;
-    (source.url() == url && runtime_slot.page_attachment_id() == Some(source.page_attachment_id()))
-        .then_some(source)?
+    runtime_slot
+        .observable_output_latest_source_tail()?
         .cursor_end()
 }
 
@@ -201,7 +199,7 @@ mod tests {
         let mut queue = TargetRuntimeObservableQueueState::default();
         queue.sync_source_from_renderer_snapshot(
             "http://example.test/runtime-source".to_owned(),
-            page_attachment_id(3),
+            page_attachment_id(3).into(),
             &source_snapshot,
         );
         queue
@@ -280,7 +278,7 @@ mod tests {
                 .browser_context
                 .as_mut()
                 .expect("browser context should exist");
-            bc.set_target_url("http://example.test/runtime-source".to_owned());
+            bc.set_committed_url_for_test("http://example.test/runtime-source".to_owned());
             bc.active_page_target_mut()
                 .runtime_slot
                 .set_page_attachment_id_for_test(3);

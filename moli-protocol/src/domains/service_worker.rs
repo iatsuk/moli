@@ -637,7 +637,7 @@ mod tests {
 
         let mut context = BrowserContext::new("BID-1".to_owned());
         context.set_active_target_id("TID-active".to_owned());
-        context.set_target_url("data:text/html,<title>same-url</title>".to_owned());
+        context.set_committed_url_for_test("data:text/html,<title>same-url</title>".to_owned());
         let _ = context.replace_loaded_page(Some(active_page));
 
         let mut background = PageTargetHost::with_url(

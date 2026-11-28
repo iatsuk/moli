@@ -163,20 +163,29 @@ impl BrowserContext {
         window_id: u32,
         window_identity: moli_core::page::RendererPageWindowIdentity,
     ) {
-        let target_identity = background_target_identity_for_initial_url(&url, creator.as_ref());
+        let initial_url = initial_empty_document_url.unwrap_or_else(|| url.clone());
+        let needs_initial_navigation = initial_url != url;
+        let parsed_initial_url = url::Url::parse(&initial_url).ok();
+        let target_identity = parsed_initial_url
+            .as_ref()
+            .map(|url| background_target_identity_for_initial_url(url, creator.as_ref()))
+            .unwrap_or_default();
         let mut target =
             PageTargetHost::with_identity(target_id, session_id, target_identity, window_identity);
         let target_id = target.target_id().to_owned();
         target.owner_state.begin_initial_empty_document(
             target_id,
-            initial_empty_document_url.unwrap_or_else(|| url.clone()),
+            initial_url,
             creator,
             initial_empty_document_storage_key,
         );
-        if target
-            .owner_state
-            .initial_empty_document_url_if_current()
-            .is_some_and(|initial_url| initial_url != url)
+        if target.owner_state.committed_document.is_none()
+            && let Some(url) = parsed_initial_url
+        {
+            target.owner_state.commit_document_url(url, false);
+        }
+        if needs_initial_navigation
+            && target.owner_state.is_on_initial_empty_document() == Some(true)
         {
             target.owner_state.pending_initial_navigation =
                 Some(crate::conn::PendingInitialNavigation {
@@ -217,6 +226,10 @@ impl BrowserContext {
             return None;
         }
         Some(target_name.to_owned())
+    }
+
+    pub(crate) fn is_auxiliary_target(&self, target_id: &str) -> bool {
+        self.named_auxiliary_targets.contains(target_id)
     }
 
     pub(crate) fn target_id_for_window_name(&self, target_name: &str) -> Option<&str> {
@@ -340,18 +353,6 @@ impl BrowserContext {
                 self.target_opener_frame_ids.remove(&candidate_target_id);
             }
         }
-    }
-
-    pub(crate) fn update_target_url(&mut self, target_id: &str, url: String) -> bool {
-        let is_active = self.is_active_target(target_id);
-        let Some(target) = self.page_target_mut(target_id) else {
-            return false;
-        };
-        target.set_target_url(url);
-        if is_active {
-            target.owner_state.target_crash_state.clear();
-        }
-        true
     }
 
     pub(crate) fn assign_session_to_target(&mut self, target_id: &str, session_id: String) -> bool {
@@ -801,6 +802,7 @@ impl BrowserContext {
         if let Some(target) = self.page_target(target_id) {
             let attached =
                 target.has_session() || !self.attached_session_ids_for_target(target_id).is_empty();
+            let visible_url = target.visible_url();
             return Some(DevToolsTargetInfo {
                 target_id: Some(DevToolsTargetId::from(target_id)),
                 kind: DevToolsTargetKind::Page,
@@ -811,9 +813,9 @@ impl BrowserContext {
                         .map(str::to_owned)
                         .or_else(|| target.loaded_page().map(|page| page.document_title()))
                         .unwrap_or_default(),
-                    target.target_url(),
+                    visible_url,
                 ),
-                url: target.target_url().to_owned(),
+                url: visible_url.to_owned(),
                 attached,
                 opener_id: self
                     .target_opener_ids
@@ -1335,24 +1337,18 @@ impl BrowserContext {
 }
 
 fn background_target_identity_for_initial_url(
-    url: &str,
+    url: &url::Url,
     creator: Option<&TargetInitialEmptyDocumentCreator>,
 ) -> TargetIdentityState {
-    let Some(creator) = creator else {
-        return TargetIdentityState::with_url(url.to_owned());
-    };
-    if url::Url::parse(url)
-        .ok()
-        .as_ref()
-        .is_some_and(moli_url::is_about_blank)
+    if let Some(creator) = creator
+        && moli_url::is_about_blank(url)
     {
         return TargetIdentityState::new(
-            url.to_owned(),
             creator.security_origin().to_owned(),
             creator.secure_context_type().to_owned(),
         );
     }
-    TargetIdentityState::with_url(url.to_owned())
+    TargetIdentityState::for_document_url(url)
 }
 
 #[cfg(test)]
@@ -1598,7 +1594,7 @@ mod tests {
         let mut context = BrowserContext::new("BC-deactivate".to_owned());
         context.set_active_target_id("TID-deactivate".to_owned());
         context.attach_active_session("SID-deactivate".to_owned());
-        context.set_target_url(active_page.final_url().as_str().to_owned());
+        context.set_committed_url_for_test(active_page.final_url().as_str().to_owned());
         context.active_page_target_mut().devtools_sessions
             [moli_page_types::DevToolsSessionKey::Primary]
             .runtime_session_state
@@ -1699,7 +1695,7 @@ mod tests {
         assert_eq!(background_target.target_id(), "TID-deactivate");
         assert_eq!(background_target.session_id(), Some("SID-deactivate"));
         assert_eq!(
-            background_target.target_url(),
+            background_target.visible_url(),
             "data:text/html,<title>deactivate-active</title>"
         );
         assert!(
@@ -1860,7 +1856,7 @@ mod tests {
     fn selecting_new_target_preserves_previous_pending_initial_document_reason() {
         let mut context = BrowserContext::new("BC-deactivate-pending".to_owned());
         context.set_active_target_id("TID-old-active");
-        context.set_target_url("about:blank#old".to_owned());
+        context.set_committed_url_for_test("about:blank#old".to_owned());
         context.begin_active_target_initial_empty_document("about:blank#old".to_owned());
 
         context.stage_foreground_target(

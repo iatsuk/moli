@@ -406,7 +406,6 @@ impl TargetInitialEmptyDocumentCreator {
 pub(crate) struct TargetInitialEmptyDocumentState {
     target_id: String,
     loader_id: String,
-    initial_url: String,
     creator: Option<TargetInitialEmptyDocumentCreator>,
     storage_key: Option<moli_storage_key::MoliStorageKey>,
     materialized: bool,
@@ -416,7 +415,6 @@ pub(crate) struct TargetInitialEmptyDocumentState {
 impl TargetInitialEmptyDocumentState {
     fn new(
         target_id: String,
-        initial_url: String,
         creator: Option<TargetInitialEmptyDocumentCreator>,
         storage_key: Option<moli_storage_key::MoliStorageKey>,
     ) -> Self {
@@ -424,7 +422,6 @@ impl TargetInitialEmptyDocumentState {
         Self {
             target_id,
             loader_id,
-            initial_url,
             creator,
             storage_key,
             materialized: false,
@@ -434,10 +431,6 @@ impl TargetInitialEmptyDocumentState {
 
     pub(crate) fn target_id(&self) -> &str {
         &self.target_id
-    }
-
-    pub(crate) fn initial_url(&self) -> &str {
-        &self.initial_url
     }
 
     pub(crate) fn loader_id(&self) -> &str {
@@ -617,7 +610,6 @@ impl TargetOwnerState {
         }
         self.initial_empty_document = Some(TargetInitialEmptyDocumentState::new(
             target_id,
-            initial_url,
             creator,
             storage_key,
         ));
@@ -640,16 +632,19 @@ impl TargetOwnerState {
         self.initial_empty_document.as_ref()
     }
 
-    pub(crate) fn initial_empty_document_url_if_current(&self) -> Option<&str> {
+    pub(crate) fn initial_empty_document_url_if_current(&self) -> Option<&url::Url> {
         self.initial_empty_document_state()
             .filter(|state| state.is_on_initial_empty_document())
-            .map(TargetInitialEmptyDocumentState::initial_url)
+            .and(self.committed_document.as_ref())
+            .map(|document| &document.url)
     }
 
     pub(crate) fn pending_initial_navigation_url(&self) -> Option<&str> {
-        let initial_url = self.initial_empty_document_url_if_current()?;
-        let pending = self.pending_initial_navigation.as_ref()?;
-        (pending.url != initial_url).then_some(pending.url.as_str())
+        self.initial_empty_document_state()
+            .filter(|state| state.is_on_initial_empty_document())?;
+        self.pending_initial_navigation
+            .as_ref()
+            .map(|pending| pending.url.as_str())
     }
 
     pub(crate) fn initial_empty_document_loader_id_if_current(&self) -> Option<&str> {
@@ -692,7 +687,7 @@ impl TargetOwnerState {
             });
             json!({
                 "targetId": state.target_id(),
-                "initialUrl": state.initial_url(),
+                "initialUrl": self.initial_empty_document_url_if_current().map(url::Url::as_str),
                 "creator": creator,
                 "materialized": state.materialized(),
                 "exited": state.exited(),

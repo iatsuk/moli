@@ -1017,7 +1017,8 @@ async fn background_fetch_runtime_activity_broadcasts_to_attached_network_sessio
     let target = PageTargetHost::new(
         "TID-background".to_owned(),
         Some("SID-background".to_owned()),
-        TargetIdentityState::about_blank(),
+        "about:blank".into(),
+        TargetIdentityState::new_tab(),
         TargetPageSlot::empty_for_test_fixture(),
     );
 

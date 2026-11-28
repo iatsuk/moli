@@ -389,7 +389,7 @@ mod tests {
         let mut ctx = TestContext::new();
         let mut bc = BrowserContext::new("BID-1".into());
         bc.set_active_target_id("TID-1".to_owned());
-        bc.set_target_url("data:text/html,observable-emission-plan-test".to_owned());
+        bc.set_committed_url_for_test("data:text/html,observable-emission-plan-test".to_owned());
         bc.attach_active_session("SID-1".to_owned());
         let page = ctx
             .build_fixture_page("data:text/html,<!doctype html><body></body>")
@@ -421,9 +421,11 @@ mod tests {
             };
 
             queue.console_log_backlog_ranges(
-                bc.target_url(),
-                bc.page_attachment_id()
-                    .expect("loaded Page must have an attachment id"),
+                bc.visible_url(),
+                bc.active_page_target()
+                    .runtime_slot()
+                    .observable_source_identity()
+                    .expect("loaded Page must have a source identity"),
                 bc.active_page_target().devtools_sessions
                     [moli_page_types::DevToolsSessionKey::Primary]
                     .console_output_session_state
@@ -541,7 +543,9 @@ mod tests {
         let mut ctx = TestContext::new();
         let mut bc = BrowserContext::new("BID-1".into());
         bc.set_active_target_id("TID-1".to_owned());
-        bc.set_target_url("data:text/html,observable-projection-context-test".to_owned());
+        bc.set_committed_url_for_test(
+            "data:text/html,observable-projection-context-test".to_owned(),
+        );
         bc.attach_active_session("SID-1".to_owned());
         let page = ctx
             .build_fixture_page(
@@ -604,7 +608,7 @@ mod tests {
         let mut ctx = TestContext::new();
         let mut bc = BrowserContext::new("BID-1".into());
         bc.set_active_target_id("TID-1".to_owned());
-        bc.set_target_url("data:text/html,observable-prepared-range-test".to_owned());
+        bc.set_committed_url_for_test("data:text/html,observable-prepared-range-test".to_owned());
         bc.attach_active_session("SID-1".to_owned());
         let page = ctx
             .build_fixture_page(
@@ -672,7 +676,7 @@ mod tests {
         let page_url = "data:text/html,observable-prepared-attachment-test";
         let mut bc = BrowserContext::new("BID-1".into());
         bc.set_active_target_id("TID-1".to_owned());
-        bc.set_target_url(page_url.to_owned());
+        bc.set_committed_url_for_test(page_url.to_owned());
         bc.attach_active_session("SID-1".to_owned());
         let first_page = ctx
             .build_fixture_page(
@@ -704,7 +708,7 @@ mod tests {
                         .expect("browser context should remain loaded")
                 };
                 let _ = bc.replace_loaded_page(Some(second_page));
-                bc.set_target_url(page_url.to_owned());
+                bc.set_committed_url_for_test(page_url.to_owned());
                 bc.active_page_target_mut().devtools_sessions
                     [moli_page_types::DevToolsSessionKey::Primary]
                     .console_output_session_state
@@ -748,7 +752,7 @@ mod tests {
 
         let mut bc = BrowserContext::new("BID-1".into());
         bc.set_active_target_id("TID-active".to_owned());
-        bc.set_target_url("data:text/html,active-owner".to_owned());
+        bc.set_committed_url_for_test("data:text/html,active-owner".to_owned());
         bc.attach_active_session("SID-active".to_owned());
         let _ = bc.replace_loaded_page(Some(active_page));
         bc.active_page_target_mut().devtools_sessions
@@ -758,7 +762,8 @@ mod tests {
         bc.insert_page_target_host(PageTargetHost::new(
             "TID-background".to_owned(),
             Some("SID-background".to_owned()),
-            TargetIdentityState::with_url("data:text/html,background-owner".to_owned()),
+            "data:text/html,background-owner".to_owned(),
+            TargetIdentityState::new("null".into(), "InsecureScheme".into()),
             TargetPageSlot::with_loaded_page_for_test(background_page),
         ));
         bc.background_target_mut("TID-background")
@@ -844,7 +849,7 @@ mod tests {
 
         let mut bc = BrowserContext::new("BID-1".into());
         bc.set_active_target_id("TID-active".to_owned());
-        bc.set_target_url("data:text/html,old-active-owner".to_owned());
+        bc.set_committed_url_for_test("data:text/html,old-active-owner".to_owned());
         bc.attach_active_session("SID-active".to_owned());
         let _ = bc.replace_loaded_page(Some(active_page));
         bc.active_page_target_mut().devtools_sessions
@@ -854,7 +859,8 @@ mod tests {
         bc.insert_page_target_host(PageTargetHost::new(
             "TID-activated".to_owned(),
             Some("SID-activated".to_owned()),
-            TargetIdentityState::with_url("data:text/html,activated-owner".to_owned()),
+            "data:text/html,activated-owner".to_owned(),
+            TargetIdentityState::new("null".into(), "InsecureScheme".into()),
             TargetPageSlot::with_loaded_page_for_test(activated_page),
         ));
         bc.background_target_mut("TID-activated")
@@ -965,7 +971,9 @@ mod tests {
         let mut ctx = TestContext::new();
         let mut bc = BrowserContext::new("BID-1".into());
         bc.set_active_target_id("TID-1".to_owned());
-        bc.set_target_url("data:text/html,observable-runtime-prepared-range-test".to_owned());
+        bc.set_committed_url_for_test(
+            "data:text/html,observable-runtime-prepared-range-test".to_owned(),
+        );
         bc.attach_active_session("SID-1".to_owned());
         let page = ctx
             .build_fixture_page("data:text/html,<!doctype html><body></body>")
@@ -1036,7 +1044,9 @@ mod tests {
         let mut ctx = TestContext::new();
         let mut bc = BrowserContext::new("BID-1".into());
         bc.set_active_target_id("TID-1".to_owned());
-        bc.set_target_url("data:text/html,observable-runtime-source-payload-test".to_owned());
+        bc.set_committed_url_for_test(
+            "data:text/html,observable-runtime-source-payload-test".to_owned(),
+        );
         bc.attach_active_session("SID-1".to_owned());
         let page = ctx
             .build_fixture_page("data:text/html,<!doctype html><body></body>")
@@ -1094,7 +1104,9 @@ mod tests {
         let mut ctx = TestContext::new();
         let mut bc = BrowserContext::new("BID-1".into());
         bc.set_active_target_id("TID-1".to_owned());
-        bc.set_target_url("data:text/html,observable-runtime-stored-source-test".to_owned());
+        bc.set_committed_url_for_test(
+            "data:text/html,observable-runtime-stored-source-test".to_owned(),
+        );
         bc.attach_active_session("SID-1".to_owned());
         let page = ctx
             .build_fixture_page("data:text/html,<!doctype html><body></body>")
@@ -1153,7 +1165,9 @@ mod tests {
         let mut ctx = TestContext::new();
         let mut bc = BrowserContext::new("BID-1".into());
         bc.set_active_target_id("TID-1".to_owned());
-        bc.set_target_url("data:text/html,observable-runtime-agent-owner-test".to_owned());
+        bc.set_committed_url_for_test(
+            "data:text/html,observable-runtime-agent-owner-test".to_owned(),
+        );
         bc.attach_active_session("SID-1".to_owned());
         let page = ctx
             .build_fixture_page("data:text/html,<!doctype html><body></body>")
@@ -1232,7 +1246,9 @@ mod tests {
         let mut ctx = TestContext::new();
         let mut bc = BrowserContext::new("BID-1".into());
         bc.set_active_target_id("TID-1".to_owned());
-        bc.set_target_url("data:text/html,observable-runtime-no-source-test".to_owned());
+        bc.set_committed_url_for_test(
+            "data:text/html,observable-runtime-no-source-test".to_owned(),
+        );
         bc.attach_active_session("SID-1".to_owned());
         let page = ctx
             .build_fixture_page(
@@ -1272,7 +1288,7 @@ mod tests {
         let page_url = "data:text/html,observable-runtime-source-payload-attachment-test";
         let mut bc = BrowserContext::new("BID-1".into());
         bc.set_active_target_id("TID-1".to_owned());
-        bc.set_target_url(page_url.to_owned());
+        bc.set_committed_url_for_test(page_url.to_owned());
         bc.attach_active_session("SID-1".to_owned());
         let first_page = ctx
             .build_fixture_page("data:text/html,<!doctype html><body></body>")
@@ -1308,7 +1324,7 @@ mod tests {
                         .expect("browser context should remain loaded")
                 };
                 let _ = bc.replace_loaded_page(Some(second_page));
-                bc.set_target_url(page_url.to_owned());
+                bc.set_committed_url_for_test(page_url.to_owned());
                 bc.active_page_target_mut().devtools_sessions
                     [moli_page_types::DevToolsSessionKey::Primary]
                     .runtime_session_state
@@ -1334,7 +1350,7 @@ mod tests {
         let page_url = "data:text/html,observable-runtime-attachment-test";
         let mut bc = BrowserContext::new("BID-1".into());
         bc.set_active_target_id("TID-1".to_owned());
-        bc.set_target_url(page_url.to_owned());
+        bc.set_committed_url_for_test(page_url.to_owned());
         bc.attach_active_session("SID-1".to_owned());
         let first_page = ctx
             .build_fixture_page("data:text/html,<!doctype html><body></body>")
@@ -1373,7 +1389,7 @@ mod tests {
                         .expect("browser context should remain loaded")
                 };
                 let _ = bc.replace_loaded_page(Some(second_page));
-                bc.set_target_url(page_url.to_owned());
+                bc.set_committed_url_for_test(page_url.to_owned());
                 bc.active_page_target_mut().devtools_sessions
                     [moli_page_types::DevToolsSessionKey::Primary]
                     .runtime_session_state

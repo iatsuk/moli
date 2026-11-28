@@ -103,29 +103,37 @@ impl PageTargetHost {
     }
 
     pub(crate) fn empty(target_id: String) -> Self {
-        Self::from_parts(
+        let mut host = Self::from_parts(
             target_id,
             None,
-            TargetIdentityState::about_blank(),
+            TargetIdentityState::new_tab(),
             Default::default(),
             TargetRuntimeSlot::default(),
-        )
+        );
+        host.owner_state.commit_document_url(
+            url::Url::parse("about:blank").expect("valid initial URL"),
+            false,
+        );
+        host
     }
 
     #[cfg(test)]
     pub(crate) fn new(
         target_id: String,
         primary_session_id: Option<String>,
+        committed_url: String,
         target_identity: TargetIdentityState,
         target_page_slot: TargetPageSlot,
     ) -> Self {
-        Self::from_parts(
+        let mut host = Self::from_parts(
             target_id,
             primary_session_id,
             target_identity,
             Default::default(),
             TargetRuntimeSlot::from_page_slot(target_page_slot),
-        )
+        );
+        host.set_committed_url_for_test(committed_url);
+        host
     }
 
     #[cfg(test)]
@@ -134,12 +142,17 @@ impl PageTargetHost {
         primary_session_id: Option<String>,
         url: String,
     ) -> Self {
-        Self::new(
+        let mut host = Self::from_parts(
             target_id,
             primary_session_id,
-            TargetIdentityState::with_url(url),
-            TargetPageSlot::empty_for_test_fixture(),
-        )
+            TargetIdentityState::default(),
+            Default::default(),
+            TargetRuntimeSlot::from_page_slot(TargetPageSlot::empty_for_test_fixture()),
+        );
+        let url = url::Url::parse(&url).expect("valid fixture document URL");
+        host.target_identity = TargetIdentityState::for_document_url(&url);
+        host.owner_state.commit_document_url(url, false);
+        host
     }
 
     pub(crate) fn with_identity(

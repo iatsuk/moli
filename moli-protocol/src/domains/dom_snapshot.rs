@@ -1184,7 +1184,7 @@ mod tests {
 
         let mut inactive = BrowserContext::new("BID-inactive".to_owned());
         inactive.set_active_target_id("TID-inactive".to_owned());
-        inactive.set_target_url(page.final_url().as_str().to_owned());
+        inactive.set_committed_url_for_test(page.final_url().as_str().to_owned());
         inactive.attach_active_session("SID-inactive".to_owned());
         inactive.replace_loaded_page(Some(page));
         ctx.with_fixture(|conn| conn.push_inactive_browser_context_fixture_for_test(inactive));

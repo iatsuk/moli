@@ -86,7 +86,7 @@ impl LoadedNavigationPublication {
         ))
     }
 
-    fn target_url(&self) -> Url {
+    fn committed_url(&self) -> Url {
         self.network_error_page
             .as_ref()
             .map(|error| error.unreachable_url().clone())

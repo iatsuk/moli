@@ -4,7 +4,7 @@ async fn install_document_content_test_page(ctx: &mut TestContext, url: &str) {
     load_bc_with_session(ctx, "BID-set-content", "TID-1", "SID-1", "about:blank");
     let committed_document = ctx.with_fixture(|conn| {
         let browser_context = conn.browser_context.as_mut().expect("browser context");
-        browser_context.set_target_url(url.to_owned());
+        browser_context.set_committed_url_for_test(url.to_owned());
         browser_context
             .start_document_navigation_for_active_target(LOADER_ID.to_owned())
             .expect("document-content test navigation should start")

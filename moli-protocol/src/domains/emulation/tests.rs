@@ -244,7 +244,7 @@ async fn initial_page_adopts_os_text_scale_changed_after_build() {
     let mut ctx = TestContext::new();
     let mut bc = BrowserContext::new("BID-1".into());
     bc.set_active_target_id("TID-1");
-    bc.set_target_url("about:blank".into());
+    bc.begin_active_target_initial_empty_document("about:blank".into());
     bc.attach_active_session("SID-1");
     ctx.with_fixture(|conn| conn.install_browser_context_fixture_for_test(bc));
 
@@ -3433,7 +3433,8 @@ async fn context_emulated_media_applies_to_loaded_background_page_without_activa
     let background = PageTargetHost::new(
         "TID-background".to_owned(),
         Some("SID-background".to_owned()),
-        TargetIdentityState::about_blank(),
+        "about:blank".into(),
+        TargetIdentityState::new_tab(),
         TargetPageSlot::empty_for_test_fixture(),
     );
 
@@ -3552,7 +3553,8 @@ async fn context_locale_override_applies_to_loaded_background_page_without_activ
     let background = PageTargetHost::new(
         "TID-background".to_owned(),
         Some("SID-background".to_owned()),
-        TargetIdentityState::about_blank(),
+        "about:blank".into(),
+        TargetIdentityState::new_tab(),
         TargetPageSlot::empty_for_test_fixture(),
     );
 
@@ -3645,7 +3647,8 @@ async fn session_emulation_routes_to_loaded_background_owner_without_activation(
     let background = PageTargetHost::new(
         "TID-background".to_owned(),
         Some("SID-background".to_owned()),
-        TargetIdentityState::about_blank(),
+        "about:blank".into(),
+        TargetIdentityState::new_tab(),
         TargetPageSlot::empty_for_test_fixture(),
     );
 

@@ -93,6 +93,9 @@ enum BackgroundWorkState {
 #[derive(Debug)]
 pub(crate) struct PendingNavigationRequest {
     token: DocumentNavigationToken,
+    // Address accepted by the browser for this request. Transport redirects
+    // and hidden Fetch overrides belong to the in-flight fetch.
+    requested_url: Option<url::Url>,
     page_attachment_id: TargetPageAttachmentId,
     cancellation_handles: Vec<moli_fetch::FetchCancelHandle>,
     background_work: BackgroundWorkState,
@@ -106,6 +109,7 @@ impl PendingNavigationRequest {
     fn new(token: DocumentNavigationToken) -> Self {
         Self {
             token,
+            requested_url: None,
             page_attachment_id: TargetPageAttachmentId::allocate(),
             cancellation_handles: vec![moli_fetch::FetchCancelHandle::new()],
             background_work: BackgroundWorkState::NotStarted,
@@ -1247,6 +1251,36 @@ impl TargetPageSlot {
 
     pub(crate) fn has_pending_cross_document_commit(&self) -> bool {
         self.prepared_document_navigation_handoff().is_some()
+    }
+
+    pub(crate) fn record_pending_navigation_url(
+        &mut self,
+        token: &DocumentNavigationToken,
+        requested_url: url::Url,
+    ) {
+        let request = self
+            .pending_navigation_request
+            .as_mut()
+            .filter(|request| request.matches(token) && !request.committed)
+            .expect("a new navigation request must still own the pending slot");
+        request.requested_url = Some(requested_url);
+    }
+
+    pub(crate) fn pending_navigation_url(&self) -> Option<&url::Url> {
+        self.pending_navigation_request
+            .as_ref()
+            .filter(|request| !request.committed)?
+            .requested_url
+            .as_ref()
+    }
+
+    pub(crate) fn published_pending_document_url(&self) -> Option<&str> {
+        let commit = self
+            .prepared_document_navigation_handoff()?
+            .renderer_commit
+            .as_ref()?;
+        commit.native_document?;
+        Some(&commit.fact.url)
     }
 
     pub(crate) fn current_document_loader_id(&self) -> Option<&str> {

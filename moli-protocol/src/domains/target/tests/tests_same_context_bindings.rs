@@ -2754,21 +2754,15 @@ async fn same_context_targets_restore_only_their_own_utility_pre_document_bindin
         bc.insert_page_target_host(crate::conn::PageTargetHost::new(
             "TID-000000000F".into(),
             None,
-            crate::conn::TargetIdentityState::new(
-                "about:blank#second".into(),
-                crate::conn::URL_BASE.into(),
-                "Secure".into(),
-            ),
+            "about:blank#second".into(),
+            crate::conn::TargetIdentityState::new(crate::conn::URL_BASE.into(), "Secure".into()),
             crate::conn::TargetPageSlot::empty_for_test_fixture(),
         ));
         bc.insert_page_target_host(crate::conn::PageTargetHost::new(
             "TID-0000000010".into(),
             None,
-            crate::conn::TargetIdentityState::new(
-                "about:blank#third".into(),
-                crate::conn::URL_BASE.into(),
-                "Secure".into(),
-            ),
+            "about:blank#third".into(),
+            crate::conn::TargetIdentityState::new(crate::conn::URL_BASE.into(), "Secure".into()),
             crate::conn::TargetPageSlot::empty_for_test_fixture(),
         ));
     });

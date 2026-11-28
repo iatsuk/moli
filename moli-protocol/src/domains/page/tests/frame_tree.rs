@@ -776,7 +776,7 @@ async fn get_frame_tree_targets_loaded_background_owner_without_activation() {
     let mut bc = BrowserContext::new("BID-1".to_owned());
     bc.set_active_target_id("TID-active".to_owned());
     bc.attach_active_session("SID-active".to_owned());
-    bc.set_target_url("data:text/html,<body>active</body>".to_owned());
+    bc.set_committed_url_for_test("data:text/html,<body>active</body>".to_owned());
     bc.insert_page_target_host(background);
     ctx.with_fixture(|conn| conn.install_browser_context_fixture_for_test(bc));
     ctx.install_navigation_fixture_for_session_owner(page_url, Some("SID-background"))
@@ -819,7 +819,7 @@ async fn get_frame_tree_targets_inactive_loaded_owner_without_activation() {
     let mut inactive = BrowserContext::new("BID-inactive".to_owned());
     inactive.set_active_target_id("TID-inactive".to_owned());
     inactive.attach_active_session("SID-inactive".to_owned());
-    inactive.set_target_url("about:blank".to_owned());
+    inactive.set_committed_url_for_test("about:blank".to_owned());
     ctx.with_fixture(|conn| conn.push_inactive_browser_context_fixture_for_test(inactive));
     ctx.install_navigation_fixture_for_session_owner(page_url, Some("SID-inactive"))
         .await;

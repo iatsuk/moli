@@ -16,7 +16,8 @@ use crate::{
             TargetNetworkAgentState, TargetNetworkBacklogPreparedDelivery,
         },
         observable_output::{
-            TargetRuntimeObservableQueueState, TargetRuntimeObservableSourceOutput,
+            ObservableSourceIdentity, TargetRuntimeObservableQueueState,
+            TargetRuntimeObservableSourceOutput,
         },
     },
 };
@@ -1207,7 +1208,23 @@ impl TargetRuntimeSlot {
     pub(crate) fn observable_output_latest_source_tail(
         &self,
     ) -> Option<TargetRuntimeObservableSourceOutput> {
-        self.observable_queue.latest_source_tail()
+        self.observable_queue
+            .source_tail_for_identity(self.observable_source_identity()?)
+    }
+
+    pub(crate) fn observable_source_identity(&self) -> Option<ObservableSourceIdentity> {
+        if let Some((_, binding)) = self.page_slot.prepared_document_output_binding() {
+            return Some(ObservableSourceIdentity {
+                attachment: binding.page_attachment_id,
+                document: Some(binding.renderer_document_identity()),
+            });
+        }
+        Some(ObservableSourceIdentity {
+            attachment: self.page_attachment_id()?,
+            document: self
+                .committed_renderer_document_binding()
+                .map(CommittedRendererDocumentBinding::renderer_document_identity),
+        })
     }
 
     pub(crate) fn observable_output_cursor_end(&self) -> Option<(usize, usize)> {
@@ -1223,9 +1240,9 @@ impl TargetRuntimeSlot {
         url: String,
         source: &RendererPageDiagnosticsSnapshot,
     ) -> Option<TargetRuntimeObservableSourceOutput> {
-        let page_attachment_id = self.page_attachment_id()?;
+        let identity = self.observable_source_identity()?;
         self.observable_queue
-            .sync_source_from_renderer_snapshot(url, page_attachment_id, source)
+            .sync_source_from_renderer_snapshot(url, identity, source)
     }
 
     #[cfg(test)]
@@ -1234,9 +1251,9 @@ impl TargetRuntimeSlot {
         url: String,
         source: &RendererRuntimeObservableSourceSummary,
     ) -> Option<TargetRuntimeObservableSourceOutput> {
-        let page_attachment_id = self.page_attachment_id()?;
+        let identity = self.observable_source_identity()?;
         self.observable_queue
-            .sync_source_from_renderer_runtime_source(url, page_attachment_id, source)
+            .sync_source_from_renderer_runtime_source(url, identity, source)
     }
 
     pub(crate) fn append_renderer_runtime_console_message(
@@ -1244,9 +1261,9 @@ impl TargetRuntimeSlot {
         url: String,
         message: moli_core::page::RuntimeConsoleMessageSnapshot,
     ) -> Option<TargetRuntimeObservableSourceOutput> {
-        let page_attachment_id = self.page_attachment_id()?;
+        let identity = self.observable_source_identity()?;
         self.observable_queue
-            .append_renderer_console_message(url, page_attachment_id, message)
+            .append_renderer_console_message(url, identity, message)
     }
 
     pub(crate) fn append_renderer_runtime_lifecycle_error(
@@ -1255,10 +1272,10 @@ impl TargetRuntimeSlot {
         text: String,
         execution_context_id: Option<i64>,
     ) -> Option<TargetRuntimeObservableSourceOutput> {
-        let page_attachment_id = self.page_attachment_id()?;
+        let identity = self.observable_source_identity()?;
         self.observable_queue.append_renderer_lifecycle_error(
             url,
-            page_attachment_id,
+            identity,
             text,
             execution_context_id,
         )

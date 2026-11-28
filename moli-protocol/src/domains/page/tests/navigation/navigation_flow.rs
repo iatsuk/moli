@@ -333,7 +333,7 @@ async fn navigate_targets_background_owner_without_activation() {
     let mut bc = BrowserContext::new("BID-1".to_owned());
     bc.set_active_target_id("TID-active".to_owned());
     bc.attach_active_session("SID-active".to_owned());
-    bc.set_target_url("data:text/html,<body>active</body>".to_owned());
+    bc.set_committed_url_for_test("data:text/html,<body>active</body>".to_owned());
     bc.insert_page_target_host(PageTargetHost::with_url(
         "TID-background".to_owned(),
         Some("SID-background".to_owned()),
@@ -362,7 +362,7 @@ async fn navigate_targets_background_owner_without_activation() {
                 "background Page.navigate should not activate the target"
             );
             assert_eq!(
-                browser_context.target_url(),
+                browser_context.visible_url(),
                 "data:text/html,<body>active</body>",
                 "background Page.navigate should not rewrite the active target identity"
             );
@@ -372,7 +372,7 @@ async fn navigate_targets_background_owner_without_activation() {
                 .expect("background target should remain background")
         };
         assert!(background.has_loaded_page());
-        assert_eq!(background.target_url(), background_url);
+        assert_eq!(background.visible_url(), background_url);
     });
 }
 
@@ -382,7 +382,7 @@ async fn navigate_targets_inactive_owner_without_activation() {
     let mut inactive = BrowserContext::new("BID-inactive".to_owned());
     inactive.set_active_target_id("TID-inactive".to_owned());
     inactive.attach_active_session("SID-inactive".to_owned());
-    inactive.set_target_url("about:blank".to_owned());
+    inactive.set_committed_url_for_test("about:blank".to_owned());
     ctx.with_fixture(|conn| conn.push_inactive_browser_context_fixture_for_test(inactive));
 
     let inactive_url = "data:text/html,<title>Inactive</title><main>inactive</main>";
@@ -410,7 +410,7 @@ async fn navigate_targets_inactive_owner_without_activation() {
                 .expect("inactive browser context should stay background")
         };
         assert!(inactive.has_loaded_page());
-        assert_eq!(inactive.target_url(), inactive_url);
+        assert_eq!(inactive.visible_url(), inactive_url);
     });
 }
 
@@ -1079,7 +1079,7 @@ async fn navigate_failure_commits_error_document_with_visible_unreachable_url() 
             conn.browser_context
                 .as_ref()
                 .expect("browser context")
-                .target_url(),
+                .visible_url(),
             unreachable_url
         )
     });

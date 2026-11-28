@@ -46,6 +46,7 @@ pub struct RendererDocumentOptions {
 
 pub(crate) struct PageVmStateCapture {
     pub(crate) snapshot_revision: RendererPageStateRevision,
+    pub(crate) root_document: super::RendererDocumentLifecycleIdentity,
     pub(crate) final_url: Url,
     pub(crate) document_title: String,
     pub(crate) document_content_type: String,

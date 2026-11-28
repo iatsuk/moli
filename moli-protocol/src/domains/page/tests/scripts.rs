@@ -1903,7 +1903,7 @@ async fn create_isolated_world_after_reactivating_browser_context_with_another_l
     let mut second = BrowserContext::new("BID-2".into());
     second.set_active_target_id("TID-2");
     second.attach_active_session("SID-2");
-    second.set_target_url("about:blank".into());
+    second.set_committed_url_for_test("about:blank".into());
     ctx.with_fixture(|conn| conn.insert_browser_context(second));
 
     ctx.with_fixture(|conn| assert!(conn.activate_browser_context_by_id("BID-2")));

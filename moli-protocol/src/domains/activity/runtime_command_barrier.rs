@@ -684,7 +684,7 @@ mod tests {
         let mut browser_context = BrowserContext::new("BID-runtime-command-barrier".to_owned());
         browser_context.set_active_target_id("TID-runtime-command-barrier");
         browser_context.attach_active_session(SESSION_ID);
-        browser_context.set_target_url(page.final_url().as_str().to_owned());
+        browser_context.set_committed_url_for_test(page.final_url().as_str().to_owned());
         let _ = browser_context
             .active_page_target_mut()
             .runtime_slot

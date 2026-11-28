@@ -1238,11 +1238,8 @@ async fn pending_javascript_dialogs_are_preserved_per_background_target() {
             browser_context.insert_page_target_host(PageTargetHost::new(
                 "TID-B".to_owned(),
                 Some("SID-B".to_owned()),
-                crate::conn::TargetIdentityState::new(
-                    "about:blank".to_owned(),
-                    URL_BASE.to_owned(),
-                    "Secure".to_owned(),
-                ),
+                "about:blank".to_owned(),
+                crate::conn::TargetIdentityState::new(URL_BASE.to_owned(), "Secure".to_owned()),
                 crate::conn::TargetPageSlot::empty_for_test_fixture(),
             ));
             assert!(

@@ -588,27 +588,22 @@ fn default_cookie_write_url_for_target(
     // Blink's cookie facade owns a default cookie URL for structured API
     // writes so callers do not have to redundantly thread the same
     // document URL into every `set()` call. Prefer the live page URL when
-    // one exists; otherwise fall back to the BrowserContext's current URL.
-    if let Some(url) = target
-        .and_then(|target| target.loaded_page())
-        .map(|page| page.final_url().clone())
+    // one exists. An unmaterialized document uses its committed address.
+    let Some(target) = target else {
+        return (None, BrowserContextDefaultCookieWriteUrlSource::Unavailable);
+    };
+    let Some(url) = target
+        .document_url()
+        .and_then(|url| Url::parse(url).ok())
         .filter(|url| matches!(url.scheme(), "http" | "https"))
+    else {
+        return (None, BrowserContextDefaultCookieWriteUrlSource::Unavailable);
+    };
+    let source = if target.has_loaded_page() || target.runtime_slot().has_prepared_document_output()
     {
-        return (
-            Some(url),
-            BrowserContextDefaultCookieWriteUrlSource::LoadedPage,
-        );
-    }
-
-    if let Some(url) = target
-        .and_then(|host| Url::parse(host.target_url()).ok())
-        .filter(|url| matches!(url.scheme(), "http" | "https"))
-    {
-        return (
-            Some(url),
-            BrowserContextDefaultCookieWriteUrlSource::BrowserContextUrl,
-        );
-    }
-
-    (None, BrowserContextDefaultCookieWriteUrlSource::Unavailable)
+        BrowserContextDefaultCookieWriteUrlSource::LoadedPage
+    } else {
+        BrowserContextDefaultCookieWriteUrlSource::BrowserContextUrl
+    };
+    (Some(url), source)
 }

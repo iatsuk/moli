@@ -4,6 +4,7 @@ use moli_core::page::{RendererPageDiagnosticsSnapshot, RendererRuntimeObservable
 
 #[cfg(test)]
 use super::ObservableOutputProjectionStep;
+use super::ObservableSourceIdentity;
 use super::output_queue::{
     ObservablePreparedOutputs, ObservableSessionAuditsPreparedRange, TargetObservableOutputQueue,
 };
@@ -290,7 +291,7 @@ fn push_console_log_source_prepared_outputs(
         prepared.extend(
             queue.console_log_backlog_ranges(
                 source.url(),
-                source.page_attachment_id(),
+                source.identity(),
                 devtools_session_state
                     .console_output_session_state
                     .console_enabled,
@@ -315,7 +316,7 @@ fn push_console_log_source_prepared_outputs(
         conn,
         &queue,
         source.url(),
-        source.page_attachment_id(),
+        source.identity(),
         owner_state,
         owner,
     );
@@ -375,7 +376,10 @@ fn runtime_observable_source_tail_for_session_owner(
     source: &RendererRuntimeObservableSourceSummary,
     session_id: Option<&str>,
 ) -> Option<super::TargetRuntimeObservableSourceOutput> {
-    let url = conn.runtime_session_owner_target_url(session_id)?;
+    let owner = CommandOwnerScope::capture(conn, session_id);
+    let url = conn
+        .runtime_session_owner_document_url_for_owner(&owner)?
+        .to_owned();
     let runtime_slot = conn.runtime_session_owner_slot_mut(session_id)?;
     runtime_slot.sync_observable_output_source_from_renderer_runtime_source(url, source)
 }
@@ -385,7 +389,9 @@ fn runtime_console_source_tail_for_owner(
     message: RuntimeConsoleMessageSnapshot,
     owner: &CommandOwnerScope,
 ) -> Option<super::TargetRuntimeObservableSourceOutput> {
-    let url = conn.runtime_session_owner_target_url_for_owner(owner)?;
+    let url = conn
+        .runtime_session_owner_document_url_for_owner(owner)?
+        .to_owned();
     let runtime_slot = conn.runtime_session_owner_slot_mut_for_owner(owner)?;
     runtime_slot.append_renderer_runtime_console_message(url, message)
 }
@@ -396,7 +402,9 @@ fn runtime_lifecycle_error_source_tail_for_owner(
     execution_context_id: Option<i64>,
     owner: &CommandOwnerScope,
 ) -> Option<super::TargetRuntimeObservableSourceOutput> {
-    let url = conn.runtime_session_owner_target_url_for_owner(owner)?;
+    let url = conn
+        .runtime_session_owner_document_url_for_owner(owner)?
+        .to_owned();
     let runtime_slot = conn.runtime_session_owner_slot_mut_for_owner(owner)?;
     runtime_slot.append_renderer_runtime_lifecycle_error(url, text, execution_context_id)
 }
@@ -434,13 +442,13 @@ pub(in crate::domains) fn live_log_prepared_outputs_for_renderer_network_fact(
     let Some(runtime_slot) = conn.runtime_session_owner_slot_for_owner(owner) else {
         return ObservablePreparedOutputs::default();
     };
-    let Some(url) = conn.runtime_session_owner_target_url_for_owner(owner) else {
+    let Some(url) = conn.runtime_session_owner_document_url_for_owner(owner) else {
         return ObservablePreparedOutputs::default();
     };
     let Some(queue) = TargetObservableOutputQueue::from_log_storage(runtime_slot) else {
         return ObservablePreparedOutputs::default();
     };
-    let Some(page_attachment_id) = runtime_slot.page_attachment_id() else {
+    let Some(source) = runtime_slot.observable_source_identity() else {
         return ObservablePreparedOutputs::default();
     };
     let mut prepared = ObservablePreparedOutputs::default();
@@ -448,8 +456,8 @@ pub(in crate::domains) fn live_log_prepared_outputs_for_renderer_network_fact(
         &mut prepared,
         conn,
         &queue,
-        &url,
-        page_attachment_id,
+        url,
+        source,
         &owner_state,
         owner,
     );
@@ -468,9 +476,10 @@ fn observable_console_log_prepared_outputs_for_session_owner(
         .cloned()
         .unwrap_or_default();
     let runtime_slot = conn.runtime_session_owner_slot(session_id)?;
-    let url = conn.runtime_session_owner_target_url(session_id)?;
+    let owner = CommandOwnerScope::capture(conn, session_id);
+    let url = conn.runtime_session_owner_document_url_for_owner(&owner)?;
     let queue = super::output_queue::TargetObservableOutputQueue::from_runtime_slot(runtime_slot)?;
-    let page_attachment_id = runtime_slot.page_attachment_id()?;
+    let source = runtime_slot.observable_source_identity()?;
     let include_console_api_messages = !renderer_agent_owns_page_console_api_events(
         conn,
         &CommandOwnerScope::capture(conn, session_id),
@@ -483,8 +492,8 @@ fn observable_console_log_prepared_outputs_for_session_owner(
     {
         prepared.extend(
             queue.console_log_backlog_ranges(
-                &url,
-                page_attachment_id,
+                url,
+                source,
                 devtools_session_state
                     .console_output_session_state
                     .console_enabled,
@@ -498,13 +507,12 @@ fn observable_console_log_prepared_outputs_for_session_owner(
     }
 
     if log_allowed {
-        let owner = CommandOwnerScope::capture(conn, session_id);
         push_log_prepared_outputs_for_enabled_sessions(
             &mut prepared,
             conn,
             &queue,
-            &url,
-            page_attachment_id,
+            url,
+            source,
             &owner_state,
             &owner,
         );
@@ -518,7 +526,7 @@ fn push_log_prepared_outputs_for_enabled_sessions(
     conn: &CdpConnection,
     queue: &TargetObservableOutputQueue,
     url: &str,
-    page_attachment_id: crate::conn::TargetPageAttachmentId,
+    source: ObservableSourceIdentity,
     owner_state: &crate::conn::TargetOwnerState,
     owner: &CommandOwnerScope,
 ) {
@@ -541,7 +549,7 @@ fn push_log_prepared_outputs_for_enabled_sessions(
         }
         prepared.extend(queue.console_log_backlog_ranges(
             url,
-            page_attachment_id,
+            source,
             false,
             true,
             true,
@@ -573,7 +581,7 @@ mod tests {
         let mut conn = crate::conn::CdpConnection::default();
         let mut bc = BrowserContext::new("BID-runtime-lifecycle".to_owned());
         bc.set_active_target_id("TID-runtime-lifecycle".to_owned());
-        bc.set_target_url("https://example.test/runtime-lifecycle".to_owned());
+        bc.set_committed_url_for_test("https://example.test/runtime-lifecycle".to_owned());
         bc.attach_active_session("SID-runtime-a".to_owned());
         assert!(bc.assign_attached_session_to_target(
             "TID-runtime-lifecycle",
@@ -658,7 +666,7 @@ mod tests {
     fn observable_source_sync_is_independent_from_runtime_emission() {
         let mut conn = crate::conn::CdpConnection::default();
         let mut bc = BrowserContext::new_with_page_for_test("BID-1", "TID-1");
-        bc.set_target_url("data:text/html,console-only-source".to_owned());
+        bc.set_committed_url_for_test("data:text/html,console-only-source".to_owned());
         bc.active_page_target_mut()
             .runtime_slot
             .set_page_attachment_id_for_test(1);
@@ -743,7 +751,7 @@ mod tests {
         let mut ctx = TestContext::new();
         let mut bc = BrowserContext::new("BID-1".into());
         bc.set_active_target_id("TID-1".to_owned());
-        bc.set_target_url("data:text/html,observable-backlog-test".to_owned());
+        bc.set_committed_url_for_test("data:text/html,observable-backlog-test".to_owned());
         bc.attach_active_session("SID-1".to_owned());
         let page = ctx
             .build_fixture_page(
