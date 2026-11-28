@@ -10,13 +10,15 @@ use super::{CdpConnection, CdpSessionRoute, CommandOwnerScope};
 /// commit. Moli's navigation helper can itself become asynchronous, so
 /// protocol projection must hand that work to the owner scheduler instead of
 /// awaiting it while the opener's output cursor is being projected. Keeping
-/// the frozen URL and exact target identity in this move-only action makes that
-/// boundary explicit.
+/// the exact target identity in this move-only action preserves that boundary.
+/// An initial-document action takes the Target's current pending input when
+/// it runs. A navigation of an existing document carries its own request.
 #[derive(Debug)]
 pub(crate) struct PopupTargetNavigationOwnerAction {
     browser_context_id: String,
     target_id: String,
-    url: String,
+    target_host: super::PageTargetHostIdentity,
+    url: Option<String>,
     kind: PopupTargetNavigationKind,
     document_response: Option<moli_core::page::RendererAuxiliaryDocumentResponse>,
     initial_document_environment: Option<moli_core::page::RendererCapturedDocumentEnvironment>,
@@ -36,13 +38,18 @@ impl PopupTargetNavigationOwnerAction {
         conn: &CdpConnection,
         browser_context_id: &str,
         target_id: &str,
-        url: String,
+        url: Option<String>,
         kind: PopupTargetNavigationKind,
     ) -> Option<Self> {
         let route = conn.target_session_route_for_target_id(target_id)?;
-        (route.browser_context_id() == Some(browser_context_id)).then(|| Self {
+        if route.browser_context_id() != Some(browser_context_id) {
+            return None;
+        }
+        let owner = CommandOwnerScope::for_route(route);
+        Some(Self {
             browser_context_id: browser_context_id.to_owned(),
             target_id: target_id.to_owned(),
+            target_host: conn.page_target_host_identity_for_owner(&owner)?,
             url,
             kind,
             document_response: None,
@@ -83,8 +90,8 @@ impl PopupTargetNavigationOwnerAction {
         &self.target_id
     }
 
-    pub(crate) fn url(&self) -> &str {
-        &self.url
+    pub(crate) fn url(&self) -> Option<&str> {
+        self.url.as_deref()
     }
 
     pub(crate) fn kind(&self) -> PopupTargetNavigationKind {
@@ -105,22 +112,27 @@ impl PopupTargetNavigationOwnerAction {
 
     pub(crate) fn into_parts(
         self,
-    ) -> (
+        conn: &CdpConnection,
+    ) -> Option<(
         CommandOwnerScope,
         String,
         String,
-        String,
+        Option<String>,
         PopupTargetNavigationKind,
         Option<moli_core::page::RendererAuxiliaryDocumentResponse>,
         Option<moli_core::page::RendererCapturedDocumentEnvironment>,
         Option<moli_core::page::RendererNavigationInitiator>,
-    ) {
-        (
-            CommandOwnerScope::for_route(CdpSessionRoute::PageTarget {
-                browser_context_id: self.browser_context_id.clone(),
-                target_id: self.target_id.clone(),
-                session_key: moli_page_types::DevToolsSessionKey::Primary,
-            }),
+    )> {
+        let owner = CommandOwnerScope::for_route(CdpSessionRoute::PageTarget {
+            browser_context_id: self.browser_context_id.clone(),
+            target_id: self.target_id.clone(),
+            session_key: moli_page_types::DevToolsSessionKey::Primary,
+        });
+        if conn.page_target_host_identity_for_owner(&owner) != Some(self.target_host) {
+            return None;
+        }
+        Some((
+            owner,
             self.browser_context_id,
             self.target_id,
             self.url,
@@ -128,6 +140,6 @@ impl PopupTargetNavigationOwnerAction {
             self.document_response,
             self.initial_document_environment,
             self.navigation_initiator,
-        )
+        ))
     }
 }

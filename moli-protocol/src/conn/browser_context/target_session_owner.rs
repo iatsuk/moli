@@ -618,11 +618,6 @@ impl<'a> TargetSessionOwnerRef<'a> {
         self.target_owner_state().is_on_initial_empty_document()
     }
 
-    pub(super) fn initial_empty_document_has_pending_cross_document_navigation(&self) -> bool {
-        self.target_owner_state()
-            .initial_empty_document_pending_cross_document_navigation()
-    }
-
     pub(super) fn runtime_slot(&self) -> &'a TargetRuntimeSlot {
         self.target().runtime_slot()
     }
@@ -2516,6 +2511,26 @@ impl CdpConnection {
         (!document.is_error_document).then_some(&document.url)
     }
 
+    pub(crate) fn runtime_session_owner_pending_initial_navigation_url_for_owner(
+        &self,
+        owner: &CommandOwnerScope,
+    ) -> Option<&str> {
+        self.target_session_owner_ref_for_owner(owner)?
+            .target_owner_state()
+            .pending_initial_navigation_url()
+    }
+
+    pub(crate) fn take_pending_initial_navigation_for_owner(
+        &mut self,
+        owner: &CommandOwnerScope,
+    ) -> Option<crate::conn::PendingInitialNavigation> {
+        self.target_session_owner_mut_for_owner(owner)?
+            .target_mut()
+            .owner_state
+            .pending_initial_navigation
+            .take()
+    }
+
     pub(crate) fn runtime_session_owner_record_initial_empty_document_url_for_owner(
         &self,
         owner: &CommandOwnerScope,
@@ -2546,16 +2561,6 @@ impl CdpConnection {
     ) -> Option<bool> {
         self.target_session_owner_ref_for_owner(owner)?
             .is_on_initial_empty_document()
-    }
-
-    pub(crate) fn runtime_session_owner_initial_empty_document_has_pending_cross_document_navigation_for_owner(
-        &self,
-        owner: &CommandOwnerScope,
-    ) -> bool {
-        self.target_session_owner_ref_for_owner(owner)
-            .is_some_and(|owner| {
-                owner.initial_empty_document_has_pending_cross_document_navigation()
-            })
     }
 
     pub(crate) fn target_session_owner_frame_tree_identity(

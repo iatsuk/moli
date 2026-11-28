@@ -411,7 +411,6 @@ pub(crate) struct TargetInitialEmptyDocumentState {
     storage_key: Option<moli_storage_key::MoliStorageKey>,
     materialized: bool,
     exited: bool,
-    pending_cross_document_navigation: bool,
 }
 
 impl TargetInitialEmptyDocumentState {
@@ -430,7 +429,6 @@ impl TargetInitialEmptyDocumentState {
             storage_key,
             materialized: false,
             exited: false,
-            pending_cross_document_navigation: false,
         }
     }
 
@@ -462,10 +460,6 @@ impl TargetInitialEmptyDocumentState {
         self.exited
     }
 
-    pub(crate) fn pending_cross_document_navigation(&self) -> bool {
-        self.pending_cross_document_navigation
-    }
-
     pub(crate) fn is_on_initial_empty_document(&self) -> bool {
         !self.exited
     }
@@ -476,25 +470,19 @@ impl TargetInitialEmptyDocumentState {
         }
     }
 
-    fn mark_pending_cross_document_navigation(&mut self) {
-        if !self.exited {
-            self.pending_cross_document_navigation = true;
-        }
-    }
-
-    fn clear_pending_cross_document_navigation(&mut self) {
-        self.pending_cross_document_navigation = false;
-    }
-
     fn mark_exited(&mut self) {
         self.exited = true;
-        self.pending_cross_document_navigation = false;
     }
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct PendingPopupNavigation {
+pub(crate) struct PendingInitialNavigation {
     pub(crate) url: String,
+    pub(crate) auxiliary: Option<InitialAuxiliaryNavigation>,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct InitialAuxiliaryNavigation {
     pub(crate) response: Option<moli_core::page::RendererAuxiliaryDocumentResponse>,
     pub(crate) environment: Option<moli_core::page::RendererCapturedDocumentEnvironment>,
     pub(crate) initiator: Option<moli_core::page::RendererNavigationInitiator>,
@@ -512,7 +500,7 @@ pub(crate) struct TargetCommittedDocument {
 #[derive(Debug, Clone, Default)]
 pub(crate) struct TargetOwnerState {
     pub(crate) initial_empty_document: Option<TargetInitialEmptyDocumentState>,
-    pub(crate) pending_popup_navigation: Option<PendingPopupNavigation>,
+    pub(crate) pending_initial_navigation: Option<PendingInitialNavigation>,
     pub(crate) committed_document: Option<TargetCommittedDocument>,
     pub(crate) committed_document_title: Option<String>,
     pub(crate) cached_empty_document_display_title: std::sync::OnceLock<String>,
@@ -641,20 +629,8 @@ impl TargetOwnerState {
         }
     }
 
-    pub(crate) fn mark_initial_empty_document_pending_cross_document_navigation(&mut self) {
-        self.pending_popup_navigation = None;
-        if let Some(state) = self.initial_empty_document.as_mut() {
-            state.mark_pending_cross_document_navigation();
-        }
-    }
-
-    pub(crate) fn clear_initial_empty_document_pending_cross_document_navigation(&mut self) {
-        if let Some(state) = self.initial_empty_document.as_mut() {
-            state.clear_pending_cross_document_navigation();
-        }
-    }
-
     pub(crate) fn mark_initial_empty_document_exited(&mut self) {
+        self.pending_initial_navigation = None;
         if let Some(state) = self.initial_empty_document.as_mut() {
             state.mark_exited();
         }
@@ -668,6 +644,12 @@ impl TargetOwnerState {
         self.initial_empty_document_state()
             .filter(|state| state.is_on_initial_empty_document())
             .map(TargetInitialEmptyDocumentState::initial_url)
+    }
+
+    pub(crate) fn pending_initial_navigation_url(&self) -> Option<&str> {
+        let initial_url = self.initial_empty_document_url_if_current()?;
+        let pending = self.pending_initial_navigation.as_ref()?;
+        (pending.url != initial_url).then_some(pending.url.as_str())
     }
 
     pub(crate) fn initial_empty_document_loader_id_if_current(&self) -> Option<&str> {
@@ -694,17 +676,12 @@ impl TargetOwnerState {
             .is_none_or(TargetInitialEmptyDocumentState::is_on_initial_empty_document)
     }
 
-    pub(crate) fn initial_empty_document_pending_cross_document_navigation(&self) -> bool {
-        self.initial_empty_document_state()
-            .is_some_and(TargetInitialEmptyDocumentState::pending_cross_document_navigation)
-    }
-
     pub(crate) fn has_materialized_current_initial_empty_document(&self) -> bool {
         self.initial_empty_document_state()
             .is_some_and(|state| state.is_on_initial_empty_document() && state.materialized())
     }
 
-    pub(crate) fn moli_memory_diagnostics(&self) -> Value {
+    pub(crate) fn moli_memory_diagnostics(&self, pending_navigation: bool) -> Value {
         let initial_empty_document = self.initial_empty_document.as_ref().map(|state| {
             let creator = state.creator().map(|creator| {
                 json!({
@@ -719,7 +696,7 @@ impl TargetOwnerState {
                 "creator": creator,
                 "materialized": state.materialized(),
                 "exited": state.exited(),
-                "pendingCrossDocumentNavigation": state.pending_cross_document_navigation(),
+                "pendingCrossDocumentNavigation": !state.exited() && pending_navigation,
                 "isOnInitialEmptyDocument": state.is_on_initial_empty_document(),
             })
         });

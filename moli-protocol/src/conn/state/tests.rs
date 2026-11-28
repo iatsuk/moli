@@ -1716,7 +1716,7 @@ fn active_target_initial_empty_document_record_tracks_navigation_lifecycle() {
     assert_eq!(initial.initial_url(), "about:blank#active");
     assert!(initial.is_on_initial_empty_document());
     assert!(!initial.materialized());
-    assert!(!initial.pending_cross_document_navigation());
+    assert!(!context.has_pending_document_navigation_for_target(Some("TID-initial-active")));
 
     context.mark_target_initial_empty_document_materialized("TID-initial-active");
     assert!(
@@ -1737,7 +1737,7 @@ fn active_target_initial_empty_document_record_tracks_navigation_lifecycle() {
         .initial_empty_document_state()
         .expect("initial empty document state");
     assert!(pending.is_on_initial_empty_document());
-    assert!(pending.pending_cross_document_navigation());
+    assert!(context.has_pending_document_navigation_for_target(Some("TID-initial-active")));
 
     context.clear_pending_document_navigation_for_target_if_loader_matches(
         Some("TID-initial-active"),
@@ -1749,7 +1749,7 @@ fn active_target_initial_empty_document_record_tracks_navigation_lifecycle() {
         .initial_empty_document_state()
         .expect("initial empty document state");
     assert!(cleared.is_on_initial_empty_document());
-    assert!(!cleared.pending_cross_document_navigation());
+    assert!(!context.has_pending_document_navigation_for_target(Some("TID-initial-active")));
 
     let committed = context
         .start_document_navigation_for_active_target("LOADER-initial-active-2".to_owned())
@@ -1761,7 +1761,7 @@ fn active_target_initial_empty_document_record_tracks_navigation_lifecycle() {
         .initial_empty_document_state()
         .expect("initial empty document state");
     assert!(exited.exited());
-    assert!(!exited.pending_cross_document_navigation());
+    assert!(!context.has_pending_document_navigation_for_target(Some("TID-initial-active")));
     assert!(!exited.is_on_initial_empty_document());
     assert!(
         !context.accepts_pending_document_navigation_event(&token),
@@ -1848,15 +1848,7 @@ fn background_target_initial_empty_document_record_tracks_navigation_lifecycle()
     let token = context
         .start_document_navigation_for_target("TID-initial-bg", "LOADER-initial-bg".to_owned())
         .expect("background target should start document navigation");
-    assert!(
-        context
-            .background_target("TID-initial-bg")
-            .expect("background target must exist")
-            .owner_state
-            .initial_empty_document_state()
-            .expect("initial empty document state")
-            .pending_cross_document_navigation()
-    );
+    assert!(context.has_pending_document_navigation_for_target(Some("TID-initial-bg")));
 
     context.commit_document_navigation_if_matches(&token);
     let exited = context
@@ -1866,7 +1858,7 @@ fn background_target_initial_empty_document_record_tracks_navigation_lifecycle()
         .initial_empty_document_state()
         .expect("initial empty document state");
     assert!(exited.exited());
-    assert!(!exited.pending_cross_document_navigation());
+    assert!(!context.has_pending_document_navigation_for_target(Some("TID-initial-bg")));
     assert!(!exited.is_on_initial_empty_document());
 }
 

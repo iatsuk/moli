@@ -775,18 +775,17 @@ async fn create_isolated_world_requires_matching_frame_and_uses_fresh_initial_do
         )
     });
 
-    ctx.with_fixture(|conn| conn.browser_context.as_mut().unwrap().clear_loaded_page());
     ctx.with_fixture(|conn| {
-        conn.browser_context
-            .as_mut()
-            .unwrap()
-            .set_target_url("data:text/html,<main>utility</main>".into())
-    });
-    ctx.with_fixture(|conn| {
-        conn.browser_context
-            .as_mut()
-            .unwrap()
-            .begin_active_target_initial_empty_document("about:blank".into())
+        let browser_context = conn.browser_context.as_mut().unwrap();
+        browser_context.clear_loaded_page();
+        browser_context.begin_active_target_initial_empty_document("about:blank".into());
+        browser_context
+            .active_page_target_mut()
+            .owner_state
+            .pending_initial_navigation = Some(crate::conn::PendingInitialNavigation {
+            url: "data:text/html,<main>utility</main>".into(),
+            auxiliary: None,
+        });
     });
     ctx.process_async(json!({
         "id": 42,

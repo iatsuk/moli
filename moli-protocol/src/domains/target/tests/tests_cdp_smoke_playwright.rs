@@ -868,7 +868,7 @@ async fn queued_popup_navigation_rechecks_a_late_debugger_barrier() {
                 conn,
                 &browser_context_id,
                 &popup_target_id,
-                popup_url,
+                None,
                 crate::conn::PopupTargetNavigationKind::InitialDocumentAfterDebuggerResume,
             )
         })

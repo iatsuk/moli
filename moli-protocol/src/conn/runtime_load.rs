@@ -1961,14 +1961,6 @@ impl CdpConnection {
         self.start_initial_empty_document_page_build_for_owner(owner)
     }
 
-    pub(crate) fn runtime_session_owner_target_is_initial_about_blank(
-        &self,
-        session_id: Option<&str>,
-    ) -> bool {
-        let owner = CommandOwnerScope::capture(self, session_id);
-        self.runtime_session_owner_target_is_initial_about_blank_for_owner(&owner)
-    }
-
     fn runtime_session_owner_target_is_initial_about_blank_for_owner(
         &self,
         owner: &CommandOwnerScope,
@@ -1995,15 +1987,9 @@ impl CdpConnection {
         &self,
         owner: &CommandOwnerScope,
     ) -> bool {
-        if !self.runtime_session_owner_initial_empty_document_has_replacement_url_for_owner(owner) {
-            return false;
-        }
-        if self
-            .runtime_session_owner_initial_empty_document_has_pending_cross_document_navigation_for_owner(owner)
-        {
-            return false;
-        }
-        true
+        self.runtime_session_owner_pending_initial_navigation_url_for_owner(owner)
+            .is_some()
+            && !self.has_pending_document_navigation_for_owner(owner)
     }
 
     /// Returns whether an ordinary Page/Target command may opportunistically
@@ -2014,14 +2000,6 @@ impl CdpConnection {
     /// its terminal response.  Keeping that admission rule here prevents
     /// commands such as `Page.enable` and `Page.createIsolatedWorld` from
     /// racing each other into replacing the paused renderer attachment.
-    pub(crate) fn runtime_session_owner_can_start_initial_document_navigation(
-        &self,
-        session_id: Option<&str>,
-    ) -> bool {
-        let owner = CommandOwnerScope::capture(self, session_id);
-        self.runtime_session_owner_can_start_initial_document_navigation_for_owner(&owner)
-    }
-
     pub(crate) fn runtime_session_owner_can_start_initial_document_navigation_for_owner(
         &self,
         owner: &CommandOwnerScope,
@@ -2045,15 +2023,9 @@ impl CdpConnection {
         if !self.runtime_session_owner_target_is_initial_about_blank_for_owner(owner) {
             return false;
         }
-        let Some(target_url) = self.runtime_session_owner_target_url_for_owner(owner) else {
-            return false;
-        };
-        let Some(initial_url) =
-            self.runtime_session_owner_record_initial_empty_document_url_for_owner(owner)
-        else {
-            return false;
-        };
-        target_url != initial_url
+        self.runtime_session_owner_pending_initial_navigation_url_for_owner(owner)
+            .is_some()
+            || self.has_pending_document_navigation_for_owner(owner)
     }
 
     fn start_initial_empty_document_page_build_for_owner(

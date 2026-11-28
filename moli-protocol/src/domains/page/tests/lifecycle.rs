@@ -613,8 +613,20 @@ async fn enable_non_blank_initial_url_loads_through_pending_navigation_path() {
         "BID-PAGE-ENABLE-DATA",
         "TID-PAGE-ENABLE-DATA",
         "SID-PAGE-ENABLE-DATA",
-        page_url,
+        "about:blank",
     );
+    ctx.with_fixture(|conn| {
+        conn.browser_context
+            .as_mut()
+            .unwrap()
+            .active_page_target_mut()
+            .owner_state
+            .pending_initial_navigation = Some(crate::conn::PendingInitialNavigation {
+            url: page_url.to_owned(),
+            auxiliary: None,
+        });
+    });
+    ensure_initial_document_for_session(&mut ctx, Some("SID-PAGE-ENABLE-DATA")).await;
 
     let raw = json!({
         "id": 122,

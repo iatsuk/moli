@@ -113,7 +113,7 @@ mod state;
 pub(crate) use state::InitialDocumentPageBuildWaiter;
 pub(crate) use state::LoadPublicationState;
 mod state_access;
-pub(crate) use state::PendingPopupNavigation;
+pub(crate) use state::{InitialAuxiliaryNavigation, PendingInitialNavigation};
 pub(crate) use state_access::PreparedProtocolCommand;
 #[cfg(feature = "ace-protocol")]
 pub use state_access::ace_page_task;

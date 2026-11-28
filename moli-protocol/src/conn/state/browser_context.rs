@@ -942,7 +942,7 @@ impl BrowserContext {
                 .count(),
             "ownerStates": self.page_targets.iter().map(|target| json!({
                 "targetId": target.target_id(),
-                "ownerState": target.owner_state.moli_memory_diagnostics(),
+                "ownerState": target.owner_state.moli_memory_diagnostics(target.runtime_slot.has_pending_document_navigation()),
             })).collect::<Vec<_>>(),
         });
         json!({
@@ -1013,7 +1013,7 @@ impl BrowserContext {
             "activeFetch": active_target
                 .map(|target| target.fetch_owner.moli_memory_diagnostics()),
             "activeOwnerState": active_target
-                .map(|target| target.owner_state.moli_memory_diagnostics()),
+                .map(|target| target.owner_state.moli_memory_diagnostics(target.runtime_slot.has_pending_document_navigation())),
             "targetHosts": target_host_state_diagnostics,
         })
     }
@@ -1083,11 +1083,8 @@ impl BrowserContext {
             return false;
         };
         let owner_state = &target.owner_state;
-        let Some(initial_url) = owner_state.initial_empty_document_url_if_current() else {
-            return false;
-        };
-        target.target_url() != initial_url
-            && !owner_state.initial_empty_document_pending_cross_document_navigation()
+        owner_state.pending_initial_navigation_url().is_some()
+            && !target.runtime_slot.has_pending_document_navigation()
     }
 
     pub(crate) fn loaded_document_isolate_ids_for_diagnostics(&self) -> HashSet<usize> {
@@ -1236,8 +1233,8 @@ impl BrowserContext {
         let token = target
             .runtime_slot
             .start_document_navigation(target_id.to_owned(), loader_id);
+        target.owner_state.pending_initial_navigation = None;
         self.close_dedicated_workers_outside_navigation_page(target_id, None);
-        self.mark_target_initial_empty_document_pending_cross_document_navigation(target_id);
         Some(token)
     }
 
@@ -1323,7 +1320,6 @@ impl BrowserContext {
         });
         if cleared {
             self.close_dedicated_workers_outside_navigation_page(target_id, None);
-            self.clear_target_initial_empty_document_pending_cross_document_navigation(target_id);
         }
     }
 

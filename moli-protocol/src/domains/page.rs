@@ -1551,7 +1551,7 @@ fn start_page_enable_document_work(
     command_id: Option<u64>,
     owner: &CommandOwnerScope,
 ) -> PageCommandTaskStep {
-    match conn.runtime_session_owner_slot(owner.session_id()) {
+    match conn.runtime_session_owner_slot_for_owner(owner) {
         // The native Document can already be running while Page adoption waits
         // for its resources. Enabling notifications must not replace it with
         // another initial navigation.
@@ -1560,32 +1560,9 @@ fn start_page_enable_document_work(
         }
         Some(slot)
             if slot.has_loaded_page()
-                && conn.runtime_session_owner_can_start_initial_document_navigation(
-                    owner.session_id(),
+                && conn.runtime_session_owner_can_start_initial_document_navigation_for_owner(
+                    owner,
                 ) =>
-        {
-            let start = match navigation::start_initial_document_navigation_for_session_owner(
-                conn,
-                command_id,
-                owner,
-                json!({}),
-            ) {
-                Ok(start) => start,
-                Err(plan) => return PageCommandTaskStep::Complete(plan),
-            };
-            navigation::finish_started_navigation_command_for_parts(
-                conn,
-                command_id,
-                owner.clone(),
-                start,
-                &[],
-            )
-        }
-        Some(slot) if slot.has_loaded_page() => {
-            PageCommandTaskStep::Complete(CommandOutputPlan::success())
-        }
-        Some(_)
-            if !conn.runtime_session_owner_target_is_initial_about_blank(owner.session_id()) =>
         {
             let start = match navigation::start_initial_document_navigation_for_session_owner(
                 conn,

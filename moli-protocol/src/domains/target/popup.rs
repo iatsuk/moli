@@ -238,7 +238,7 @@ pub(crate) fn prepare_popup_target(
                     conn,
                     &browser_context_id,
                     &existing_target_id,
-                    url.clone(),
+                    Some(url.clone()),
                     PopupTargetNavigationKind::NamedTargetReuse { replace_current },
                 )
             })
@@ -275,11 +275,13 @@ pub(crate) fn prepare_popup_target(
                     .and_then(|context| context.page_target_mut(&existing_target_id))
                     .expect("accepted named target remains registered")
                     .owner_state
-                    .pending_popup_navigation = Some(crate::conn::PendingPopupNavigation {
+                    .pending_initial_navigation = Some(crate::conn::PendingInitialNavigation {
                     url,
-                    response: document_response,
-                    environment: initial_document_environment,
-                    initiator: navigation_initiator,
+                    auxiliary: Some(crate::conn::InitialAuxiliaryNavigation {
+                        response: document_response,
+                        environment: initial_document_environment,
+                        initiator: navigation_initiator,
+                    }),
                 });
             }
             if let Some(activation) = activation {
@@ -393,11 +395,13 @@ pub(crate) fn prepare_popup_target(
         browser_context
             .page_target_mut(&target_id)?
             .owner_state
-            .pending_popup_navigation = Some(crate::conn::PendingPopupNavigation {
-            url: requested_url.clone(),
-            response: document_response,
-            environment: initial_document_environment,
-            initiator: navigation_initiator,
+            .pending_initial_navigation = Some(crate::conn::PendingInitialNavigation {
+            url: requested_url,
+            auxiliary: Some(crate::conn::InitialAuxiliaryNavigation {
+                response: document_response,
+                environment: initial_document_environment,
+                initiator: navigation_initiator,
+            }),
         });
     }
 
@@ -525,12 +529,11 @@ pub(crate) fn prepare_initial_target_url_navigation(
     if !browser_context.target_needs_initial_document_navigation(target_id) {
         return None;
     }
-    let target_url = browser_context.devtools_target_info(target_id)?.url;
     let action = PopupTargetNavigationOwnerAction::capture(
         conn,
         &browser_context_id,
         target_id,
-        target_url,
+        None,
         PopupTargetNavigationKind::InitialDocument,
     )?;
     PreparedPopupNavigation::prepare(conn, action)
@@ -574,17 +577,11 @@ pub(crate) fn schedule_initial_document_target_url_navigation_after_debugger_bar
     if !browser_context.target_needs_initial_document_navigation(target_id) {
         return false;
     }
-    let Some(target_url) = browser_context
-        .devtools_target_info(target_id)
-        .map(|target_info| target_info.url)
-    else {
-        return false;
-    };
     let Some(action) = PopupTargetNavigationOwnerAction::capture(
         conn,
         &browser_context_id,
         target_id,
-        target_url,
+        None,
         PopupTargetNavigationKind::InitialDocumentAfterDebuggerResume,
     ) else {
         return false;
@@ -625,23 +622,15 @@ impl PreparedPopupNavigation {
             target_id,
             url,
             kind,
-            mut document_response,
-            mut initial_document_environment,
-            mut navigation_initiator,
-        ) = action.into_parts();
-        let target_is_current = conn
-            .target_owner_identity_for_owner(&owner_scope)
-            .is_some_and(|(current_browser_context_id, current_target_id)| {
-                current_browser_context_id == browser_context_id
-                    && current_target_id.as_deref() == Some(target_id.as_str())
-            });
-        if !target_is_current
-            || !popup_target_has_loaded_page(conn, &browser_context_id, &target_id)
-        {
+            document_response,
+            initial_document_environment,
+            navigation_initiator,
+        ) = action.into_parts(conn)?;
+        if !popup_target_has_loaded_page(conn, &browser_context_id, &target_id) {
             tracing::debug!(
                 browser_context_id,
                 target_id,
-                url,
+                ?url,
                 ?kind,
                 "dropping popup navigation after its exact target owner retired"
             );
@@ -668,20 +657,29 @@ impl PreparedPopupNavigation {
             PopupTargetNavigationKind::NamedTargetReuse { .. }
             | PopupTargetNavigationKind::WindowReference(_) => {}
         }
-        if matches!(
-            kind,
-            PopupTargetNavigationKind::InitialDocument
-                | PopupTargetNavigationKind::InitialDocumentAfterDebuggerResume
-        ) && let Some(pending) = conn
-            .browser_context_by_id_mut(&browser_context_id)
-            .and_then(|context| context.page_target_mut(&target_id))
-            .and_then(|target| target.owner_state.pending_popup_navigation.take())
-            .filter(|pending| pending.url == url)
+        let (url, document_response, initial_document_environment, navigation_initiator) = match url
         {
-            document_response = pending.response;
-            initial_document_environment = pending.environment;
-            navigation_initiator = pending.initiator;
-        }
+            Some(url) => (
+                url,
+                document_response,
+                initial_document_environment,
+                navigation_initiator,
+            ),
+            None => {
+                let pending = conn.take_pending_initial_navigation_for_owner(&owner_scope)?;
+                let (response, environment, initiator) = pending
+                    .auxiliary
+                    .map(|auxiliary| {
+                        (
+                            auxiliary.response,
+                            auxiliary.environment,
+                            auxiliary.initiator,
+                        )
+                    })
+                    .unwrap_or_default();
+                (pending.url, response, environment, initiator)
+            }
+        };
         let auxiliary_navigation = match kind {
             PopupTargetNavigationKind::WindowReference(kind) => Some(kind),
             PopupTargetNavigationKind::NamedTargetReuse { replace_current } => {
@@ -791,6 +789,76 @@ mod initialization_tests {
     use futures_util::FutureExt as _;
 
     #[tokio::test]
+    async fn queued_initial_navigation_takes_latest_input_for_its_host() {
+        let mut ctx = crate::testing::TestContext::new();
+        let owner = ctx.with_fixture(|conn| {
+            let mut browser = BrowserContext::new("BID-initial-navigation".into());
+            browser.stage_foreground_target(
+                "TID-initial-navigation".into(),
+                Some("SID-initial-navigation".into()),
+                "data:text/html,first".into(),
+                Some("about:blank".into()),
+            );
+            conn.install_browser_context_fixture_for_test(browser);
+            CommandOwnerScope::for_route(
+                conn.target_session_route_for_target_id("TID-initial-navigation")
+                    .unwrap(),
+            )
+        });
+        let pending = ctx.with_fixture(|conn| {
+            conn.start_initial_document_page_ensure_for_owner(&owner)
+                .unwrap()
+                .unwrap()
+        });
+        let mut installer = crate::conn::ProtocolWorkflowDriver::new(ctx.handle());
+        let complete = ctx.drive_owned_wait(pending.wait()).await.unwrap();
+        ctx.drive_owned_wait(complete.install_using(&mut installer))
+            .await
+            .unwrap();
+
+        let expected_url = "data:text/html,latest";
+        let prepared = ctx.with_fixture(|conn| {
+            let action = PopupTargetNavigationOwnerAction::capture(
+                conn,
+                "BID-initial-navigation",
+                "TID-initial-navigation",
+                None,
+                PopupTargetNavigationKind::InitialDocumentAfterDebuggerResume,
+            )
+            .unwrap();
+            let target = conn
+                .browser_context
+                .as_mut()
+                .unwrap()
+                .page_target_mut("TID-initial-navigation")
+                .unwrap();
+            target
+                .owner_state
+                .pending_initial_navigation
+                .as_mut()
+                .unwrap()
+                .url = expected_url.to_owned();
+            PreparedPopupNavigation::prepare(conn, action).unwrap()
+        });
+        let mut command = crate::conn::CommandDispatchContext::default();
+        ctx.run_fixture_projection(&mut command, move |driver, context| {
+            Box::pin(prepared.run(driver, context))
+        })
+        .await
+        .unwrap();
+        assert_eq!(
+            ctx.evaluate_fixture_page_expression(
+                Some("SID-initial-navigation"),
+                "location.href",
+                false,
+            )
+            .await
+            .unwrap(),
+            serde_json::json!({ "type": "string", "value": expected_url }),
+        );
+    }
+
+    #[tokio::test]
     async fn creation_finishes_while_initialization_is_held_and_close_revokes_the_waiter() {
         for close_before_ready in [false, true] {
             let mut conn = CdpConnection::new();
@@ -888,7 +956,7 @@ mod initialization_tests {
                                 .page_target("TID-held-popup")
                                 .unwrap()
                                 .owner_state
-                                .pending_popup_navigation
+                                .pending_initial_navigation
                                 .as_ref()
                                 .unwrap()
                                 .url,

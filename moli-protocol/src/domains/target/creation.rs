@@ -377,11 +377,18 @@ fn execute_devtools_create_target_command_in_window(
         {
             bc.set_target_url(command.url.clone());
             bc.begin_active_target_initial_empty_document(initial_empty_document_url.clone());
-            bc.page_target_mut(&target_id)
+            let state = &mut bc
+                .page_target_mut(&target_id)
                 .expect("newly selected target must exist")
-                .owner_state
-                .target_crash_state
-                .clear();
+                .owner_state;
+            state.target_crash_state.clear();
+            state.pending_initial_navigation =
+                (command.url != initial_empty_document_url).then(|| {
+                    crate::conn::PendingInitialNavigation {
+                        url: command.url.clone(),
+                        auxiliary: None,
+                    }
+                });
         } else {
             bc.stage_background_target_in_window(
                 target_id.clone(),

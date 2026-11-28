@@ -888,7 +888,7 @@ pub(in crate::domains) fn project_page_output_finite(
                             conn,
                             &navigation.browser_context_id,
                             target_id,
-                            navigation.url,
+                            Some(navigation.url),
                             crate::conn::PopupTargetNavigationKind::WindowReference(
                                 navigation.kind,
                             ),

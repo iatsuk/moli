@@ -173,6 +173,17 @@ impl BrowserContext {
             creator,
             initial_empty_document_storage_key,
         );
+        if target
+            .owner_state
+            .initial_empty_document_url_if_current()
+            .is_some_and(|initial_url| initial_url != url)
+        {
+            target.owner_state.pending_initial_navigation =
+                Some(crate::conn::PendingInitialNavigation {
+                    url,
+                    auxiliary: None,
+                });
+        }
         if let Some(namespace) = session_storage_namespace {
             target.replace_session_storage_namespace(namespace);
         }
@@ -763,24 +774,6 @@ impl BrowserContext {
     pub(crate) fn mark_target_initial_url_replaces_empty_document(&mut self, target_id: &str) {
         self.mutate_target_owner_state_by_target_id(target_id, |owner_state| {
             owner_state.mark_next_navigation_history_replace_initial_empty_document();
-        });
-    }
-
-    pub(crate) fn mark_target_initial_empty_document_pending_cross_document_navigation(
-        &mut self,
-        target_id: &str,
-    ) {
-        self.mutate_target_owner_state_by_target_id(target_id, |owner_state| {
-            owner_state.mark_initial_empty_document_pending_cross_document_navigation();
-        });
-    }
-
-    pub(crate) fn clear_target_initial_empty_document_pending_cross_document_navigation(
-        &mut self,
-        target_id: &str,
-    ) {
-        self.mutate_target_owner_state_by_target_id(target_id, |owner_state| {
-            owner_state.clear_initial_empty_document_pending_cross_document_navigation();
         });
     }
 

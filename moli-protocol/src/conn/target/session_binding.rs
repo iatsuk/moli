@@ -438,7 +438,13 @@ impl CdpConnection {
             .and_then(|(context, target)| {
                 self.browser_context_by_id(&context)?.page_target(&target?)
             })
-            .is_some_and(|target| target.owner_state.pending_popup_navigation.is_some());
+            .is_some_and(|target| {
+                target
+                    .owner_state
+                    .pending_initial_navigation
+                    .as_ref()
+                    .is_some_and(|navigation| navigation.auxiliary.is_some())
+            });
         if popup_initialization_owned {
             return;
         }

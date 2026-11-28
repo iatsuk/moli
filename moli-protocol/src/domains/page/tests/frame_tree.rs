@@ -156,18 +156,14 @@ async fn native_created_target_frame_tree_commits_without_startup_resume() {
 #[tokio::test(flavor = "multi_thread")]
 async fn initial_document_frame_tree_without_renderer_does_not_claim_the_destination_url() {
     let mut ctx = TestContext::new();
-    load_bc_with_target(
-        &mut ctx,
-        "BID-INITIAL-TREE-METADATA",
-        "TID-INITIAL-TREE-METADATA",
-        "https://initial.test/not-committed",
+    let mut browser_context = BrowserContext::new("BID-INITIAL-TREE-METADATA".into());
+    browser_context.stage_foreground_target(
+        "TID-INITIAL-TREE-METADATA".into(),
+        None,
+        "https://initial.test/not-committed".into(),
+        Some("about:blank".into()),
     );
-    ctx.with_fixture(|conn| {
-        conn.browser_context
-            .as_mut()
-            .unwrap()
-            .begin_active_target_initial_empty_document("about:blank".to_owned())
-    });
+    ctx.with_fixture(|conn| conn.install_browser_context_fixture_for_test(browser_context));
     for (id, method) in [(2010, "Page.getFrameTree"), (2011, "Page.getResourceTree")] {
         ctx.process_async(json!({ "id": id, "method": method }))
             .await;
