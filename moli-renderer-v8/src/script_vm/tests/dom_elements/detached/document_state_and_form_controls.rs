@@ -1,6 +1,34 @@
 use super::*;
 
 #[test]
+fn textarea_dimension_state_reflection() {
+    let mut vm = new_storage_test_vm("https://reflected-textarea-dimension-state-reflection.test/");
+    let result = vm
+        .eval(
+            r#"
+(() => {
+  const namespace = 'urn:custom';
+  for (const [tag, attribute, property, foreignValue, nativeValue, initial, expected] of [["textarea", "cols", "cols", "12", "10", 20, 10], ["textarea", "rows", "rows", "8", "5", 2, 5], ["textarea", "readonly", "readOnly", "", "", false, true], ["textarea", "required", "required", "", "", false, true]]) {
+    const element = document.createElement(tag);
+    if (element[property] !== initial) return false;
+    element.setAttributeNS(namespace, attribute, foreignValue);
+    if (element[property] !== initial || element.getAttribute(attribute) !== foreignValue) {
+      throw new Error(tag + '.' + property + ' observed the foreign attribute');
+    }
+    element.setAttributeNS(null, attribute, nativeValue);
+    if (element[property] !== expected || element.getAttributeNS(namespace, attribute) !== foreignValue) {
+      throw new Error(tag + '.' + property + ' did not reflect the native attribute');
+    }
+  }
+  return true;
+})()
+"#,
+        )
+        .expect("attribute reflection should evaluate");
+    assert_eq!(result, "true");
+}
+
+#[test]
 fn detached_document_state_and_collections_use_document_prototype_accessors() {
     let mut vm = new_storage_test_vm("https://detached-document-prototype-state.test/");
 

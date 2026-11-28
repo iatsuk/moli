@@ -309,7 +309,9 @@ pub(in crate::native_bridge) fn html_as_getter_function<'s>(
         rv.set_undefined();
         return;
     }
-    let value = element_attribute(unsafe { &*runtime_ptr }, handle, "as");
+    let value = (unsafe { &*runtime_ptr })
+        .dom_host()
+        .get_attribute_ns(handle, None, "as");
     let Some(value) = v8_string(
         scope,
         crate::link_as::link_as_destination(value.as_deref()).reflected_value(),
@@ -581,7 +583,10 @@ pub(in crate::native_bridge) fn table_cell_scope_getter_function<'s>(
         rv.set_undefined();
         return;
     }
-    let value = element_attribute(unsafe { &*runtime_ptr }, handle, "scope").unwrap_or_default();
+    let value = (unsafe { &*runtime_ptr })
+        .dom_host()
+        .get_attribute_ns(handle, None, "scope")
+        .unwrap_or_default();
     let canonical = canonical_scope_value(&value);
     let Some(out) = v8_string(scope, canonical) else {
         rv.set_null();
@@ -656,7 +661,10 @@ fn html_unsigned_long_attribute_getter_for_receiver<'s, F>(
         rv.set_undefined();
         return;
     }
-    let raw = element_attribute(unsafe { &*runtime_ptr }, handle, content_attr).unwrap_or_default();
+    let raw = (unsafe { &*runtime_ptr })
+        .dom_host()
+        .get_attribute_ns(handle, None, content_attr)
+        .unwrap_or_default();
     let parsed = parse_non_negative_integer(&raw)
         .filter(|value| *value <= i32::MAX as u32)
         .map(coerce)
@@ -1699,7 +1707,10 @@ fn unsigned_long_attribute_getter_from_object_or_detached<'s, F>(
         rv.set_undefined();
         return;
     }
-    let raw = element_attribute(unsafe { &*runtime_ptr }, handle, content_attr).unwrap_or_default();
+    let raw = (unsafe { &*runtime_ptr })
+        .dom_host()
+        .get_attribute_ns(handle, None, content_attr)
+        .unwrap_or_default();
     let parsed = parse_non_negative_integer(&raw)
         .filter(|value| *value <= i32::MAX as u32)
         .map(coerce)
@@ -1859,7 +1870,10 @@ pub(in crate::native_bridge) fn html_decoding_getter_function<'s>(
         rv.set_undefined();
         return;
     }
-    let value = element_attribute(unsafe { &*runtime_ptr }, handle, "decoding").unwrap_or_default();
+    let value = (unsafe { &*runtime_ptr })
+        .dom_host()
+        .get_attribute_ns(handle, None, "decoding")
+        .unwrap_or_default();
     let Some(out) = v8_string(scope, canonical_decoding_value(&value)) else {
         rv.set_empty_string();
         return;
@@ -2508,7 +2522,10 @@ pub(in crate::native_bridge) fn node_hidden_getter_function<'s>(
     else {
         return;
     };
-    match element_attribute(unsafe { &*runtime_ptr }, handle, "hidden") {
+    match (unsafe { &*runtime_ptr })
+        .dom_host()
+        .get_attribute_ns(handle, None, "hidden")
+    {
         Some(value) if value.eq_ignore_ascii_case("until-found") => {
             if let Some(value) = v8_string(scope, "until-found") {
                 rv.set(value.into());
@@ -2576,7 +2593,7 @@ pub(in crate::native_bridge) fn node_inert_getter_function<'s>(
         throw_incompatible_getter_receiver(scope, "HTMLElement", "inert");
         return;
     }
-    rv.set_bool(element_has_attribute(runtime, handle, "inert"));
+    rv.set_bool(runtime.dom_host().has_attribute_ns(handle, None, "inert"));
 }
 
 pub(in crate::native_bridge) fn node_inert_setter_function<'s>(

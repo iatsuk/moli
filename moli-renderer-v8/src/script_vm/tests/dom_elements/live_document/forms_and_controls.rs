@@ -1,6 +1,35 @@
 use super::*;
 
 #[test]
+fn form_autocomplete_content_reflection() {
+    let mut vm =
+        new_storage_test_vm("https://reflected-form-autocomplete-content-reflection.test/");
+    let result = vm
+        .eval(
+            r#"
+(() => {
+  const namespace = 'urn:custom';
+  for (const [tag, attribute, property, foreignValue, nativeValue, initial, expected] of [["form", "autocomplete", "autocomplete", "off", "off", "on", "off"], ["input", "autocomplete", "autocomplete", "username", "email", "", "email"], ["textarea", "autocomplete", "autocomplete", "username", "email", "", "email"]]) {
+    const element = document.createElement(tag);
+    if (element[property] !== initial) return false;
+    element.setAttributeNS(namespace, attribute, foreignValue);
+    if (element[property] !== initial || element.getAttribute(attribute) !== foreignValue) {
+      throw new Error(tag + '.' + property + ' observed the foreign attribute');
+    }
+    element.setAttributeNS(null, attribute, nativeValue);
+    if (element[property] !== expected || element.getAttributeNS(namespace, attribute) !== foreignValue) {
+      throw new Error(tag + '.' + property + ' did not reflect the native attribute');
+    }
+  }
+  return true;
+})()
+"#,
+        )
+        .expect("attribute reflection should evaluate");
+    assert_eq!(result, "true");
+}
+
+#[test]
 fn html_name_accessors_live_on_owner_prototypes() {
     let mut vm = new_parsed_test_vm(
         "https://example.com/",

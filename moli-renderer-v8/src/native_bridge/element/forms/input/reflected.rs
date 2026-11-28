@@ -285,7 +285,9 @@ fn input_form_enctype_getter_from_handle<'s>(
     handle: DomHandle,
     rv: &mut v8::ReturnValue<'_, v8::Value>,
 ) {
-    let value = element_attribute(unsafe { &*runtime_ptr }, handle, "formenctype")
+    let value = (unsafe { &*runtime_ptr })
+        .dom_host()
+        .get_attribute_ns(handle, None, "formenctype")
         .map(|value| normalized_form_enctype(&value))
         .unwrap_or("");
     if let Some(value) = v8_string(scope, value) {
@@ -371,8 +373,10 @@ pub(in crate::native_bridge) fn input_form_target_getter_function<'s>(
         rv.set_empty_string();
         return;
     };
-    let value =
-        element_attribute(unsafe { &*runtime_ptr }, handle, "formtarget").unwrap_or_default();
+    let value = (unsafe { &*runtime_ptr })
+        .dom_host()
+        .get_attribute_ns(handle, None, "formtarget")
+        .unwrap_or_default();
     if let Some(value) = v8_string(scope, &value) {
         rv.set(value.into());
     } else {

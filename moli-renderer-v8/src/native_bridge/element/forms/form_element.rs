@@ -79,7 +79,9 @@ pub(in crate::native_bridge) fn form_autocomplete_getter_function<'s>(
         rv.set_empty_string();
         return;
     };
-    let value = element_attribute(unsafe { &*runtime_ptr }, handle, "autocomplete")
+    let value = (unsafe { &*runtime_ptr })
+        .dom_host()
+        .get_attribute_ns(handle, None, "autocomplete")
         .filter(|value| value.eq_ignore_ascii_case("off"))
         .map(|_| "off")
         .unwrap_or("on");
@@ -117,7 +119,9 @@ pub(in crate::native_bridge) fn form_enctype_getter_function<'s>(
         rv.set_empty_string();
         return;
     };
-    let value = element_attribute(unsafe { &*runtime_ptr }, handle, "enctype")
+    let value = (unsafe { &*runtime_ptr })
+        .dom_host()
+        .get_attribute_ns(handle, None, "enctype")
         .map(|value| normalized_form_enctype(&value))
         .unwrap_or("application/x-www-form-urlencoded");
     if let Some(value) = v8_string(scope, value) {
@@ -550,7 +554,10 @@ pub(in crate::native_bridge) fn form_target_getter_function<'s>(
         rv.set_empty_string();
         return;
     };
-    let value = element_attribute(unsafe { &*runtime_ptr }, handle, "target").unwrap_or_default();
+    let value = (unsafe { &*runtime_ptr })
+        .dom_host()
+        .get_attribute_ns(handle, None, "target")
+        .unwrap_or_default();
     let Some(value) = v8_string(scope, &value) else {
         rv.set_null();
         return;

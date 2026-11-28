@@ -8,6 +8,34 @@ mod select_state_styles;
 mod wrappers;
 
 #[test]
+fn form_submission_target_reflection() {
+    let mut vm = new_storage_test_vm("https://reflected-form-submission-target-reflection.test/");
+    let result = vm
+        .eval(
+            r#"
+(() => {
+  const namespace = 'urn:custom';
+  for (const [tag, attribute, property, foreignValue, nativeValue, initial, expected] of [["form", "target", "target", "foreign-frame", "preview", "", "preview"], ["input", "formtarget", "formTarget", "foreign-frame", "preview", "", "preview"], ["button", "formtarget", "formTarget", "foreign-frame", "preview", "", "preview"]]) {
+    const element = document.createElement(tag);
+    if (element[property] !== initial) return false;
+    element.setAttributeNS(namespace, attribute, foreignValue);
+    if (element[property] !== initial || element.getAttribute(attribute) !== foreignValue) {
+      throw new Error(tag + '.' + property + ' observed the foreign attribute');
+    }
+    element.setAttributeNS(null, attribute, nativeValue);
+    if (element[property] !== expected || element.getAttributeNS(namespace, attribute) !== foreignValue) {
+      throw new Error(tag + '.' + property + ' did not reflect the native attribute');
+    }
+  }
+  return true;
+})()
+"#,
+        )
+        .expect("attribute reflection should evaluate");
+    assert_eq!(result, "true");
+}
+
+#[test]
 fn labels_follow_connected_controls_owner_document_across_child_frames() {
     for depth in [1, 2] {
         let mut vm = new_parsed_test_vm(

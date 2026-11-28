@@ -50,11 +50,11 @@ fn textarea_boolean_attribute_getter<'s>(
         rv.set_bool(false);
         return;
     };
-    rv.set_bool(element_has_attribute(
-        unsafe { &*runtime_ptr },
-        handle,
-        attribute,
-    ));
+    rv.set_bool(
+        (unsafe { &*runtime_ptr })
+            .dom_host()
+            .has_attribute_ns(handle, None, attribute),
+    );
 }
 
 fn set_textarea_boolean_attribute_on_receiver<'s>(
@@ -288,7 +288,9 @@ fn textarea_limited_unsigned_getter<'s>(
         rv.set_uint32(default_value);
         return;
     };
-    let value = element_attribute(unsafe { &*runtime_ptr }, handle, attribute)
+    let value = (unsafe { &*runtime_ptr })
+        .dom_host()
+        .get_attribute_ns(handle, None, attribute)
         .and_then(|value| parse_positive_integer_prefix(&value))
         .filter(|value| *value <= i32::MAX as u32)
         .unwrap_or(default_value);

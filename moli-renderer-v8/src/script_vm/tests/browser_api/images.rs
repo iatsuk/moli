@@ -1535,6 +1535,34 @@ fn image_decode_receiver_test_vm() -> crate::runtime::PageVmTaskExecutorTestHarn
 }
 
 #[test]
+fn image_native_dimension_reflection() {
+    let mut vm = new_storage_test_vm("https://reflected-image-native-dimension-reflection.test/");
+    let result = vm
+        .eval(
+            r#"
+(() => {
+  const namespace = 'urn:custom';
+  for (const [tag, attribute, property, foreignValue, nativeValue, initial, expected] of [["img", "width", "width", "71", "70", 0, 70], ["img", "height", "height", "33", "32", 0, 32]]) {
+    const element = document.createElement(tag);
+    if (element[property] !== initial) return false;
+    element.setAttributeNS(namespace, attribute, foreignValue);
+    if (element[property] !== initial || element.getAttribute(attribute) !== foreignValue) {
+      throw new Error(tag + '.' + property + ' observed the foreign attribute');
+    }
+    element.setAttributeNS(null, attribute, nativeValue);
+    if (element[property] !== expected || element.getAttributeNS(namespace, attribute) !== foreignValue) {
+      throw new Error(tag + '.' + property + ' did not reflect the native attribute');
+    }
+  }
+  return true;
+})()
+"#,
+        )
+        .expect("attribute reflection should evaluate");
+    assert_eq!(result, "true");
+}
+
+#[test]
 fn image_decode_bindings_validate_receivers_and_promise_realms() {
     let mut vm = image_decode_receiver_test_vm();
     vm.eval(include_str!("image_decode_receivers.js")).unwrap();

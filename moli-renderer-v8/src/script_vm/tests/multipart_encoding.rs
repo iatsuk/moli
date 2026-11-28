@@ -1,5 +1,33 @@
 use super::*;
 
+#[test]
+fn form_submission_encoding_reflection() {
+    let mut vm = new_storage_test_vm("https://reflected-form-submission-encoding-reflection.test/");
+    let result = vm
+        .eval(
+            r#"
+(() => {
+  const namespace = 'urn:custom';
+  for (const [tag, attribute, property, foreignValue, nativeValue, initial, expected] of [["form", "enctype", "enctype", "multipart/form-data", "text/plain", "application/x-www-form-urlencoded", "text/plain"], ["input", "formenctype", "formEnctype", "multipart/form-data", "text/plain", "", "text/plain"], ["button", "formenctype", "formEnctype", "multipart/form-data", "text/plain", "", "text/plain"]]) {
+    const element = document.createElement(tag);
+    if (element[property] !== initial) return false;
+    element.setAttributeNS(namespace, attribute, foreignValue);
+    if (element[property] !== initial || element.getAttribute(attribute) !== foreignValue) {
+      throw new Error(tag + '.' + property + ' observed the foreign attribute');
+    }
+    element.setAttributeNS(null, attribute, nativeValue);
+    if (element[property] !== expected || element.getAttributeNS(namespace, attribute) !== foreignValue) {
+      throw new Error(tag + '.' + property + ' did not reflect the native attribute');
+    }
+  }
+  return true;
+})()
+"#,
+        )
+        .expect("attribute reflection should evaluate");
+    assert_eq!(result, "true");
+}
+
 #[tokio::test(flavor = "current_thread")]
 async fn multipart_encoding_normalizes_wire_values_and_preserves_source_form_data() {
     let loader = static_http_loader(std::iter::empty::<String>());

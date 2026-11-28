@@ -1,6 +1,34 @@
 use super::*;
 
 #[test]
+fn hidden_inert_content_reflection() {
+    let mut vm = new_storage_test_vm("https://reflected-hidden-inert-content-reflection.test/");
+    let result = vm
+        .eval(
+            r#"
+(() => {
+  const namespace = 'urn:custom';
+  for (const [tag, attribute, property, foreignValue, nativeValue, initial, expected] of [["div", "hidden", "hidden", "until-found", "until-found", false, "until-found"], ["div", "inert", "inert", "", "", false, true]]) {
+    const element = document.createElement(tag);
+    if (element[property] !== initial) return false;
+    element.setAttributeNS(namespace, attribute, foreignValue);
+    if (element[property] !== initial || element.getAttribute(attribute) !== foreignValue) {
+      throw new Error(tag + '.' + property + ' observed the foreign attribute');
+    }
+    element.setAttributeNS(null, attribute, nativeValue);
+    if (element[property] !== expected || element.getAttributeNS(namespace, attribute) !== foreignValue) {
+      throw new Error(tag + '.' + property + ' did not reflect the native attribute');
+    }
+  }
+  return true;
+})()
+"#,
+        )
+        .expect("attribute reflection should evaluate");
+    assert_eq!(result, "true");
+}
+
+#[test]
 fn content_alt_counters_compute_from_stylesheets_variables_and_cssom_updates() {
     let mut vm = new_parsed_test_vm(
         "https://content-alt-counter-computed.test/",

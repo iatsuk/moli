@@ -1,6 +1,39 @@
 use super::*;
 
 #[test]
+fn form_constraint_validation_flags() {
+    let mut vm = new_parsed_test_vm(
+        "https://reflected-form-constraint-validation-flags.test/",
+        "<!doctype html><body></body>",
+    );
+    let result = vm
+        .eval(
+            r#"
+(() => {
+  const form = document.body.appendChild(document.createElement('form'));
+  const field = form.appendChild(document.createElement('input'));
+  const submitter = form.appendChild(document.createElement('button'));
+  field.required = true;
+  submitter.type = 'submit';
+  let invalid = 0;
+  let submitted = 0;
+  field.addEventListener('invalid', () => invalid++);
+  form.addEventListener('submit', event => { submitted++; event.preventDefault(); });
+  form.setAttributeNS('urn:custom', 'novalidate', '');
+  submitter.setAttributeNS('urn:custom', 'formnovalidate', '');
+  form.requestSubmit(submitter);
+  if (invalid !== 1 || submitted !== 0) return false;
+  submitter.setAttributeNS(null, 'formnovalidate', '');
+  form.requestSubmit(submitter);
+  return invalid === 1 && submitted === 1;
+})()
+"#,
+        )
+        .expect("attribute reflection should evaluate");
+    assert_eq!(result, "true");
+}
+
+#[test]
 fn detached_input_submitter_override_accessors_reject_incompatible_receivers() {
     let mut vm = new_storage_test_vm("https://detached-input-submit-overrides-brand.test/");
 
