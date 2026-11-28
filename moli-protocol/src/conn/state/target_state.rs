@@ -500,10 +500,20 @@ pub(crate) struct PendingPopupNavigation {
     pub(crate) initiator: Option<moli_core::page::RendererNavigationInitiator>,
 }
 
+/// Browser-side address of the current root Document. A network error
+/// Document keeps the unreachable navigation URL here and its own URL in
+/// the Renderer.
+#[derive(Debug, Clone)]
+pub(crate) struct TargetCommittedDocument {
+    pub(crate) url: url::Url,
+    pub(crate) is_error_document: bool,
+}
+
 #[derive(Debug, Clone, Default)]
 pub(crate) struct TargetOwnerState {
     pub(crate) initial_empty_document: Option<TargetInitialEmptyDocumentState>,
     pub(crate) pending_popup_navigation: Option<PendingPopupNavigation>,
+    pub(crate) committed_document: Option<TargetCommittedDocument>,
     pub(crate) committed_document_title: Option<String>,
     pub(crate) cached_empty_document_display_title: std::sync::OnceLock<String>,
     pub(crate) next_document_start_script_id: u32,
@@ -526,6 +536,13 @@ pub(crate) struct TargetOwnerState {
 }
 
 impl TargetOwnerState {
+    pub(crate) fn commit_document_url(&mut self, url: url::Url, is_error_document: bool) {
+        self.committed_document = Some(TargetCommittedDocument {
+            url,
+            is_error_document,
+        });
+    }
+
     pub(crate) fn committed_document_title(&self) -> Option<&str> {
         self.committed_document_title.as_deref()
     }
@@ -590,10 +607,14 @@ impl TargetOwnerState {
         creator: Option<TargetInitialEmptyDocumentCreator>,
         storage_key: Option<moli_storage_key::MoliStorageKey>,
     ) {
-        if !is_initial_empty_document_url(&initial_url) {
+        let Some(url) = url::Url::parse(&initial_url)
+            .ok()
+            .filter(moli_url::is_about_blank)
+        else {
             self.initial_empty_document = None;
             return;
-        }
+        };
+        self.commit_document_url(url, false);
         if self.navigation_history_state.is_empty() {
             let entry = PageNavigationHistoryEntry {
                 id: self.navigation_history_state.allocate_entry_id(),
@@ -845,7 +866,7 @@ impl TargetOwnerState {
     pub(crate) fn record_session_history_update(
         &mut self,
         page_snapshot: Option<(String, String)>,
-        url: String,
+        url: &url::Url,
         mut title: String,
         history_update: moli_core::page::SessionHistoryUpdateKind,
     ) {
@@ -853,9 +874,20 @@ impl TargetOwnerState {
         if let Some(committed_title) = self.committed_document_title() {
             title = committed_title.to_owned();
         }
-        let _ =
-            self.navigation_history_state
-                .record_session_history_update(url, title, history_update);
+        if self.navigation_history_state.record_session_history_update(
+            url.to_string(),
+            title,
+            history_update,
+        ) && !matches!(
+            history_update,
+            moli_core::page::SessionHistoryUpdateKind::PruneAllButCurrent
+        ) && let Some(document) = self
+            .committed_document
+            .as_mut()
+            .filter(|document| !document.is_error_document)
+        {
+            document.url.clone_from(url);
+        }
     }
 
     pub(crate) fn clear_observable_output_state(&mut self) {
@@ -928,13 +960,6 @@ impl TargetOwnerState {
         }
         self.frame_index_document = Some(document);
     }
-}
-
-fn is_initial_empty_document_url(raw_url: &str) -> bool {
-    url::Url::parse(raw_url)
-        .ok()
-        .as_ref()
-        .is_some_and(moli_url::is_about_blank)
 }
 
 #[cfg(test)]

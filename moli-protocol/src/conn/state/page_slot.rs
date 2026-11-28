@@ -1245,6 +1245,10 @@ impl TargetPageSlot {
             .is_some_and(|request| !request.committed)
     }
 
+    pub(crate) fn has_pending_cross_document_commit(&self) -> bool {
+        self.prepared_document_navigation_handoff().is_some()
+    }
+
     pub(crate) fn current_document_loader_id(&self) -> Option<&str> {
         self.pending_navigation_request
             .as_ref()

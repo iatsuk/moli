@@ -6,7 +6,7 @@ use super::super::state::{
     CommittedRendererAgentAttachment, TargetPageAbsenceReason, TargetPageAttachmentId,
 };
 use super::super::{BrowserContext, PageTargetHost, TargetRuntimeSlot};
-use crate::conn::TargetPageResidenceIdentity;
+use crate::conn::{NETWORK_ERROR_PAGE_URL, TargetPageResidenceIdentity};
 use moli_core::page::{Page, RendererPageCommandPostResponseContinuation};
 use url::Url;
 
@@ -191,6 +191,7 @@ impl PageTargetHost {
             previous_title,
             page.document_title(),
             history_url,
+            page.final_url().as_str() == NETWORK_ERROR_PAGE_URL,
             (
                 crate::conn::RendererPageResidenceIdentity::from_page(&page),
                 document,
@@ -215,6 +216,7 @@ impl PageTargetHost {
         previous_title: Option<String>,
         committed_document_title: String,
         history_url: &Url,
+        is_error_document: bool,
         native_source: (
             crate::conn::RendererPageResidenceIdentity,
             moli_core::RendererDocumentLifecycleIdentity,
@@ -228,6 +230,10 @@ impl PageTargetHost {
         let history_document = (native_source.0, native_source.1.document);
         let already_committed =
             self.owner_state.navigation_history_document == Some(history_document);
+        if !already_committed || self.owner_state.committed_document.is_none() {
+            self.owner_state
+                .commit_document_url(history_url.clone(), is_error_document);
+        }
         // A published title from an earlier epoch must not override the
         // reply's replacement title, even though both share one history entry.
         let same_published_lifecycle = self
@@ -313,12 +319,14 @@ impl PageTargetHost {
             .loaded_page_mut()
             .expect("validated Page must remain resident");
         let title = page.document_title();
+        let is_error_document = page.final_url().as_str() == NETWORK_ERROR_PAGE_URL;
         let committed_document_post_response_continuation =
             page.take_committed_document_post_response_continuation();
         self.commit_loaded_document_protocol_state(
             previous_title,
             title,
             history_url,
+            is_error_document,
             (expected.renderer_page, document),
             browsing_context_group,
         );

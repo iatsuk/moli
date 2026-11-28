@@ -1154,10 +1154,10 @@ fn session_owner_navigation_is_same_document_fragment(
     owner: &CommandOwnerScope,
     target: &str,
 ) -> bool {
-    let Some(current) = conn.runtime_session_owner_committed_url_for_owner(owner) else {
+    let Some(current) = conn.runtime_session_owner_fragment_source_url_for_owner(owner) else {
         return false;
     };
-    let (Ok(mut current), Ok(mut target)) = (Url::parse(current), Url::parse(target)) else {
+    let Ok(mut target) = Url::parse(target) else {
         return false;
     };
     // A fragment navigation requires a fragment in the destination, even an
@@ -1166,6 +1166,7 @@ fn session_owner_navigation_is_same_document_fragment(
     if target.fragment().is_none() {
         return false;
     }
+    let mut current = current.clone();
     current.set_fragment(None);
     target.set_fragment(None);
     current == target

@@ -1098,4 +1098,44 @@ async fn navigate_failure_commits_error_document_with_visible_unreachable_url() 
         history["result"]["entries"][current_index]["url"],
         unreachable_url
     );
+
+    let listener = TcpListener::bind(addr).await.unwrap();
+    let server = tokio::spawn(async move {
+        axum::serve(
+            listener,
+            axum::Router::new().route(
+                "/missing",
+                axum::routing::get(|| async { axum::response::Html("<p>Recovered</p>") }),
+            ),
+        )
+        .await
+        .unwrap();
+    });
+    let retry_url = format!("{unreachable_url}#recovered");
+    ctx.process_and_wait_for_response_async(json!({
+        "id": 234,
+        "method": "Page.navigate",
+        "sessionId": "SID-1",
+        "params": { "url": retry_url }
+    }))
+    .await;
+    let retry = take_response_by_id(&mut ctx, 234);
+    assert!(retry["result"]["loaderId"].is_string(), "{retry}");
+    assert!(retry["result"]["errorText"].is_null(), "{retry}");
+    wait_until_message(
+        &mut ctx,
+        Some("SID-1"),
+        "successful commit after the error Document",
+        |message| {
+            message["method"] == "Page.frameNavigated"
+                && message["params"]["frame"]["url"] == retry_url
+        },
+    )
+    .await;
+    assert!(
+        loaded_page_html_for_test(&mut ctx)
+            .await
+            .contains("Recovered")
+    );
+    server.abort();
 }

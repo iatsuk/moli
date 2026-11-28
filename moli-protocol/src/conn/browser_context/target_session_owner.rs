@@ -792,6 +792,7 @@ impl<'a> TargetSessionOwnerMut<'a> {
     fn take_crashed_page(&mut self) -> Option<Page> {
         let target = self.target_mut();
         target.owner_state.target_crash_state.mark_crashed();
+        target.owner_state.committed_document = None;
         target.owner_state.navigation_history_state.clear();
         target.owner_state.navigation_history_document = None;
         target.owner_state.clear_loaded_document_context_state();
@@ -813,6 +814,7 @@ impl<'a> TargetSessionOwnerMut<'a> {
         let security_origin = final_url.origin().ascii_serialization();
         let target = self.target_mut();
         target.set_target_url(next_url);
+        target.owner_state.committed_document = None;
         target.set_target_security_origin(security_origin);
         target.owner_state.mark_initial_empty_document_exited();
         target
@@ -893,12 +895,9 @@ impl<'a> TargetSessionOwnerMut<'a> {
             .map(|(_, title)| title.clone())
             .unwrap_or_default();
         let target = self.target_mut();
-        target.owner_state.record_session_history_update(
-            page_snapshot,
-            next_url.clone(),
-            title,
-            history_update,
-        );
+        target
+            .owner_state
+            .record_session_history_update(page_snapshot, url, title, history_update);
         target.set_target_url(next_url);
         target.set_target_security_origin(security_origin);
         Some(target.target_id().to_owned())
@@ -1061,6 +1060,10 @@ impl<'a> TargetSessionOwnerMut<'a> {
             || target.owner_state.navigation_history_document != native_source
         {
             target.set_target_url(next_url);
+            target.owner_state.commit_document_url(
+                target_url.clone(),
+                main_document_commit.unreachable_url.is_some(),
+            );
         }
         target.set_target_security_origin(security_origin);
         target.set_target_secure_context_type(secure_context_type);
@@ -1399,6 +1402,11 @@ impl CdpConnection {
         target
             .owner_state
             .clear_committed_document_navigation_state();
+        if target.owner_state.committed_document.is_none() {
+            target
+                .owner_state
+                .commit_document_url(page.final_url().clone(), false);
+        }
         clear_page_loaded_document_session_state(target);
         let previous = target.replace_loaded_page(Some(page));
         target.runtime_slot.reset_subresource_cursor();
@@ -2492,19 +2500,20 @@ impl CdpConnection {
         Some(self.target_session_owner_ref_for_owner(owner)?.target_url())
     }
 
-    pub(crate) fn runtime_session_owner_committed_url_for_owner(
+    pub(crate) fn runtime_session_owner_fragment_source_url_for_owner(
         &self,
         owner: &CommandOwnerScope,
-    ) -> Option<&str> {
+    ) -> Option<&Url> {
         let target = self.target_session_owner_ref_for_owner(owner)?.target();
-        // TargetInfo can already advertise an accepted popup destination.
-        // Fragment classification needs the active history entry.
-        target
-            .owner_state
-            .navigation_history_state
-            .current_entry_url()
-            .or_else(|| target.owner_state.initial_empty_document_url_if_current())
-            .or_else(|| target.loaded_page().map(|page| page.final_url().as_str()))
+        if target
+            .runtime_slot()
+            .page_slot()
+            .has_pending_cross_document_commit()
+        {
+            return None;
+        }
+        let document = target.owner_state.committed_document.as_ref()?;
+        (!document.is_error_document).then_some(&document.url)
     }
 
     pub(crate) fn runtime_session_owner_record_initial_empty_document_url_for_owner(
@@ -2824,6 +2833,63 @@ mod tests {
     use crate::testing::TestContext;
     use moli_core::page::SubresourceResourceType;
     use url::Url;
+
+    #[tokio::test]
+    async fn fragment_source_remains_available_until_cross_document_commit_handoff() {
+        let mut ctx = TestContext::new();
+        let mut browser = BrowserContext::new("BID-fragment-handoff".into());
+        browser.set_active_target_id("TID-fragment-handoff");
+        browser.attach_active_session("SID-fragment-handoff");
+        ctx.with_fixture(|conn| conn.install_browser_context_fixture_for_test(browser));
+        let current_url = "data:text/html,current";
+        ctx.install_navigation_fixture_for_session_owner(current_url, Some("SID-fragment-handoff"))
+            .await;
+        ctx.with_fixture(|conn| {
+            let owner = CommandOwnerScope::for_session("SID-fragment-handoff");
+            let token = conn
+                .start_document_navigation_for_owner(&owner, "LID-fragment-handoff".to_owned())
+                .unwrap();
+            assert_eq!(
+                conn.runtime_session_owner_fragment_source_url_for_owner(&owner)
+                    .map(Url::as_str),
+                Some(current_url),
+            );
+            let commit = RendererMainDocumentCommit {
+                frame_id: token.target_id.clone(),
+                loader_id: token.loader_id.clone(),
+                url: "https://example.test/replacement".to_owned(),
+                unreachable_url: None,
+                security_origin: "https://example.test".to_owned(),
+                secure_context_type: "Secure".to_owned(),
+                document_referrer: None,
+                timestamp: 0.0,
+                session_history_position: None,
+                browsing_context_group: None,
+            };
+            let slot = conn
+                .runtime_session_owner_slot_mut_for_owner(&owner)
+                .unwrap();
+            assert!(slot.register_renderer_document_commit(
+                &token,
+                moli_core::page::RendererAgentAttachmentId::allocate(),
+                std::sync::Arc::new(commit),
+                None,
+            ));
+            assert!(
+                conn.runtime_session_owner_fragment_source_url_for_owner(&owner)
+                    .is_none()
+            );
+            conn.clear_pending_document_navigation_for_owner_if_loader_matches(
+                &owner,
+                &token.loader_id,
+            );
+            assert_eq!(
+                conn.runtime_session_owner_fragment_source_url_for_owner(&owner)
+                    .map(Url::as_str),
+                Some(current_url),
+            );
+        });
+    }
 
     #[tokio::test]
     async fn native_commit_reusing_initial_document_keeps_navigation_history() {
