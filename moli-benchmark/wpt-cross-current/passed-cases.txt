@@ -986,6 +986,7 @@ css/css-counter-styles/counter-style-at-rule/negative-syntax.html
 css/css-counter-styles/counter-style-at-rule/pad-syntax.html
 css/css-counter-styles/counter-style-at-rule/range-syntax.html
 css/css-counter-styles/counter-style-at-rule/system-syntax.html
+css/css-counter-styles/idlharness.html
 css/css-device-adapt/viewport-should-not-affect-devicePixelRatio.html
 css/css-easing/linear-timing-functions-chrome-406926307-crash.html
 css/css-easing/linear-timing-functions-syntax.html
@@ -3088,6 +3089,7 @@ css/css-shadow/part/simple.html
 css/css-shadow/part/style-sharing.html
 css/css-shadow/scope-pseudo-in-shadow.html
 css/css-shadow/shadow-cascade-order-001.html
+css/css-shadow/shadow-host-removal-invalidation.html
 css/css-shadow/shadow-host-style-sharing.html
 css/css-shadow/shadow-multiple-links.html
 css/css-shadow/shadow-reassign-dynamic-003.html
@@ -3681,6 +3683,7 @@ css/css-values/getComputedStyle-border-radius-002.html
 css/css-values/getComputedStyle-calc-mixed-units-001.html
 css/css-values/getComputedStyle-calc-mixed-units-002.html
 css/css-values/hypot-pow-sqrt-computed.html
+css/css-values/hypot-pow-sqrt-invalid.html
 css/css-values/hypot-pow-sqrt-serialize.html
 css/css-values/if-range-with-attr-crash.html
 css/css-values/lh-rlh-percentage-line-height-with-zoom.html
@@ -3709,7 +3712,9 @@ css/css-values/minmax-time-serialize.html
 css/css-values/mod-length-degrees-crash.html
 css/css-values/percentage-without-context.html
 css/css-values/premature-comment-crash.html
+css/css-values/progress-computed.html
 css/css-values/progress-invalid.html
+css/css-values/progress-serialize.html
 css/css-values/random-in-keyframe.html
 css/css-values/rch-invalidation.html
 css/css-values/rem-length-degrees-crash.html
@@ -4170,6 +4175,7 @@ css/selectors/focus-visible-script-focus-001.html
 css/selectors/focus-within-009.html
 css/selectors/focus-within-focus-move.html
 css/selectors/focus-within-removal.html
+css/selectors/focus-within-toplayer-001.html
 css/selectors/has-argument-with-explicit-scope.html
 css/selectors/has-basic.html
 css/selectors/has-matches-to-uninserted-elements.html
@@ -9692,6 +9698,7 @@ svg/types/scripted/SVGLengthList-appendItemFromClearedList.html
 svg/types/scripted/SVGLengthList-basics.html
 svg/types/scripted/SVGLengthList-getItem.html
 svg/types/scripted/SVGList-parse-invalid-clears-items.html
+svg/types/scripted/SVGMatrix-tentative.html
 svg/types/scripted/SVGPathElement.getTotalLength-01.html
 svg/types/scripted/SVGPoint.html
 svg/types/scripted/SVGRect.html

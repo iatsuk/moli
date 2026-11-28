@@ -108,7 +108,6 @@ css/css-conditional/container-queries/style-container-for-shadow-dom.html
 css/css-counter-styles/counter-style-at-rule/prefix-suffix-syntax.html
 css/css-counter-styles/counter-style-at-rule/speak-as-syntax.html
 css/css-counter-styles/counter-style-at-rule/symbols-syntax.html
-css/css-counter-styles/idlharness.html
 css/css-easing/cubic-bezier-timing-functions-output.html
 css/css-easing/linear-timing-functions-output.html
 css/css-easing/step-jump-both.html
@@ -1443,7 +1442,6 @@ css/css-shadow/keyframes-006.html
 css/css-shadow/part/interaction-with-pseudo-elements.html
 css/css-shadow/part/pseudo-classes-after-part.html
 css/css-shadow/part/pseudo-elements-after-part.html
-css/css-shadow/shadow-host-removal-invalidation.html
 css/css-shadow/slotted-parsing.html
 css/css-shadow/slotted-user-agent-part-invalidation.html
 css/css-shadow/stylesheet-title-002.html
@@ -1992,7 +1990,6 @@ css/css-values/clamp-length-computed.html
 css/css-values/getComputedStyle-border-radius-001.html
 css/css-values/getComputedStyle-border-radius-003.html
 css/css-values/getComputedStyle-calc-mixed-units-003.html
-css/css-values/hypot-pow-sqrt-invalid.html
 css/css-values/ident-function-computed.html
 css/css-values/ident-function-parsing.html
 css/css-values/if-conditionals.html
@@ -2013,8 +2010,6 @@ css/css-values/integer_interpolation_round_half_towards_positive_infinity_z_inde
 css/css-values/lh-rlh-on-root-001.html
 css/css-values/lh-unit-003.html
 css/css-values/line-break-ch-unit.html
-css/css-values/progress-computed.html
-css/css-values/progress-serialize.html
 css/css-values/rcap-invalidation.html
 css/css-values/rex-invalidation.html
 css/css-values/sign-in-keyframes-with-relative-units.html
@@ -2162,7 +2157,6 @@ css/mediaqueries/test_media_queries.html
 css/selectors/focus-display-none-001.html
 css/selectors/focus-visible-020.html
 css/selectors/focus-within-display-none-001.html
-css/selectors/focus-within-toplayer-001.html
 css/selectors/is-where-error-recovery.html
 css/selectors/media/media-playback-state-timing.html
 css/selectors/media/media-playback-state.html
@@ -3080,7 +3074,6 @@ svg/types/scripted/SVGGraphicsElement.getScreenCTM.html
 svg/types/scripted/SVGLength-cap.html
 svg/types/scripted/SVGLength-lh.html
 svg/types/scripted/SVGLength-px.html
-svg/types/scripted/SVGMatrix-tentative.html
 trusted-types/Element-setAttribute-respects-Elements-node-documents-globals-CSP-after-adoption-from-non-TT-realm.html
 trusted-types/GlobalEventHandlers-onclick.html
 trusted-types/HTMLElement-generic.html
